@@ -10,6 +10,9 @@ is part of v1.
 | FW-3 | Export of Raft's own metrics (go-metrics) to Prometheus |
 | FW-4 | Encryption at rest of checkpoints and snapshots |
 | FW-5 | A separate UID (and systemd sandbox) per runnable |
-| FW-6 | A small key/value namespace per runnable instead of one blob |
+| FW-6 | *Done in v0.2.0 of the specification*: the SQL store (`resurgo-store.md`) |
 | FW-7 | Signed runnable manifests, as in veho, for third-party runnables |
 | FW-8 | Non-voter promotion helpers (autopilot-like health checks) |
+| FW-S-1 | Leader-local interactive transactions shipped as SQLite changesets (session extension) |
+| FW-S-2 | Group commit of concurrent batches into one Raft entry |
+| FW-S-3 | Stale reads from followers for administrators and reporting |

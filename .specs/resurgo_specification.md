@@ -1,8 +1,8 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.1.0` (2026-11-25)
+- **Document Version:** `0.2.0` (2026-11-25): the replicated SQL store (`resurgo-store.md`); OI-1 decided
 - **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
-- **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (bbolt), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, static, no cgo
+- **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (bbolt), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `modernc.org/sqlite` (the store), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, static, no cgo
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
 
 ---
@@ -42,12 +42,13 @@ greater than every earlier one, and the last **checkpoint** that an earlier
 incarnation committed.
 
 Runnables are *stateless* (they keep nothing between incarnations) or
-*stateful*. A stateful runnable keeps its state in an external system (for
-example a PostgreSQL cluster) that it fences with the epoch; it MAY also
-checkpoint small opaque data through Raft, so that the next incarnation can
-restart from where the last one left off. The Raft state machine does very
-little: it holds the epochs, the current incarnations and the checkpoints.
-It is not a database.
+*stateful*. A stateful runnable keeps its state in its own **store**, a
+SQLite database replicated through the Raft log and fenced by the epoch
+(`resurgo-store.md`), or in an external system (for example a PostgreSQL
+cluster) that it fences with the epoch itself. A runnable MAY also commit a
+small **checkpoint**, so that the next incarnation can restart from where
+the last one left off. Apart from the stores, the Raft state machine holds
+only the epochs and the current incarnations.
 
 ## 2. Goals
 
@@ -73,8 +74,9 @@ It is not a database.
   no constraints beyond "on the leader".
 - Exactly-once side effects: `resurgo` bounds overlap and provides the
   fencing epoch; side effects outside fenced systems may repeat (§8.5).
-- A replicated database for runnables: a checkpoint is one small opaque
-  blob per runnable (FR-9); bulk state lives outside.
+- A general-purpose replicated database: a runnable's store serves that
+  runnable only, is bounded in size and work, and is not reachable by other
+  clients (`resurgo-store.md`); bulk state lives outside.
 - Uploading or distributing runnable binaries through the cluster: binaries
   are installed on every node by packaging or configuration management.
 - Windows, macOS and the BSDs.
@@ -117,9 +119,9 @@ It is not a database.
 - **FR-5 (re-execution)** On every change of leader, every enabled and not
   completed runnable MUST be started on the new leader as a new incarnation.
   The same node regaining leadership in a later term is a change of leader.
-- **FR-6 (several runnables)** A cluster MAY run several runnables, each
-  with its own name, binary, configuration, checkpoint and restart policy;
-  all of them run on the leader (OI-1).
+- **FR-6 (several runnables)** A cluster usually runs one runnable, but
+  MAY run several, each with its own name, binary, configuration, store,
+  checkpoint and restart policy; all of them run on the leader.
 - **FR-7 (kinds)** A runnable declares its kind:
   - *service*: runs until stopped; an exit, with or without error, is a
     failure handled by FR-8.
@@ -142,7 +144,11 @@ It is not a database.
   back, not refused). `Checkpoint` MUST return only after the entry is
   committed by a quorum and applied on the leader, with its sequence number;
   it MUST fail with `ErrFenced` when the incarnation is no longer current.
-  The latest checkpoint replaces the previous one.
+  The latest checkpoint replaces the previous one. Checkpoints are stored
+  in the runnable's store (STO-12).
+- **FR-17 (store)** Every runnable MUST have its own replicated, fenced SQL
+  store, as specified in `resurgo-store.md`; the runnable migrates its own
+  schema at the start of each incarnation (STO-13).
 - **FR-10 (resume)** Every incarnation MUST receive the latest committed
   checkpoint of its runnable (or none), its epoch, the Raft term, the node
   ID, the cluster name and its configuration (INV-4).
@@ -195,7 +201,9 @@ It is not a database.
   `runnable`, `epoch`, `term`), Prometheus metrics (§10.3), and the state
   shown by the CLI.
 - **NFR-8 (determinism)** The FSM's `Apply`, `Snapshot` and `Restore` use
-  no clock, randomness or I/O beyond the snapshot sink (INV-7).
+  no clock and no randomness, and no I/O beyond the snapshot sink and the
+  runnables' store files; store batches are made deterministic by STO-4 and
+  STO-5 (INV-7, INV-S-1).
 
 ## 7. Architecture
 
@@ -318,6 +326,8 @@ type Host interface {
 	// Status reports health and progress, shown by "runnable show";
 	// unhealthy for longer than health.timeout fails the incarnation.
 	Status(ctx context.Context, healthy bool, detail string) error
+	// Store is the runnable's replicated SQL database (resurgo-store.md).
+	Store() Store
 }
 
 type Runnable interface {
@@ -368,6 +378,8 @@ message RunnableMessage {
     CheckpointRequest checkpoint = 1;   // id, data
     StatusReport status = 2;            // healthy, detail
     Exit exit = 3;                      // completed | error (class, message)
+    StoreExec exec = 4;                 // id, batch (resurgo-store.md)
+    StoreQuery query = 5;               // id, sql, args; rows stream back
   }
 }
 ```
@@ -486,7 +498,8 @@ Runnable
   current          Incarnation?               // epoch, term, node, started_at,
                                               // binary_sha256, config_sha256
   released         bool                       // current stopped cleanly
-  checkpoint       Checkpoint?                // seq, epoch, data, committed_at
+  checkpoint       Checkpoint?                // seq, epoch, committed_at (data in the store)
+  store_limits     StoreLimits                // from Incarnate (STO-8)
   completed        Completion?                // epoch, at (tasks)
   disabled         bool
   failures         map[node] FailureRecord    // consecutive, last_at, last_reason
@@ -502,7 +515,8 @@ reads a clock.
 
 | Command | Effect | Refused when |
 | :--- | :--- | :--- |
-| `Incarnate{runnable, node, digests, at}` | `epoch = ++epoch_counter`; `current = {epoch, log.Term, node, …}`; `released = false`; returns `epoch` | runnable disabled or completed |
+| `StoreBatch{runnable, epoch, statements, at}` | applied to the runnable's database in one transaction (`resurgo-store.md`) | stale epoch (`ErrFenced`); STO-4, STO-7, STO-8 |
+| `Incarnate{runnable, node, digests, store_limits, at}` | `epoch = ++epoch_counter`; `current = {epoch, log.Term, node, …}`; `released = false`; returns `epoch` | runnable disabled or completed |
 | `Checkpoint{runnable, epoch, data, at}` | `checkpoint = {seq+1, epoch, data, at}`; returns `seq` | `epoch != current.epoch`, or released (`ErrFenced`); `len(data) > 1 MiB` |
 | `Release{runnable, epoch, at}` | `released = true` | `epoch != current.epoch` |
 | `Complete{runnable, epoch, at}` | `completed = {epoch, at}`, `released = true` | `epoch != current.epoch` |
@@ -513,7 +527,8 @@ reads a clock.
 
 ### 9.3 Snapshots and log size
 
-The snapshot is the encoded `State`. Because a checkpoint can be large,
+The snapshot is the encoded `State` plus a consistent copy of every
+runnable's database (STO-14). Because a checkpoint or a batch can be large,
 the log is compacted aggressively: `snapshot_threshold` 512 entries,
 `trailing_logs` 256, two snapshots retained; with the maximum checkpoint
 size this bounds the log at about 256 MiB per runnable, and the defaults
@@ -583,6 +598,7 @@ one verb that displays objects. All but `serve`, `version` and
 | `resurgo runnable show [NAME]` | incarnation, epoch, digests, health, checkpoint metadata, failures |
 | `resurgo runnable enable\|disable\|restart NAME` | FR-14 |
 | `resurgo runnable reset NAME [--checkpoint] [--completion] [--failures]` | FR-14 |
+| `resurgo store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16) |
 | `resurgo checkpoint show NAME [--data]` | metadata; `--data` writes the bytes to stdout |
 | `resurgo version [--verbose]`, `resurgo completion bash\|zsh` | as in the other projects |
 
@@ -676,7 +692,7 @@ plus Raft's own metrics (FW-3).
 | 4 | go-plugin over gRPC, one fresh process per incarnation | The stop is enforceable (kill), no state leaks between incarnations, any language with gRPC can implement a runnable | One long-lived process (faster restart, but a stuck runnable cannot be stopped); in-process Go plugins (no isolation) |
 | 5 | The epoch: an FSM counter incremented by `Incarnate`, not the Raft term | Unique per incarnation (a restart on the same leader keeps the term), dense, persisted, usable by external stores; `Incarnate` after `Barrier` also proves the leader has committed in its term | The term (not unique per restart) |
 | 6 | Runnable configuration is node-local, only its digest is replicated | Secrets never enter the Raft log; configuration management already owns `/etc` | Configuration replicated through Raft (one source of truth, but secrets in the log) (OI-3) |
-| 7 | One checkpoint blob per runnable, latest wins, size and rate limited | "The FSM does very little"; bulk state belongs outside | A key/value namespace per runnable (FW-6) |
+| 7 | *Superseded* (v0.2.0): one checkpoint blob per runnable. Now a replicated SQLite database per runnable, fenced by the epoch, with checkpoints stored in it (`resurgo-store.md`, ADR S-1 to S-3) | The fencing comes for free: a stale write is refused in the step that would apply it; stateful runnables need no external database for moderate state | Blob only (v0.1.0); a key/value store in bbolt (simpler, no SQL) |
 | 8 | Overlap is reduced by the lease and the takeover delay, and made harmless by fencing; it is never assumed absent | Clocks and pauses make a pure timing argument unsafe | Timing only (unsafe under pauses); fencing only (more overlap) |
 | 9 | `Release` on planned handover | Planned handovers need no delay and have no overlap | Always wait the delay |
 | 10 | A transport-neutral `Runnable` interface, two loaders: go-plugin (production) and in-process (tests, conformance) | Fast deterministic cluster tests with `InmemTransport`; one conformance suite for both | Tests through processes only |
@@ -746,8 +762,11 @@ checker).
 
 ## 15. Open issues
 
-- **OI-1 Several runnables.** Proposed: yes, all on the leader (FR-6).
-  Confirm, or one runnable per cluster.
+- **OI-1 Several runnables.** *Decided* (2026-11-25): usually one per
+  cluster, several supported, all on the leader (FR-6). Every runnable
+  gets a SQL store and manages its own schema migrations (FR-17); cgo is
+  acceptable if needed, but the default engine avoids it
+  (`resurgo-store.md` §4, OI-S-1).
 - **OI-2 Tasks.** Proposed: services and run-once tasks (FR-7). Is "task"
   needed in v1?
 - **OI-3 Configuration.** Proposed: node-local with drift detection
@@ -765,7 +784,7 @@ checker).
   Alternative: veho's signed manifests, if runnables are to be published by
   third parties.
 - **OI-9 Checkpoint limits.** 256 KiB default, 1 MiB hard limit, 1/s:
-  enough?
+  enough? (Store limits: OI-S-2.)
 - **OI-10 Upgrades.** Proposed: rolling upgrades within a minor version;
   FSM commands and snapshots are versioned and a node refuses newer
   formats; the leader is upgraded last.
@@ -784,9 +803,10 @@ secrets`, and the documents updated (rules 11 to 13).
 
 | Chunk | Content |
 | :--- | :--- |
-| C0 | Spike: EXT-1 to EXT-9 as regression tests (`test/spike`), re-run on every bump of raft or go-plugin |
+| C0 | Spike: EXT-1 to EXT-9 and EXT-S-1 to EXT-S-5 as regression tests (`test/spike`), re-run on every bump of raft or go-plugin |
 | C1 | `internal/fsm`: state, commands (protobuf), snapshot/restore; unit, property and fuzz tests (INV-1, INV-3, INV-7) |
 | C2 | `internal/raftnode`: stores, mTLS muxed stream layer with identity binding, bootstrap, membership; `internal/config` with the checks of §8.6 |
+| C2b | The store: `modernc.org/sqlite` behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`) |
 | C3 | `pkg/runnable`: interface, protocol, go-plugin server and loader, lease in the SDK, in-process loader, conformance kit |
 | C4 | `internal/supervisor`: incarnation controller, takeover delay, release, restart and handover; in-process cluster tests; `make stress` / `make soak` |
 | C5 | `internal/admin` and the CLI (§10.2); metrics |
@@ -798,4 +818,5 @@ secrets`, and the documents updated (rules 11 to 13).
 | File | Content |
 | :--- | :--- |
 | `resurgo_specification.md` | This file |
+| `resurgo-store.md` | The replicated SQL store of a runnable, schema migrations |
 | `resurgo-backlog.md` | Future work (FW-nn) |
