@@ -1,6 +1,6 @@
 # resurgo: the replicated SQL store of a runnable
 
-- **Document Version:** `0.1.0` (2026-11-25)
+- **Document Version:** `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
 - **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
 - **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
@@ -162,17 +162,34 @@ type Host interface {
   of each database's logical content at an index; `resurgo store show`
   compares them across nodes (INV-S-1).
 - **STO-16 (CLI)** `resurgo store show [NAME]` (size, tables, last index,
-  digests), `resurgo store query NAME SQL` (read-only, local; on a
-  follower the result is flagged as possibly stale), `resurgo store backup
-  NAME FILE`, `resurgo store reset NAME` (committed, refused while the
-  runnable runs). Admin access as parent SEC-6; queries are logged with the
-  caller, not with their results.
+  digests), `resurgo store query NAME SQL` (read-only; on the leader after
+  `VerifyLeader` by default, with `--local` on the local node, flagged as
+  possibly stale on a follower), `resurgo store exec NAME [SQL | --file
+  F]` (STO-17), `resurgo store backup NAME FILE`, `resurgo store reset
+  NAME` (committed, refused while the runnable runs). Admin access as
+  parent SEC-6; every query and batch is logged with the caller, not with
+  its results.
+- **STO-17 (operator writes)** An operator MAY write to a runnable's store
+  with `resurgo store exec`. The batch goes through the Raft log and the
+  FSM like a runnable's, under the same rules (STO-2 to STO-9), and is
+  recorded with the caller's identity (UID, node) in the entry and in the
+  audit log. To keep the runnable the only writer while it runs, an
+  operator batch is an incarnation of its own: the leader commits an
+  `Incarnate` for the operator (a new epoch), then the batch, so the
+  running incarnation is fenced (its next batch fails with `ErrFenced`),
+  stops, and is started again with a newer epoch and the operator's
+  changes visible. With `--disable` the runnable is disabled first and
+  stays so (repairs before a restart); `--dry-run` applies the batch in a
+  rolled-back transaction on the leader and shows the results. Operator
+  schema migrations are ordinary batches: they MUST keep the runnable's
+  `_schema` version consistent, or the runnable refuses to start
+  (STO-13).
 
 ## 4. Engine
 
 | ADR | Decision | Rationale | Alternatives |
 |-----|----------|-----------|--------------|
-| S-1 | `modernc.org/sqlite`: SQLite translated to Go, no cgo | Static binary kept (parent NFR-6); the SQLite version is compiled into the release, so every node of a release runs exactly the same SQLite, which deterministic replay needs; mature and widely used | `ncruces/go-sqlite3` (Wasm translated to Go, no cgo: a strong second, benchmarked in the spike); `mattn/go-sqlite3` (cgo: static builds need musl or care with glibc, and nothing gained); purego bindings (see below) |
+| S-1 | `mattn/go-sqlite3` (cgo), with the SQLite amalgamation it bundles, never the system library (no `libsqlite3` tag), built with `sqlite_omit_load_extension`; the node is linked statically against musl (§4.1) | Upstream SQLite, the most used Go driver; the bundled version is compiled into the release, so every node of a release runs exactly the same SQLite, which deterministic replay needs | `modernc.org/sqlite` (no cgo: the fallback if EXT-S-1 or EXT-S-2 fail); `ncruces/go-sqlite3` (Wasm translated to Go, no cgo); purego bindings (see below) |
 | S-2 | One file per runnable | Isolation, per-runnable limits, reset and snapshot | One file with a schema per runnable (`ATTACH`: shared limits, weaker isolation) |
 | S-3 | Batches, no interactive transactions | Raft entries are the unit of replication and fencing | Leader-local transactions shipped as changesets (session extension): richer, but the changeset applies differently if replicas diverge, and the driver support is uncertain (FW-S-1) |
 
@@ -184,6 +201,26 @@ diverge after an upgrade of the system's `libsqlite3`. As far as we know,
 purego on Linux also needs a dynamically linked binary. The libraries that
 exist today are early (2026). Not chosen; reconsidered if S-1 fails the
 spike.
+
+### 4.1 Static linking with cgo
+
+The node stays a single static binary (parent NFR-6):
+
+- C toolchain: musl, for both architectures (`zig cc -target
+  x86_64-linux-musl` / `aarch64-linux-musl`, or the musl cross compilers);
+  glibc is avoided because a static glibc still loads NSS modules at run
+  time.
+- Build: `CGO_ENABLED=1 CC=<musl cc> go build -tags
+  "osusergo,netgo,sqlite_omit_load_extension" -ldflags "-linkmode external
+  -extldflags -static"`; `file` reports "statically linked" and `ldd`
+  "not a dynamic executable", checked by a packaging test.
+- goreleaser gets one build per architecture with its `CC`; CI installs
+  the toolchain; the race detector needs cgo anyway.
+- Only the node links SQLite: runnables reach the store through the
+  plugin protocol, so they and the SDK stay `CGO_ENABLED=0`.
+- `govulncheck` does not see the C code: the SQLite version bundled by the
+  pinned driver is checked against SQLite's own advisories at every bump
+  (`make vuln` prints it).
 
 ## 5. Invariants
 
@@ -205,22 +242,24 @@ spike.
 | T-S-5 | (E) SQL reaches files or extensions (`ATTACH`, `load_extension`) | STO-4; extensions not compiled in | — |
 | T-S-6 | (T) SQL injection in a runnable | parameters only in the SDK's helpers; the runnable's responsibility | — |
 | T-S-7 | (I) An administrator reads application data with `store query` | admin group only (parent SEC-6), logged | R-S-2 |
+| T-S-8 | (T) An administrator changes application data, or an attacker with admin access does | admin group only; every operator batch is in the Raft log with its caller and in the audit log; `--dry-run` | R-S-2 |
+| T-S-9 | (T) A bug or a vulnerability in the bundled C SQLite | pinned version, checked against SQLite's advisories at every bump (§4.1); SQL comes only from the runnable and administrators | — |
 
 - **R-S-1** A SQLite behaviour that is non-deterministic in a way the
   authorizer does not see would make replicas diverge; the digests of
   STO-15 detect it, and the soak checks them.
-- **R-S-2** Administrators of a node can read the store, as they could
-  read the files.
+- **R-S-2** Administrators can read and change the store, as they could
+  change the files; the Raft log and the audit log record who did.
 
 ## 7. External assumptions (spike, parent chunk C0)
 
 | ID | Assumption |
 | :--- | :--- |
-| EXT-S-1 | `modernc.org/sqlite` exposes an authorizer callback (or a hook equivalent to it) that sees every function call and pragma |
-| EXT-S-2 | It exposes a progress handler; the number of callbacks for a statement on the same data is the same on every node |
+| EXT-S-1 | `mattn/go-sqlite3` exposes an authorizer (`RegisterAuthorizer`) that sees every function call and pragma |
+| EXT-S-2 | A progress handler can be installed on the driver's connections (the driver, or a small cgo shim on the same bundled SQLite); the number of callbacks for a statement on the same data is the same on every node. If neither works, the fallback is S-1's alternative |
 | EXT-S-3 | A WAL read transaction gives a consistent copy (backup API or `VACUUM INTO`) while another connection commits |
 | EXT-S-4 | hashicorp/raft applies entries after the restored snapshot again on restart (the reason for STO-3), and offers no hook that makes STO-3 unnecessary |
-| EXT-S-5 | Throughput on the lab: batches of 10 small rows, 3 nodes, LAN: at least 500 batches/s; modernc against ncruces and mattn |
+| EXT-S-5 | Throughput on the lab: batches of 10 small rows, 3 nodes, LAN: at least 500 batches/s; on the WAN profile (parent §8.7), at least 25 sequential and 300 concurrent batches/s |
 
 ## 8. Acceptance scenarios
 
@@ -234,12 +273,14 @@ spike.
 | AC-S-6 | Overnight soak with a writing runnable (parent AC-13) | digests equal on all nodes at every check |
 | AC-S-7 | Failover in the middle of a chunked backfill | it resumes from the recorded progress, every chunk applied once |
 | AC-S-8 | An older binary is pinned on one node and becomes leader | it refuses to start on the newer schema; leadership moves (parent FR-8) |
+| AC-S-9 | `store exec` while the runnable writes | the runnable's next batch fails with `ErrFenced`; it restarts with a newer epoch and sees the operator's change; the entry names the caller |
+| AC-S-10 | The release binaries | statically linked (`file`, `ldd`); runnables built with `CGO_ENABLED=0` |
 
 ## 9. Open issues
 
-- **OI-S-1** Is `modernc.org/sqlite` confirmed (S-1), or do you prefer
-  cgo with `mattn/go-sqlite3`, now allowed?
-- **OI-S-2** Limits: 256 MiB per database, 1 MiB batches, 50 M VM steps,
-  30 s queries: right order of magnitude?
-- **OI-S-3** Should operators be able to write to the store (`store exec`)
-  for repairs, as a committed batch under a special epoch, or only reset?
+- **OI-S-1** *Decided* (2026-11-25): `mattn/go-sqlite3`, cgo, linked
+  statically (S-1, §4.1).
+- **OI-S-2** *Decided* (2026-11-25): the default limits stand: 256 MiB per
+  database, 1 MiB batches, 50 M VM steps, 30 s queries.
+- **OI-S-3** *Decided* (2026-11-25): operators can inspect and modify the
+  store through the log and the FSM (STO-16, STO-17).

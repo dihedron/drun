@@ -1,8 +1,8 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.2.0` (2026-11-25): the replicated SQL store (`resurgo-store.md`); OI-1 decided
+- **Document Version:** `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
-- **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (bbolt), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `modernc.org/sqlite` (the store), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, static, no cgo
+- **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (bbolt), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
 
 ---
@@ -189,12 +189,16 @@ only the epochs and the current incarnations.
 - **NFR-3 (failover time)** With the default timings on a LAN (§8.6):
   unplanned failover (leader crash or partition) starts the new incarnation
   within 10 s at p99; a planned handover within `shutdown_grace` + 2 s.
+  With the WAN profile (§8.7): within 15 s at p99, and `shutdown_grace` +
+  3 s.
 - **NFR-4 (overlap)** Without process pauses, the time in which two
   incarnations of the same runnable act at once is zero when the timings
   satisfy §8.4; with pauses, stale incarnations are fenced (INV-3, §8.5).
 - **NFR-5 (footprint)** A node idles below 50 MiB RSS and 1 % of a core,
   plugin processes excluded.
-- **NFR-6 (portability)** Linux amd64/arm64 static binary, no cgo. Tier 1:
+- **NFR-6 (portability)** Linux amd64/arm64, one statically linked binary;
+  cgo only for SQLite, built against musl (`resurgo-store.md` §4.1);
+  runnables and the SDK need no cgo. Tier 1:
   LXD and OpenStack VMs on Ubuntu 24.04 LTS or later and Rocky/Alma, under
   systemd.
 - **NFR-7 (observability)** Structured logs (`slog`, with `node_id`,
@@ -484,6 +488,33 @@ Expected unplanned failover with the defaults: election 1–2 s, barrier and
 `Incarnate` a few round trips, takeover delay 2.25 s, plugin start
 < 1 s: about 5 s, within NFR-3.
 
+### 8.7 WAN profile (three regions)
+
+The defaults of §8.6 target a LAN. Voters MAY also be spread over three
+regions (round-trip times of about 30 ± 10 ms); `raft.profile: wan` then
+sets:
+
+| Setting | LAN | WAN |
+| :--- | :--- | :--- |
+| `raft.heartbeat_timeout` / `election_timeout` | 1 s / 1 s | 2 s / 2 s |
+| `raft.leader_lease_timeout` | 500 ms | 1 s |
+| `lease.duration` / `lease.renew_interval` | 750 ms / 250 ms | 1.5 s / 400 ms |
+| `takeover_delay: auto` | 2.25 s | 2 s |
+
+Consequences, measured in the lab (AC-16):
+- unplanned failover about 5 to 8 s (election 2–4 s, `Barrier` and
+  `Incarnate` a few round trips, takeover delay, plugin start);
+- every store batch and checkpoint costs at least one round trip to the
+  nearest other region: a runnable that writes one batch at a time gets
+  about 25 batches/s, so the SDK issues batches concurrently where order
+  allows (Raft pipelines them), and reads stay local;
+- placement: 3 voters, one per region (a region loss leaves a quorum), or
+  5 as 2 + 2 + 1. Which region leads is not controlled; a preferred-leader
+  policy is FW-9.
+
+The profile is a starting point; the lab's measurements decide its final
+values.
+
 ## 9. The state machine
 
 ### 9.1 State
@@ -759,6 +790,7 @@ checker).
 | AC-13 | Overnight chaos soak in the lab (random faults) | the checker finds no row of a stale epoch committed after a newer one, no lost acknowledged checkpoint, and failover times within NFR-3 |
 | AC-14 | Peer with a valid certificate for another node ID; peer without a certificate | refused (SEC-2, SEC-1) |
 | AC-15 | Restart a node after its log has been compacted | it restores from the snapshot and sees the latest checkpoint |
+| AC-16 | AC-1 to AC-7 and AC-13 again with `tc netem` adding 30 ± 10 ms between three groups of nodes, WAN profile | NFR-3 (WAN) holds; no spurious elections in an hour without faults; store throughput per EXT-S-5 |
 
 ## 15. Open issues
 
@@ -771,15 +803,16 @@ checker).
   needed in v1?
 - **OI-3 Configuration.** Proposed: node-local with drift detection
   (ADR-6). Alternative: replicated through Raft.
-- **OI-4 Transport identity.** Certificate files in v1 for sure; SPIFFE
-  Workload API (go-spiffe) in v1 too, given the SPIFFE/SPIRE direction of
-  ligo, or later?
+- **OI-4 Transport identity.** Open (2026-11-25: not yet clear). v1 uses
+  certificate files, reloaded on change, behind an identity-source
+  interface, so that the SPIFFE Workload API (go-spiffe: short-lived
+  X.509-SVIDs from SPIRE, rotated automatically) can be added without
+  changing the transport. To decide: whether that comes in v1.
 - **OI-5 Handover on repeated failure.** Proposed on by default (FR-8).
-- **OI-6 License.** The scaffold uses AGPLv3, like ligo, netcheck and
-  openstack-spiffe; veho is MIT. Which one?
-- **OI-7 Deployment.** One LAN / one data centre, or voters across the
-  three regions (about 30 ms RTT)? The latter needs larger Raft timeouts
-  and therefore longer failover, and the defaults of §8.6 change.
+- **OI-6 License.** *Decided* (2026-11-25): MIT.
+- **OI-7 Deployment.** *Decided* (2026-11-25): mostly one LAN (the
+  defaults of §8.6); three regions are supported and explored with the WAN
+  profile (§8.7, AC-16).
 - **OI-8 Binary pinning.** Proposed: SHA-256 in the node configuration.
   Alternative: veho's signed manifests, if runnables are to be published by
   third parties.
@@ -806,7 +839,7 @@ secrets`, and the documents updated (rules 11 to 13).
 | C0 | Spike: EXT-1 to EXT-9 and EXT-S-1 to EXT-S-5 as regression tests (`test/spike`), re-run on every bump of raft or go-plugin |
 | C1 | `internal/fsm`: state, commands (protobuf), snapshot/restore; unit, property and fuzz tests (INV-1, INV-3, INV-7) |
 | C2 | `internal/raftnode`: stores, mTLS muxed stream layer with identity binding, bootstrap, membership; `internal/config` with the checks of §8.6 |
-| C2b | The store: `modernc.org/sqlite` behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`) |
+| C2b | The store: `mattn/go-sqlite3` (static musl build, `resurgo-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`) |
 | C3 | `pkg/runnable`: interface, protocol, go-plugin server and loader, lease in the SDK, in-process loader, conformance kit |
 | C4 | `internal/supervisor`: incarnation controller, takeover delay, release, restart and handover; in-process cluster tests; `make stress` / `make soak` |
 | C5 | `internal/admin` and the CLI (§10.2); metrics |

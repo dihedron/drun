@@ -107,7 +107,7 @@ nfpms:
     homepage: "https://github.com/dihedron/resurgo"
     maintainer: "Andrea Funtò <dihedron.dev@gmail.com>"
     vendor: "Andrea Funtò"
-    license: "AGPL-3.0"
+    license: "MIT"
     formats:
       - rpm
       - deb
