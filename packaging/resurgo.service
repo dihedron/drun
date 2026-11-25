@@ -1,0 +1,51 @@
+[Unit]
+Description=resurgo, a runnable on the leader of a Raft cluster
+After=network-online.target
+Wants=network-online.target
+# never give up restarting: the back-off below keeps it cheap
+StartLimitIntervalSec=0
+
+[Service]
+User=resurgo
+Group=resurgo
+# the configuration is /etc/resurgo/resurgo.yaml; the node's Raft state is
+# under /var/lib/resurgo (data_dir), 0700
+Environment=RESURGO_LOG_LEVEL=info
+EnvironmentFile=-/etc/resurgo/resurgo.env
+ExecStart=/usr/bin/resurgo serve
+KillSignal=SIGTERM
+# on SIGTERM a leader hands leadership over and stops its runnables within
+# their stop_grace (.specs/resurgo_specification.md, FR-12): keep this above
+# the longest stop_grace plus the leadership transfer
+TimeoutStopSec=90
+# the default, made explicit: whatever is left of the cgroup, the runnables'
+# processes included, is killed when the service stops (INV-5)
+KillMode=control-group
+Restart=on-failure
+RestartSec=5
+RestartSteps=10
+RestartMaxDelaySec=300
+StateDirectory=resurgo
+StateDirectoryMode=0700
+
+# confinement (.specs/resurgo_specification.md §11)
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+# no core dumps: a node holds the checkpoints and the runnables' secrets in memory
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

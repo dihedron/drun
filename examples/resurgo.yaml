@@ -1,0 +1,41 @@
+# resurgo node configuration (.specs/resurgo_specification.md §10.1).
+# Illustrative until the configuration is implemented (chunk C2).
+node:
+  id: node-a                       # the Raft server ID; unique, stable
+  data_dir: /var/lib/resurgo
+cluster:
+  name: billing-singletons
+  bind: 0.0.0.0:7350
+  advertise: 10.0.1.11:7350
+  voters:                          # FR-1: identical on all initial voters
+    - { id: node-a, address: 10.0.1.11:7350 }
+    - { id: node-b, address: 10.0.1.12:7350 }
+    - { id: node-c, address: 10.0.1.13:7350 }
+  tls:                             # SEC-1, SEC-2
+    cert: /etc/resurgo/tls/node.crt
+    key: /etc/resurgo/tls/node.key
+    ca: /etc/resurgo/tls/ca.crt
+    peers:                         # node ID -> identity it MUST present
+      node-a: "spiffe://example.org/resurgo/node-a"
+      node-b: "spiffe://example.org/resurgo/node-b"
+      node-c: "spiffe://example.org/resurgo/node-c"
+raft: {}                           # §8.6 defaults
+lease: {}
+admin:
+  socket: /run/resurgo/admin.sock
+  allowed_groups: [resurgo-admin]  # SEC-6
+metrics:
+  listen: 127.0.0.1:9350
+runnables:
+  - name: invoice-scheduler
+    binary: /usr/libexec/resurgo/runnables/invoice-scheduler
+    sha256: "<the binary's SHA-256>"  # SEC-4: pinned
+    config:                        # passed to Validate and Run as JSON
+      dsn_file: /etc/resurgo/invoice-scheduler/dsn
+      batch: 100
+    takeover_delay: auto
+    stop_grace: 2s
+    shutdown_grace: 30s
+    restart: { initial: 1s, max: 2m, handover_after: 5 }
+    checkpoint: { max_size: 256KiB, min_interval: 1s }
+    health: { timeout: 30s }

@@ -1,0 +1,5 @@
+# Architecture and Design Guide: title page and PDF metadata (see docs/build.sh)
+title: "Architecture and Design Guide"
+subtitle: "Leader-bound execution, fencing and checkpoints"
+author: "resurgo"
+lang: en-GB
