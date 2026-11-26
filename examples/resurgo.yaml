@@ -1,5 +1,5 @@
 # resurgo node configuration (.specs/resurgo_specification.md §10.1).
-# Illustrative until the configuration is implemented (chunk C2).
+# Every key is described in the Setup Guide, chapter "Configuration".
 node:
   id: node-a                       # the Raft server ID; unique, stable
   data_dir: /var/lib/resurgo

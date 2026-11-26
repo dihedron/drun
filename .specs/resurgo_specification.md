@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -626,6 +626,11 @@ runnables:
     health: { timeout: 30s }
 ```
 
+`cluster.tls.peers` is read at start and MUST hold the identity of every
+member, including one about to be added: a member whose identity a node
+does not know cannot connect to it, so adding a member means adding its
+identity on every node first (C2, 2026-11-26).
+
 ### 10.2 Command line
 
 `github.com/jessevdk/go-flags`, `resurgo <object> <verb>`; `show` is the
@@ -667,6 +672,11 @@ plus Raft's own metrics (FW-3).
   it claims (`cluster.tls.peers`), as a SPIFFE ID URI SAN or a DNS SAN, so
   that one valid certificate cannot impersonate another node. Raft requests
   whose source ID does not match the connection's identity are dropped.
+  As built (C2): a certificate must carry exactly one configured identity;
+  each Raft request's header (server ID and, if set, address) is decoded
+  and checked before raft reads the request, and a mismatch closes the
+  connection; a dialling node checks that the server presents the identity
+  of the ID configured at that address.
 - **SEC-3** Certificates MAY come from files (reloaded on change) or from
   the SPIFFE Workload API (OI-4).
 - **SEC-4** Only runnable binaries whose SHA-256 matches the configured
