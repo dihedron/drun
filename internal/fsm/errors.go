@@ -20,6 +20,10 @@ var (
 	// ErrUnsupported: an entry this node cannot decode, an unknown command,
 	// or a newer format version (OI-10).
 	ErrUnsupported = errors.New("unsupported command")
+	// ErrInvalid: a command with an invalid field.
+	ErrInvalid = errors.New("invalid command")
+	// ErrUnknownPeer: no identity recorded for the peer.
+	ErrUnknownPeer = errors.New("unknown peer")
 	// ErrStore: the store failed on this node, not deterministically.
 	ErrStore = errors.New("store failure")
 )

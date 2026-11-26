@@ -15,6 +15,7 @@ func FuzzApply(f *testing.F) {
 		incarnate("svc", "n1"), checkpoint("svc", 1, []byte("x")), release("svc", 1),
 		complete("svc", 2), fail("svc", 2, "n1"), batch("svc", 2),
 		setDisabled("svc", true), reset("svc", true, true, true), forget("svc"),
+		setPeer("n4", "n4.example.org"), removePeer("n4"),
 	} {
 		data, err := Encode(cmd)
 		if err != nil {

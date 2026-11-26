@@ -107,13 +107,58 @@ func loadIdentity(cert, key, ca string) (*tls.Certificate, *x509.CertPool, error
 	return &pair, roots, nil
 }
 
-// Peers maps node IDs to the identities their certificates carry (SEC-2).
-type Peers map[string]string
+// Peers is the directory of node identities (SEC-2): the configured ones
+// (cluster.tls.peers) and those recorded through the Raft log (SetPeer).
+// A configured identity wins over a recorded one for the same node.
+type Peers struct {
+	configured map[string]string
+	recorded   func() map[string]string
+	logger     *slog.Logger
+	warned     sync.Map
+}
+
+// NewPeers returns the directory; recorded may be nil.
+func NewPeers(configured map[string]string, recorded func() map[string]string, logger *slog.Logger) *Peers {
+	return &Peers{configured: configured, recorded: recorded, logger: logger}
+}
+
+// All returns every known identity, by node ID.
+func (p *Peers) All() map[string]string {
+	all := map[string]string{}
+	if p.recorded != nil {
+		for id, identity := range p.recorded() {
+			if c, ok := p.configured[id]; ok && c != identity {
+				if _, done := p.warned.LoadOrStore(id+"\x00"+identity, true); !done {
+					p.logger.Warn("recorded identity differs from the configured one: using the configured one",
+						"peer", id, "configured", c, "recorded", identity)
+				}
+				continue
+			}
+			all[id] = identity
+		}
+	}
+	for id, identity := range p.configured {
+		all[id] = identity
+	}
+	return all
+}
+
+// Identity returns the identity of a node.
+func (p *Peers) Identity(id string) (string, bool) {
+	identity, ok := p.All()[id]
+	return identity, ok
+}
+
+// Configured returns the identity of a node in the configuration.
+func (p *Peers) Configured(id string) (string, bool) {
+	identity, ok := p.configured[id]
+	return identity, ok
+}
 
 // ID returns the one node whose identity the certificate carries.
-func (p Peers) ID(cert *x509.Certificate) (string, error) {
+func (p *Peers) ID(cert *x509.Certificate) (string, error) {
 	var found []string
-	for id, identity := range p {
+	for id, identity := range p.All() {
 		if hasIdentity(cert, identity) {
 			found = append(found, id)
 		}
@@ -122,7 +167,7 @@ func (p Peers) ID(cert *x509.Certificate) (string, error) {
 	case 1:
 		return found[0], nil
 	case 0:
-		return "", errors.New("the certificate carries no configured peer identity")
+		return "", errors.New("the certificate carries no known peer identity")
 	default:
 		return "", fmt.Errorf("the certificate carries the identities of several nodes: %v", found)
 	}

@@ -16,18 +16,29 @@ there is no plaintext mode.
 - The identity of one node only: a certificate that carries the
   identities of two nodes is refused.
 
-A node accepts a connection only from a certificate whose identity is in
-`cluster.tls.peers`, and then only Raft requests sent in the name of the
+A node accepts a connection only from a certificate whose identity it
+knows (from `cluster.tls.peers`, or recorded when the member was added),
+and then only Raft requests sent in the name of the
 node that identity belongs to: one node's certificate cannot speak for
 another. When a node connects to a member, it checks that the member
 presents the identity configured for that member's ID.
 
 ## Adding a member
 
-`cluster.tls.peers` is read when the node starts. Before adding a
-member, add its identity to `cluster.tls.peers` on every node and restart
-them one at a time; a member whose identity a node does not know cannot
-connect to it.
+`cluster.tls.peers` lists the initial voters. A member added later does
+not need to be in any existing node's file: give its identity when adding
+it,
+
+```
+resurgo member add node-d 10.0.1.14:7350 --identity spiffe://example.org/resurgo/node-d
+```
+
+and the leader records the identity through the Raft log before it adds
+the member, so every node accepts the new member at once, without a
+restart. The new node's own `cluster.tls.peers` must list the current
+members, whom it has to trust before it has the log. Removing a member
+removes its recorded identity. An identity in a node's `cluster.tls.peers`
+always wins over a recorded one for the same node ID.
 
 ## Rotation
 

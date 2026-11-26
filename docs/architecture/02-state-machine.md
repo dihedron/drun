@@ -17,6 +17,7 @@ passes store batches to the runnable's SQL store.
 | completed | For a task: the epoch that completed it, and when |
 | disabled | Set by an operator |
 | failures | Per node: consecutive failures, last time, last reason |
+| peers | Cluster-wide: the identities of members added at runtime, by node ID |
 
 ## Commands
 
@@ -36,6 +37,8 @@ during a rolling upgrade fail safe.
 | `SetDisabled` | Disabled or enabled | — |
 | `Reset` | Clears the checkpoint, completion or failures | Unknown runnable |
 | `Forget` | Removes the runnable and its database | Unknown runnable; an incarnation not released |
+| `SetPeer` | Records the identity a member's certificate carries | Empty id; invalid identity; identity already another node's |
+| `RemovePeer` | Forgets a recorded identity | Unknown id |
 
 ## Determinism
 

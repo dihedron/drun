@@ -344,3 +344,52 @@ func TestUnsupportedEntries(t *testing.T) {
 		t.Fatalf("no-op entry: %v", res)
 	}
 }
+
+func setPeer(id, identity string) *fsmpb.Command {
+	return &fsmpb.Command{Command: &fsmpb.Command_SetPeer{SetPeer: &fsmpb.SetPeer{Id: id, Identity: identity}}}
+}
+
+func removePeer(id string) *fsmpb.Command {
+	return &fsmpb.Command{Command: &fsmpb.Command_RemovePeer{RemovePeer: &fsmpb.RemovePeer{Id: id}}}
+}
+
+func TestPeers(t *testing.T) {
+	h := newHarness(t)
+	for _, cmd := range []*fsmpb.Command{
+		setPeer("n4", "spiffe://example.org/resurgo/n4"),
+		setPeer("n5", "n5.example.org"),
+		setPeer("n4", "spiffe://example.org/resurgo/n4-renewed"), // replaced
+	} {
+		if res := h.apply(cmd); res.Err != nil {
+			t.Fatalf("%v: %v", cmd, res.Err)
+		}
+	}
+	want := map[string]string{"n4": "spiffe://example.org/resurgo/n4-renewed", "n5": "n5.example.org"}
+	if got := h.fsm.Peers(); len(got) != 2 || got["n4"] != want["n4"] || got["n5"] != want["n5"] {
+		t.Fatalf("peers %v, want %v", got, want)
+	}
+
+	before := h.fsm.encodeState()
+	wantErr(t, h.apply(setPeer("", "n6.example.org")), ErrInvalid)
+	wantErr(t, h.apply(setPeer("n6", "http://n6")), ErrInvalid)
+	// one identity, one node
+	wantErr(t, h.apply(setPeer("n6", "n5.example.org")), ErrInvalid)
+	wantErr(t, h.apply(removePeer("n9")), ErrUnknownPeer)
+	if !bytes.Equal(before, h.fsm.encodeState()) {
+		t.Fatal("refused peer commands changed the state")
+	}
+
+	if res := h.apply(removePeer("n5")); res.Err != nil {
+		t.Fatalf("remove: %v", res.Err)
+	}
+	if _, ok := h.fsm.Peers()["n5"]; ok {
+		t.Fatal("n5 still recorded")
+	}
+
+	// peers survive a snapshot
+	other := newHarness(t)
+	restore(t, other.fsm, snapshotBytes(t, h.fsm))
+	if got := other.fsm.Peers(); len(got) != 1 || got["n4"] != want["n4"] {
+		t.Fatalf("restored peers %v", got)
+	}
+}

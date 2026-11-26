@@ -25,6 +25,8 @@ message Command {
     SetDisabled set_disabled = 8;
     Reset reset_runnable = 9;
     Forget forget = 10;
+    SetPeer set_peer = 11;
+    RemovePeer remove_peer = 12;
   }
 }
 
@@ -149,12 +151,31 @@ message Forget {
   string runnable = 1;
 }
 
+// SetPeer records the identity a member's certificate carries (SEC-2), so
+// that every node accepts it without a change of its configuration.
+message SetPeer {
+  string id = 1;
+  string identity = 2;
+}
+
+// RemovePeer forgets a recorded identity.
+message RemovePeer {
+  string id = 1;
+}
+
 // State is the FSM's state, as saved in a snapshot (§9.1).
 message State {
   uint32 format_version = 1;
   uint64 epoch_counter = 2;
   // runnables, sorted by name
   repeated Runnable runnables = 3;
+  // peer identities recorded by SetPeer, sorted by id
+  repeated Peer peers = 4;
+}
+
+message Peer {
+  string id = 1;
+  string identity = 2;
 }
 
 message Runnable {

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dihedron/resurgo/internal/config"
 	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	"google.golang.org/protobuf/proto"
@@ -50,11 +51,13 @@ type FSM struct {
 	mu           sync.RWMutex
 	epochCounter uint64
 	runnables    map[string]*fsmpb.Runnable
+	// peers are the identities recorded by SetPeer, by node ID
+	peers map[string]string
 }
 
 // New returns an empty FSM over store.
 func New(store Store, logger *slog.Logger) *FSM {
-	return &FSM{store: store, logger: logger, runnables: map[string]*fsmpb.Runnable{}}
+	return &FSM{store: store, logger: logger, runnables: map[string]*fsmpb.Runnable{}, peers: map[string]string{}}
 }
 
 // Encode stamps a command with FormatVersion and encodes it as a log entry.
@@ -104,6 +107,10 @@ func (f *FSM) Apply(l *raft.Log) any {
 		msg, res = c.ResetRunnable, f.reset(l, c.ResetRunnable)
 	case *fsmpb.Command_Forget:
 		msg, res = c.Forget, f.forget(c.Forget)
+	case *fsmpb.Command_SetPeer:
+		msg, res = c.SetPeer, f.setPeer(c.SetPeer)
+	case *fsmpb.Command_RemovePeer:
+		msg, res = c.RemovePeer, f.removePeer(c.RemovePeer)
 	default:
 		res = &Result{Err: fmt.Errorf("%w: no known command in the entry", ErrUnsupported)}
 	}
@@ -298,6 +305,30 @@ func (f *FSM) forget(c *fsmpb.Forget) *Result {
 	return &Result{}
 }
 
+func (f *FSM) setPeer(c *fsmpb.SetPeer) *Result {
+	if c.GetId() == "" {
+		return &Result{Err: fmt.Errorf("%w: a peer without id", ErrInvalid)}
+	}
+	if err := config.ValidIdentity(c.GetIdentity()); err != nil {
+		return &Result{Err: fmt.Errorf("%w: %w", ErrInvalid, err)}
+	}
+	for id, identity := range f.peers {
+		if identity == c.GetIdentity() && id != c.GetId() {
+			return &Result{Err: fmt.Errorf("%w: identity %q is already %q's", ErrInvalid, identity, id)}
+		}
+	}
+	f.peers[c.GetId()] = c.GetIdentity()
+	return &Result{}
+}
+
+func (f *FSM) removePeer(c *fsmpb.RemovePeer) *Result {
+	if _, ok := f.peers[c.GetId()]; !ok {
+		return &Result{Err: fmt.Errorf("%w %q", ErrUnknownPeer, c.GetId())}
+	}
+	delete(f.peers, c.GetId())
+	return &Result{}
+}
+
 // clearFailures removes node's failure record: it ran successfully
 func clearFailures(r *fsmpb.Runnable, node string) {
 	r.Failures = slices.DeleteFunc(r.Failures, func(fr *fsmpb.FailureRecord) bool { return fr.GetNode() == node })
@@ -320,6 +351,13 @@ func (f *FSM) Runnables() []string {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return slices.Sorted(maps.Keys(f.runnables))
+}
+
+// Peers returns a copy of the recorded peer identities, by node ID.
+func (f *FSM) Peers() map[string]string {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return maps.Clone(f.peers)
 }
 
 // EpochCounter returns the last epoch handed out.

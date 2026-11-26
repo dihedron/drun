@@ -6,8 +6,10 @@ Raft and the admin calls forwarded to the leader share one TCP port
 ## Connections
 
 1. TLS 1.3 handshake, mutual. The peer's chain is checked against the
-   current CA file, and its certificate must carry exactly one of the
-   identities in `cluster.tls.peers`: that gives the peer's server ID.
+   current CA file, and its certificate must carry exactly one known
+   identity: that gives the peer's server ID. Identities come from
+   `cluster.tls.peers` and from the `SetPeer` entries the node has applied;
+   for the same ID, the configured one wins.
 2. The first byte says what the connection carries: `R` for Raft, `A`
    for a forwarded admin call. Any other byte closes the connection.
 3. `R` connections go to hashicorp/raft's `NetworkTransport`; `A`

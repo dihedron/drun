@@ -45,6 +45,8 @@ type Command struct {
 	//	*Command_SetDisabled
 	//	*Command_ResetRunnable
 	//	*Command_Forget
+	//	*Command_SetPeer
+	//	*Command_RemovePeer
 	Command       isCommand_Command `protobuf_oneof:"command"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -175,6 +177,24 @@ func (x *Command) GetForget() *Forget {
 	return nil
 }
 
+func (x *Command) GetSetPeer() *SetPeer {
+	if x != nil {
+		if x, ok := x.Command.(*Command_SetPeer); ok {
+			return x.SetPeer
+		}
+	}
+	return nil
+}
+
+func (x *Command) GetRemovePeer() *RemovePeer {
+	if x != nil {
+		if x, ok := x.Command.(*Command_RemovePeer); ok {
+			return x.RemovePeer
+		}
+	}
+	return nil
+}
+
 type isCommand_Command interface {
 	isCommand_Command()
 }
@@ -215,6 +235,14 @@ type Command_Forget struct {
 	Forget *Forget `protobuf:"bytes,10,opt,name=forget,proto3,oneof"`
 }
 
+type Command_SetPeer struct {
+	SetPeer *SetPeer `protobuf:"bytes,11,opt,name=set_peer,json=setPeer,proto3,oneof"`
+}
+
+type Command_RemovePeer struct {
+	RemovePeer *RemovePeer `protobuf:"bytes,12,opt,name=remove_peer,json=removePeer,proto3,oneof"`
+}
+
 func (*Command_StoreBatch) isCommand_Command() {}
 
 func (*Command_Incarnate) isCommand_Command() {}
@@ -232,6 +260,10 @@ func (*Command_SetDisabled) isCommand_Command() {}
 func (*Command_ResetRunnable) isCommand_Command() {}
 
 func (*Command_Forget) isCommand_Command() {}
+
+func (*Command_SetPeer) isCommand_Command() {}
+
+func (*Command_RemovePeer) isCommand_Command() {}
 
 // StoreBatch is applied to the runnable's database in one transaction
 // (resurgo-store.md STO-1, STO-2).
@@ -1367,20 +1399,121 @@ func (x *Forget) GetRunnable() string {
 	return ""
 }
 
+// SetPeer records the identity a member's certificate carries (SEC-2), so
+// that every node accepts it without a change of its configuration.
+type SetPeer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Identity      string                 `protobuf:"bytes,2,opt,name=identity,proto3" json:"identity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPeer) Reset() {
+	*x = SetPeer{}
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPeer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPeer) ProtoMessage() {}
+
+func (x *SetPeer) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPeer.ProtoReflect.Descriptor instead.
+func (*SetPeer) Descriptor() ([]byte, []int) {
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SetPeer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SetPeer) GetIdentity() string {
+	if x != nil {
+		return x.Identity
+	}
+	return ""
+}
+
+// RemovePeer forgets a recorded identity.
+type RemovePeer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemovePeer) Reset() {
+	*x = RemovePeer{}
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemovePeer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemovePeer) ProtoMessage() {}
+
+func (x *RemovePeer) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemovePeer.ProtoReflect.Descriptor instead.
+func (*RemovePeer) Descriptor() ([]byte, []int) {
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RemovePeer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 // State is the FSM's state, as saved in a snapshot (§9.1).
 type State struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FormatVersion uint32                 `protobuf:"varint,1,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
 	EpochCounter  uint64                 `protobuf:"varint,2,opt,name=epoch_counter,json=epochCounter,proto3" json:"epoch_counter,omitempty"`
 	// runnables, sorted by name
-	Runnables     []*Runnable `protobuf:"bytes,3,rep,name=runnables,proto3" json:"runnables,omitempty"`
+	Runnables []*Runnable `protobuf:"bytes,3,rep,name=runnables,proto3" json:"runnables,omitempty"`
+	// peer identities recorded by SetPeer, sorted by id
+	Peers         []*Peer `protobuf:"bytes,4,rep,name=peers,proto3" json:"peers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *State) Reset() {
 	*x = State{}
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[18]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1525,7 @@ func (x *State) String() string {
 func (*State) ProtoMessage() {}
 
 func (x *State) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[18]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1405,7 +1538,7 @@ func (x *State) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use State.ProtoReflect.Descriptor instead.
 func (*State) Descriptor() ([]byte, []int) {
-	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{18}
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *State) GetFormatVersion() uint32 {
@@ -1429,6 +1562,65 @@ func (x *State) GetRunnables() []*Runnable {
 	return nil
 }
 
+func (x *State) GetPeers() []*Peer {
+	if x != nil {
+		return x.Peers
+	}
+	return nil
+}
+
+type Peer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Identity      string                 `protobuf:"bytes,2,opt,name=identity,proto3" json:"identity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Peer) Reset() {
+	*x = Peer{}
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Peer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Peer) ProtoMessage() {}
+
+func (x *Peer) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Peer.ProtoReflect.Descriptor instead.
+func (*Peer) Descriptor() ([]byte, []int) {
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *Peer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Peer) GetIdentity() string {
+	if x != nil {
+		return x.Identity
+	}
+	return ""
+}
+
 type Runnable struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	Name        string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1446,7 +1638,7 @@ type Runnable struct {
 
 func (x *Runnable) Reset() {
 	*x = Runnable{}
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[19]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1458,7 +1650,7 @@ func (x *Runnable) String() string {
 func (*Runnable) ProtoMessage() {}
 
 func (x *Runnable) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[19]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1471,7 +1663,7 @@ func (x *Runnable) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Runnable.ProtoReflect.Descriptor instead.
 func (*Runnable) Descriptor() ([]byte, []int) {
-	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{19}
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Runnable) GetName() string {
@@ -1544,7 +1736,7 @@ type Incarnation struct {
 
 func (x *Incarnation) Reset() {
 	*x = Incarnation{}
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[20]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1556,7 +1748,7 @@ func (x *Incarnation) String() string {
 func (*Incarnation) ProtoMessage() {}
 
 func (x *Incarnation) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[20]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1569,7 +1761,7 @@ func (x *Incarnation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Incarnation.ProtoReflect.Descriptor instead.
 func (*Incarnation) Descriptor() ([]byte, []int) {
-	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{20}
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Incarnation) GetEpoch() uint64 {
@@ -1628,7 +1820,7 @@ type CheckpointMeta struct {
 
 func (x *CheckpointMeta) Reset() {
 	*x = CheckpointMeta{}
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[21]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1640,7 +1832,7 @@ func (x *CheckpointMeta) String() string {
 func (*CheckpointMeta) ProtoMessage() {}
 
 func (x *CheckpointMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[21]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1653,7 +1845,7 @@ func (x *CheckpointMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointMeta.ProtoReflect.Descriptor instead.
 func (*CheckpointMeta) Descriptor() ([]byte, []int) {
-	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{21}
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CheckpointMeta) GetSeq() uint64 {
@@ -1694,7 +1886,7 @@ type Completion struct {
 
 func (x *Completion) Reset() {
 	*x = Completion{}
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[22]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1706,7 +1898,7 @@ func (x *Completion) String() string {
 func (*Completion) ProtoMessage() {}
 
 func (x *Completion) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[22]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1719,7 +1911,7 @@ func (x *Completion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Completion.ProtoReflect.Descriptor instead.
 func (*Completion) Descriptor() ([]byte, []int) {
-	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{22}
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Completion) GetEpoch() uint64 {
@@ -1748,7 +1940,7 @@ type FailureRecord struct {
 
 func (x *FailureRecord) Reset() {
 	*x = FailureRecord{}
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[23]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1760,7 +1952,7 @@ func (x *FailureRecord) String() string {
 func (*FailureRecord) ProtoMessage() {}
 
 func (x *FailureRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[23]
+	mi := &file_proto_fsm_v1_fsm_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1773,7 +1965,7 @@ func (x *FailureRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FailureRecord.ProtoReflect.Descriptor instead.
 func (*FailureRecord) Descriptor() ([]byte, []int) {
-	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{23}
+	return file_proto_fsm_v1_fsm_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *FailureRecord) GetNode() string {
@@ -1808,7 +2000,7 @@ var File_proto_fsm_v1_fsm_proto protoreflect.FileDescriptor
 
 const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\n" +
-	"\x16proto/fsm/v1/fsm.proto\x12\x0eresurgo.fsm.v1\"\xc0\x04\n" +
+	"\x16proto/fsm/v1/fsm.proto\x12\x0eresurgo.fsm.v1\"\xb5\x05\n" +
 	"\aCommand\x12%\n" +
 	"\x0eformat_version\x18\x01 \x01(\rR\rformatVersion\x12=\n" +
 	"\vstore_batch\x18\x02 \x01(\v2\x1a.resurgo.fsm.v1.StoreBatchH\x00R\n" +
@@ -1823,7 +2015,10 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\fset_disabled\x18\b \x01(\v2\x1b.resurgo.fsm.v1.SetDisabledH\x00R\vsetDisabled\x12>\n" +
 	"\x0ereset_runnable\x18\t \x01(\v2\x15.resurgo.fsm.v1.ResetH\x00R\rresetRunnable\x120\n" +
 	"\x06forget\x18\n" +
-	" \x01(\v2\x16.resurgo.fsm.v1.ForgetH\x00R\x06forgetB\t\n" +
+	" \x01(\v2\x16.resurgo.fsm.v1.ForgetH\x00R\x06forget\x124\n" +
+	"\bset_peer\x18\v \x01(\v2\x17.resurgo.fsm.v1.SetPeerH\x00R\asetPeer\x12=\n" +
+	"\vremove_peer\x18\f \x01(\v2\x1a.resurgo.fsm.v1.RemovePeerH\x00R\n" +
+	"removePeerB\t\n" +
 	"\acommand\"\x89\x01\n" +
 	"\n" +
 	"StoreBatch\x12\x1a\n" +
@@ -1910,11 +2105,21 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"completion\x12\x1a\n" +
 	"\bfailures\x18\x04 \x01(\bR\bfailures\"$\n" +
 	"\x06Forget\x12\x1a\n" +
-	"\brunnable\x18\x01 \x01(\tR\brunnable\"\x8b\x01\n" +
+	"\brunnable\x18\x01 \x01(\tR\brunnable\"5\n" +
+	"\aSetPeer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bidentity\x18\x02 \x01(\tR\bidentity\"\x1c\n" +
+	"\n" +
+	"RemovePeer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xb7\x01\n" +
 	"\x05State\x12%\n" +
 	"\x0eformat_version\x18\x01 \x01(\rR\rformatVersion\x12#\n" +
 	"\repoch_counter\x18\x02 \x01(\x04R\fepochCounter\x126\n" +
-	"\trunnables\x18\x03 \x03(\v2\x18.resurgo.fsm.v1.RunnableR\trunnables\"\x82\x03\n" +
+	"\trunnables\x18\x03 \x03(\v2\x18.resurgo.fsm.v1.RunnableR\trunnables\x12*\n" +
+	"\x05peers\x18\x04 \x03(\v2\x14.resurgo.fsm.v1.PeerR\x05peers\"2\n" +
+	"\x04Peer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bidentity\x18\x02 \x01(\tR\bidentity\"\x82\x03\n" +
 	"\bRunnable\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x125\n" +
 	"\acurrent\x18\x02 \x01(\v2\x1b.resurgo.fsm.v1.IncarnationR\acurrent\x12\x1a\n" +
@@ -1962,7 +2167,7 @@ func file_proto_fsm_v1_fsm_proto_rawDescGZIP() []byte {
 	return file_proto_fsm_v1_fsm_proto_rawDescData
 }
 
-var file_proto_fsm_v1_fsm_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_proto_fsm_v1_fsm_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_proto_fsm_v1_fsm_proto_goTypes = []any{
 	(*Command)(nil),         // 0: resurgo.fsm.v1.Command
 	(*StoreBatch)(nil),      // 1: resurgo.fsm.v1.StoreBatch
@@ -1982,12 +2187,15 @@ var file_proto_fsm_v1_fsm_proto_goTypes = []any{
 	(*SetDisabled)(nil),     // 15: resurgo.fsm.v1.SetDisabled
 	(*Reset)(nil),           // 16: resurgo.fsm.v1.Reset
 	(*Forget)(nil),          // 17: resurgo.fsm.v1.Forget
-	(*State)(nil),           // 18: resurgo.fsm.v1.State
-	(*Runnable)(nil),        // 19: resurgo.fsm.v1.Runnable
-	(*Incarnation)(nil),     // 20: resurgo.fsm.v1.Incarnation
-	(*CheckpointMeta)(nil),  // 21: resurgo.fsm.v1.CheckpointMeta
-	(*Completion)(nil),      // 22: resurgo.fsm.v1.Completion
-	(*FailureRecord)(nil),   // 23: resurgo.fsm.v1.FailureRecord
+	(*SetPeer)(nil),         // 18: resurgo.fsm.v1.SetPeer
+	(*RemovePeer)(nil),      // 19: resurgo.fsm.v1.RemovePeer
+	(*State)(nil),           // 20: resurgo.fsm.v1.State
+	(*Peer)(nil),            // 21: resurgo.fsm.v1.Peer
+	(*Runnable)(nil),        // 22: resurgo.fsm.v1.Runnable
+	(*Incarnation)(nil),     // 23: resurgo.fsm.v1.Incarnation
+	(*CheckpointMeta)(nil),  // 24: resurgo.fsm.v1.CheckpointMeta
+	(*Completion)(nil),      // 25: resurgo.fsm.v1.Completion
+	(*FailureRecord)(nil),   // 26: resurgo.fsm.v1.FailureRecord
 }
 var file_proto_fsm_v1_fsm_proto_depIdxs = []int32{
 	1,  // 0: resurgo.fsm.v1.Command.store_batch:type_name -> resurgo.fsm.v1.StoreBatch
@@ -1999,25 +2207,28 @@ var file_proto_fsm_v1_fsm_proto_depIdxs = []int32{
 	15, // 6: resurgo.fsm.v1.Command.set_disabled:type_name -> resurgo.fsm.v1.SetDisabled
 	16, // 7: resurgo.fsm.v1.Command.reset_runnable:type_name -> resurgo.fsm.v1.Reset
 	17, // 8: resurgo.fsm.v1.Command.forget:type_name -> resurgo.fsm.v1.Forget
-	2,  // 9: resurgo.fsm.v1.StoreBatch.statements:type_name -> resurgo.fsm.v1.Statement
-	3,  // 10: resurgo.fsm.v1.Statement.args:type_name -> resurgo.fsm.v1.Value
-	4,  // 11: resurgo.fsm.v1.Statement.expect:type_name -> resurgo.fsm.v1.Expectation
-	6,  // 12: resurgo.fsm.v1.BatchResult.results:type_name -> resurgo.fsm.v1.StatementResult
-	8,  // 13: resurgo.fsm.v1.BatchResult.error:type_name -> resurgo.fsm.v1.BatchError
-	7,  // 14: resurgo.fsm.v1.StatementResult.rows:type_name -> resurgo.fsm.v1.Row
-	3,  // 15: resurgo.fsm.v1.Row.values:type_name -> resurgo.fsm.v1.Value
-	10, // 16: resurgo.fsm.v1.Incarnate.store_limits:type_name -> resurgo.fsm.v1.StoreLimits
-	19, // 17: resurgo.fsm.v1.State.runnables:type_name -> resurgo.fsm.v1.Runnable
-	20, // 18: resurgo.fsm.v1.Runnable.current:type_name -> resurgo.fsm.v1.Incarnation
-	21, // 19: resurgo.fsm.v1.Runnable.checkpoint:type_name -> resurgo.fsm.v1.CheckpointMeta
-	10, // 20: resurgo.fsm.v1.Runnable.store_limits:type_name -> resurgo.fsm.v1.StoreLimits
-	22, // 21: resurgo.fsm.v1.Runnable.completed:type_name -> resurgo.fsm.v1.Completion
-	23, // 22: resurgo.fsm.v1.Runnable.failures:type_name -> resurgo.fsm.v1.FailureRecord
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	18, // 9: resurgo.fsm.v1.Command.set_peer:type_name -> resurgo.fsm.v1.SetPeer
+	19, // 10: resurgo.fsm.v1.Command.remove_peer:type_name -> resurgo.fsm.v1.RemovePeer
+	2,  // 11: resurgo.fsm.v1.StoreBatch.statements:type_name -> resurgo.fsm.v1.Statement
+	3,  // 12: resurgo.fsm.v1.Statement.args:type_name -> resurgo.fsm.v1.Value
+	4,  // 13: resurgo.fsm.v1.Statement.expect:type_name -> resurgo.fsm.v1.Expectation
+	6,  // 14: resurgo.fsm.v1.BatchResult.results:type_name -> resurgo.fsm.v1.StatementResult
+	8,  // 15: resurgo.fsm.v1.BatchResult.error:type_name -> resurgo.fsm.v1.BatchError
+	7,  // 16: resurgo.fsm.v1.StatementResult.rows:type_name -> resurgo.fsm.v1.Row
+	3,  // 17: resurgo.fsm.v1.Row.values:type_name -> resurgo.fsm.v1.Value
+	10, // 18: resurgo.fsm.v1.Incarnate.store_limits:type_name -> resurgo.fsm.v1.StoreLimits
+	22, // 19: resurgo.fsm.v1.State.runnables:type_name -> resurgo.fsm.v1.Runnable
+	21, // 20: resurgo.fsm.v1.State.peers:type_name -> resurgo.fsm.v1.Peer
+	23, // 21: resurgo.fsm.v1.Runnable.current:type_name -> resurgo.fsm.v1.Incarnation
+	24, // 22: resurgo.fsm.v1.Runnable.checkpoint:type_name -> resurgo.fsm.v1.CheckpointMeta
+	10, // 23: resurgo.fsm.v1.Runnable.store_limits:type_name -> resurgo.fsm.v1.StoreLimits
+	25, // 24: resurgo.fsm.v1.Runnable.completed:type_name -> resurgo.fsm.v1.Completion
+	26, // 25: resurgo.fsm.v1.Runnable.failures:type_name -> resurgo.fsm.v1.FailureRecord
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_proto_fsm_v1_fsm_proto_init() }
@@ -2035,6 +2246,8 @@ func file_proto_fsm_v1_fsm_proto_init() {
 		(*Command_SetDisabled)(nil),
 		(*Command_ResetRunnable)(nil),
 		(*Command_Forget)(nil),
+		(*Command_SetPeer)(nil),
+		(*Command_RemovePeer)(nil),
 	}
 	file_proto_fsm_v1_fsm_proto_msgTypes[3].OneofWrappers = []any{
 		(*Value_Integer)(nil),
@@ -2051,7 +2264,7 @@ func file_proto_fsm_v1_fsm_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fsm_v1_fsm_proto_rawDesc), len(file_proto_fsm_v1_fsm_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   24,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

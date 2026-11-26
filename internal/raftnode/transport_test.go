@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"io"
 	"log/slog"
 	"os"
@@ -19,7 +21,7 @@ import (
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 // testPeers: a SPIFFE identity, a DNS identity, and one more
-var testPeers = Peers{
+var testPeers = map[string]string{
 	"a": "spiffe://example.org/resurgo/a",
 	"b": "b.resurgo.example.org",
 	"c": "spiffe://example.org/resurgo/c",
@@ -50,12 +52,12 @@ func newEndpoints(t *testing.T, ca *tlstest.CA, ids ...string) map[string]*endpo
 		if err != nil {
 			t.Fatal(err)
 		}
-		tr, err := Listen("127.0.0.1:0", "", identity, testPeers, discard)
+		tr, err := Listen("127.0.0.1:0", "", identity, NewPeers(testPeers, nil, discard), discard)
 		if err != nil {
 			t.Fatal(err)
 		}
 		tr.SetResolver(resolve)
-		nt := raft.NewNetworkTransportWithConfig(&raft.NetworkTransportConfig{Stream: tr.RaftLayer(), MaxPool: 2, Timeout: 2 * time.Second})
+		nt := raft.NewNetworkTransportWithConfig(&raft.NetworkTransportConfig{Stream: tr.RaftLayer(), MaxPool: 2, Timeout: 2 * time.Second, Logger: newHclog(discard, "raft-net")})
 		t.Cleanup(func() { _ = nt.Close() })
 		mu.Lock()
 		addrs[nt.LocalAddr()] = raft.ServerID(id)
@@ -290,4 +292,34 @@ func TestCertificateRotation(t *testing.T) {
 	if _, err := NewFileIdentity(a.files.Cert, a.files.Key, a.files.CA, discard); err == nil {
 		t.Fatal("a node started with a broken certificate file")
 	}
+}
+
+func TestPeersDirectory(t *testing.T) {
+	recorded := map[string]string{"d": "spiffe://example.org/resurgo/d", "a": "spiffe://example.org/resurgo/not-a"}
+	p := NewPeers(testPeers, func() map[string]string { return recorded }, discard)
+	if id, ok := p.Identity("d"); !ok || id != recorded["d"] {
+		t.Fatalf("recorded identity: %q %v", id, ok)
+	}
+	if id, _ := p.Identity("a"); id != testPeers["a"] {
+		t.Fatalf("configured identity overridden: %q", id)
+	}
+	ca := tlstest.NewCA(t)
+	for identity, want := range map[string]string{recorded["d"]: "d", testPeers["a"]: "a", recorded["a"]: ""} {
+		certPEM, _ := ca.Issue(t, identity)
+		cert := parseCert(t, certPEM)
+		got, err := p.ID(cert)
+		if got != want || (want == "") != (err != nil) {
+			t.Fatalf("%s: id %q, error %v; want %q", identity, got, err, want)
+		}
+	}
+}
+
+func parseCert(t *testing.T, certPEM []byte) *x509.Certificate {
+	t.Helper()
+	block, _ := pem.Decode(certPEM)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cert
 }

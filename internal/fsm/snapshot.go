@@ -35,6 +35,9 @@ func (f *FSM) encodeStateLocked() []byte {
 	for _, name := range slices.Sorted(maps.Keys(f.runnables)) {
 		state.Runnables = append(state.Runnables, f.runnables[name])
 	}
+	for _, id := range slices.Sorted(maps.Keys(f.peers)) {
+		state.Peers = append(state.Peers, &fsmpb.Peer{Id: id, Identity: f.peers[id]})
+	}
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(state)
 	if err != nil {
 		// the state is built only from decoded messages: it always encodes
@@ -107,6 +110,13 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 		}
 		runnables[r.GetName()] = r
 	}
+	peers := make(map[string]string, len(state.GetPeers()))
+	for _, p := range state.GetPeers() {
+		if _, dup := peers[p.GetId()]; dup || p.GetId() == "" {
+			return fmt.Errorf("restoring the snapshot: peer %q twice or without id", p.GetId())
+		}
+		peers[p.GetId()] = p.GetIdentity()
+	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -115,6 +125,7 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	}
 	f.epochCounter = state.GetEpochCounter()
 	f.runnables = runnables
+	f.peers = peers
 	return nil
 }
 

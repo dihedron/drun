@@ -3,6 +3,7 @@ package fsm
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"testing"
 
@@ -24,7 +25,7 @@ func randomCommand(rng *rand.Rand, f *FSM) *fsmpb.Command {
 		epoch = rng.Uint64N(f.EpochCounter() + 2)
 	}
 	node := []string{"n1", "n2", "n3"}[rng.IntN(3)]
-	switch rng.IntN(12) {
+	switch rng.IntN(14) {
 	case 0, 1, 2:
 		return incarnate(name, node)
 	case 3, 4:
@@ -41,8 +42,12 @@ func randomCommand(rng *rand.Rand, f *FSM) *fsmpb.Command {
 		return setDisabled(name, rng.IntN(3) == 0)
 	case 10:
 		return reset(name, rng.IntN(2) == 0, rng.IntN(2) == 0, rng.IntN(2) == 0)
-	default:
+	case 11:
 		return forget(name)
+	case 12:
+		return setPeer(node, fmt.Sprintf("spiffe://example.org/%s/%d", node, rng.IntN(3)))
+	default:
+		return removePeer(node)
 	}
 }
 

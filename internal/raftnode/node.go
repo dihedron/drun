@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/dihedron/resurgo/internal/config"
+	"github.com/dihedron/resurgo/internal/fsm"
+	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 )
@@ -46,6 +48,7 @@ type Node struct {
 	trans  *Transport
 	net    *raft.NetworkTransport
 	store  *raftboltdb.BoltStore
+	peers  *Peers
 
 	mu    sync.RWMutex
 	addrs map[raft.ServerAddress]raft.ServerID
@@ -55,9 +58,11 @@ type Node struct {
 	done         chan struct{}
 }
 
-// New starts the node's Raft server with fsm, and bootstraps the cluster
+// New starts the node's Raft server with f, and bootstraps the cluster
 // from the configured voters if the node has no Raft state yet (FR-1).
-func New(cfg *config.Config, fsm raft.FSM, logger *slog.Logger) (_ *Node, err error) {
+// recorded returns the peer identities recorded through the log (the FSM's
+// Peers); nil: the configured ones only.
+func New(cfg *config.Config, f raft.FSM, recorded func() map[string]string, logger *slog.Logger) (_ *Node, err error) {
 	logger = logger.With("node_id", cfg.Node.ID)
 	raftDir := filepath.Join(cfg.Node.DataDir, "raft")
 	for _, dir := range []string{cfg.Node.DataDir, raftDir} {
@@ -83,7 +88,8 @@ func New(cfg *config.Config, fsm raft.FSM, logger *slog.Logger) (_ *Node, err er
 	if err != nil {
 		return nil, err
 	}
-	n.trans, err = Listen(cfg.Cluster.Bind, cfg.Cluster.Advertise, identity, Peers(cfg.Cluster.TLS.Peers), logger)
+	n.peers = NewPeers(cfg.Cluster.TLS.Peers, recorded, logger)
+	n.trans, err = Listen(cfg.Cluster.Bind, cfg.Cluster.Advertise, identity, n.peers, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +122,7 @@ func New(cfg *config.Config, fsm raft.FSM, logger *slog.Logger) (_ *Node, err er
 	if err != nil {
 		return nil, fmt.Errorf("raft state: %w", err)
 	}
-	n.raft, err = raft.NewRaft(rc, fsm, n.store, n.store, snaps, n.net)
+	n.raft, err = raft.NewRaft(rc, f, n.store, n.store, snaps, n.net)
 	if err != nil {
 		return nil, fmt.Errorf("raft: %w", err)
 	}
@@ -227,23 +233,24 @@ func (n *Node) leaderOnly() error {
 	return &ErrNotLeader{ID: id, Address: addr}
 }
 
-// AddVoter adds a voter (FR-2); its identity must be configured in
-// cluster.tls.peers, or the cluster port refuses it.
-func (n *Node) AddVoter(id, address string) error {
-	return n.add(id, address, true)
+// AddVoter adds a voter (FR-2). identity, if not empty, is the identity
+// its certificate carries: it is recorded through the log first, so that
+// every node accepts the new member; if empty, the identity must be known.
+func (n *Node) AddVoter(id, address, identity string) error {
+	return n.add(id, address, identity, true)
 }
 
-// AddNonvoter adds a non-voter (FR-2).
-func (n *Node) AddNonvoter(id, address string) error {
-	return n.add(id, address, false)
+// AddNonvoter adds a non-voter (FR-2), as AddVoter.
+func (n *Node) AddNonvoter(id, address, identity string) error {
+	return n.add(id, address, identity, false)
 }
 
-func (n *Node) add(id, address string, voter bool) error {
+func (n *Node) add(id, address, identity string, voter bool) error {
 	if err := n.leaderOnly(); err != nil {
 		return err
 	}
-	if _, ok := n.cfg.Cluster.TLS.Peers[id]; !ok {
-		return fmt.Errorf("adding %s: no identity for it in cluster.tls.peers", id)
+	if err := n.recordIdentity(id, identity); err != nil {
+		return fmt.Errorf("adding %s: %w", id, err)
 	}
 	n.learn(raft.Server{ID: raft.ServerID(id), Address: raft.ServerAddress(address)})
 	var f raft.IndexFuture
@@ -256,6 +263,47 @@ func (n *Node) add(id, address string, voter bool) error {
 		return fmt.Errorf("adding %s: %w", id, err)
 	}
 	n.logger.Info("member added", "member", id, "address", address, "voter", voter)
+	return nil
+}
+
+// recordIdentity makes sure every node knows id's identity
+func (n *Node) recordIdentity(id, identity string) error {
+	known, ok := n.peers.Identity(id)
+	if identity == "" {
+		if !ok {
+			return errors.New("its identity is neither configured in cluster.tls.peers nor given")
+		}
+		return nil
+	}
+	if ok && known == identity {
+		return nil
+	}
+	if configured, ok := n.peers.Configured(id); ok {
+		return fmt.Errorf("cluster.tls.peers configures its identity as %q, not %q", configured, identity)
+	}
+	if n.peers.recorded == nil {
+		return errors.New("this node cannot record identities")
+	}
+	if err := n.apply(&fsmpb.Command{Command: &fsmpb.Command_SetPeer{SetPeer: &fsmpb.SetPeer{Id: id, Identity: identity}}}); err != nil {
+		return fmt.Errorf("recording its identity: %w", err)
+	}
+	n.logger.Info("peer identity recorded", "peer", id, "identity", identity)
+	return nil
+}
+
+// apply commits a command and returns its error, if any
+func (n *Node) apply(cmd *fsmpb.Command) error {
+	data, err := fsm.Encode(cmd)
+	if err != nil {
+		return err
+	}
+	f := n.raft.Apply(data, changeTimeout)
+	if err := f.Error(); err != nil {
+		return err
+	}
+	if res, ok := f.Response().(*fsm.Result); ok && res.Err != nil {
+		return res.Err
+	}
 	return nil
 }
 
@@ -276,6 +324,14 @@ func (n *Node) Remove(id string) error {
 		return fmt.Errorf("removing %s: %w", id, err)
 	}
 	n.logger.Info("member removed", "member", id)
+	// a recorded identity goes with the member; a configured one stays
+	if n.peers.recorded != nil {
+		if _, ok := n.peers.recorded()[id]; ok {
+			if err := n.apply(&fsmpb.Command{Command: &fsmpb.Command_RemovePeer{RemovePeer: &fsmpb.RemovePeer{Id: id}}}); err != nil {
+				return fmt.Errorf("removed %s, but not its identity: %w", id, err)
+			}
+		}
+	}
 	return nil
 }
 

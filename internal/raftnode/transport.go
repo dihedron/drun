@@ -38,7 +38,7 @@ type Transport struct {
 	ln        net.Listener
 	advertise net.Addr
 	identity  IdentitySource
-	peers     Peers
+	peers     *Peers
 	logger    *slog.Logger
 
 	mu      sync.RWMutex
@@ -58,7 +58,7 @@ type PeerConn struct {
 
 // Listen opens the cluster port on bind; advertise is the address the
 // other nodes reach it on (empty: the listening address).
-func Listen(bind, advertise string, identity IdentitySource, peers Peers, logger *slog.Logger) (*Transport, error) {
+func Listen(bind, advertise string, identity IdentitySource, peers *Peers, logger *slog.Logger) (*Transport, error) {
 	ln, err := net.Listen("tcp", bind)
 	if err != nil {
 		return nil, fmt.Errorf("cluster port: %w", err)
@@ -202,7 +202,7 @@ func (t *Transport) dial(ctx context.Context, address raft.ServerAddress, kind b
 	if !ok {
 		return nil, fmt.Errorf("no known server at %s", address)
 	}
-	want, ok := t.peers[string(id)]
+	want, ok := t.peers.Identity(string(id))
 	if !ok {
 		return nil, fmt.Errorf("no identity configured for %s", id)
 	}

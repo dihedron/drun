@@ -54,12 +54,14 @@ type testCluster struct {
 	dirs   map[string]string
 	nodes  map[string]*Node
 	fsms   map[string]*fsm.FSM
+	// unlisted nodes are in no other node's cluster.tls.peers
+	unlisted map[string]bool
 }
 
 // newTestCluster prepares nodes 0..n-1, the first voters of them initial
 // voters, with real certificates and ports
 func newTestCluster(t *testing.T, n, voters int) *testCluster {
-	c := &testCluster{t: t, ca: tlstest.NewCA(t), addrs: map[string]string{}, dirs: map[string]string{}, nodes: map[string]*Node{}, fsms: map[string]*fsm.FSM{}}
+	c := &testCluster{t: t, ca: tlstest.NewCA(t), addrs: map[string]string{}, dirs: map[string]string{}, nodes: map[string]*Node{}, fsms: map[string]*fsm.FSM{}, unlisted: map[string]bool{}}
 	for i := range n {
 		id := fmt.Sprintf("node-%d", i)
 		c.ids = append(c.ids, id)
@@ -94,7 +96,9 @@ func (c *testCluster) configFor(id string) *config.Config {
 	}
 	fmt.Fprintf(&b, "  tls:\n    cert: %s\n    key: %s\n    ca: %s\n    peers:\n", files.Cert, files.Key, files.CA)
 	for _, other := range c.ids {
-		fmt.Fprintf(&b, "      %s: %q\n", other, c.identity(other))
+		if other == id || !c.unlisted[other] {
+			fmt.Fprintf(&b, "      %s: %q\n", other, c.identity(other))
+		}
 	}
 	path := filepath.Join(dir, "resurgo.yaml")
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
@@ -110,7 +114,7 @@ func (c *testCluster) configFor(id string) *config.Config {
 func (c *testCluster) start(id string) *Node {
 	c.t.Helper()
 	f := fsm.New(nopStore{}, discard)
-	nd, err := New(c.configFor(id), f, discard)
+	nd, err := New(c.configFor(id), f, f.Peers, discard)
 	if err != nil {
 		c.t.Fatalf("starting %s: %v", id, err)
 	}
@@ -211,16 +215,21 @@ func (c *testCluster) others(l *Node) []string {
 
 func TestMembershipAndTransfer(t *testing.T) {
 	c := newTestCluster(t, 4, 3)
+	extra := c.ids[3]
+	c.unlisted[extra] = true
 	for _, id := range c.voters {
 		c.start(id)
 	}
 	l := c.leader(10 * time.Second)
 
-	// a non-voter joins: it has no voter list of its own entry, and does
-	// not bootstrap
-	extra := c.ids[3]
+	// a non-voter joins that no other node's configuration knows: its
+	// identity is recorded through the log, without restarts; it is not an
+	// initial voter, so it does not bootstrap
 	nd := c.start(extra)
-	if err := l.AddNonvoter(extra, c.addrs[extra]); err != nil {
+	if err := l.AddNonvoter(extra, c.addrs[extra], ""); err == nil {
+		t.Fatal("added a member whose identity nobody knows")
+	}
+	if err := l.AddNonvoter(extra, c.addrs[extra], c.identity(extra)); err != nil {
 		t.Fatalf("add non-voter: %v", err)
 	}
 	c.incarnate(l, "svc")
@@ -231,14 +240,30 @@ func TestMembershipAndTransfer(t *testing.T) {
 	if c.fsms[extra].EpochCounter() != 1 {
 		t.Fatal("the non-voter did not replicate")
 	}
-	if err := nd.AddVoter("x", "127.0.0.1:1"); !isNotLeader(err) {
+	if err := nd.AddVoter("x", "127.0.0.1:1", ""); !isNotLeader(err) {
 		t.Fatalf("add on a follower: %v, want ErrNotLeader", err)
 	}
-	if err := l.AddVoter("unknown", "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "peers") {
+	if err := l.AddVoter("unknown", "127.0.0.1:1", ""); err == nil || !strings.Contains(err.Error(), "cluster.tls.peers") {
 		t.Fatalf("add without identity: %v", err)
+	}
+	if err := l.AddVoter(c.voters[1], c.addrs[c.voters[1]], "spiffe://example.org/other"); err == nil || !strings.Contains(err.Error(), "configures") {
+		t.Fatalf("add with an identity other than the configured one: %v", err)
 	}
 	if err := l.Remove(extra); err != nil {
 		t.Fatalf("remove non-voter: %v", err)
+	}
+	if _, ok := c.fsms[l.cfg.Node.ID].Peers()[extra]; ok {
+		t.Fatal("the removed member's identity is still recorded")
+	}
+	// the removed member can no longer connect
+	conn, err := nd.Transport().RaftLayer().Dial(raft.ServerAddress(c.addrs[l.cfg.Node.ID]), 2*time.Second)
+	if err == nil {
+		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, err = conn.Read(make([]byte, 1))
+		_ = conn.Close()
+	}
+	if err == nil || os.IsTimeout(err) {
+		t.Fatalf("the removed member connected: %v", err)
 	}
 
 	// transfer to a named voter
@@ -256,7 +281,7 @@ func TestMembershipAndTransfer(t *testing.T) {
 	// removing the leader transfers leadership first
 	l = c.leader(10 * time.Second)
 	old := l.cfg.Node.ID
-	err := l.Remove(old)
+	err = l.Remove(old)
 	if !isNotLeader(err) {
 		t.Fatalf("removing the leader: %v, want ErrNotLeader after the transfer", err)
 	}
@@ -292,7 +317,7 @@ func TestDataDirMustBePrivate(t *testing.T) {
 	if err := os.Chmod(cfg.Node.DataDir, 0o755); err != nil { //nolint:gosec // the test's point
 		t.Fatal(err)
 	}
-	if _, err := New(cfg, fsm.New(nopStore{}, discard), discard); err == nil || !strings.Contains(err.Error(), "0700") {
+	if _, err := New(cfg, fsm.New(nopStore{}, discard), nil, discard); err == nil || !strings.Contains(err.Error(), "0700") {
 		t.Fatalf("New with a 0755 data directory: %v", err)
 	}
 }
