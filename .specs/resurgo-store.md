@@ -1,7 +1,7 @@
 # resurgo: the replicated SQL store of a runnable
 
 - **Document Version:** `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
-- **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
+- **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
 
