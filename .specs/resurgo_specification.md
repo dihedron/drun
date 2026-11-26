@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -555,6 +555,18 @@ reads a clock.
 | `SetDisabled{runnable, bool}` | admin | — |
 | `Reset{runnable, checkpoint?, completion?, failures?}` | admin: clears the chosen parts | — |
 | `Forget{runnable}` | admin: removes a runnable no longer configured | runnable is running |
+
+Details settled in C1 (2026-11-26):
+- `StoreBatch`, like `Checkpoint`, is refused once the incarnation is
+  released.
+- `Reset` of the checkpoint removes it: the next checkpoint has sequence
+  number 1.
+- `SetDisabled` on a runnable without state creates it, so that a runnable
+  can be disabled before it first runs.
+- A refused command changes nothing. A store failure that is not
+  deterministic (an I/O error, not a SQL error) also leaves the state
+  unchanged, and the node MUST then stop (C2b): carrying on would leave its
+  replica behind the others'.
 
 ### 9.3 Snapshots and log size
 
