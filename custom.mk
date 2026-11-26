@@ -113,3 +113,17 @@ proto: ## regenerate the Go code of the protobuf definitions in proto/ (needs pr
 	@protoc --go_out=. --go_opt=module=github.com/dihedron/resurgo \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/dihedron/resurgo \
 		$$(find proto -name '*.proto')
+
+# STRESS_DURATION and SOAK_DURATION are how long the supervisor runs under
+# random faults; a soak takes hours: run it overnight (AGENTS.md rules 14, 15)
+STRESS_DURATION ?= 2m
+SOAK_DURATION ?= 8h
+
+.PHONY: stress
+stress: ## run an in-process cluster under random faults for STRESS_DURATION (default 2m), with the race detector
+	@RESURGO_STRESS=$(STRESS_DURATION) go test -race -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
+
+.PHONY: soak
+soak: ## the same for SOAK_DURATION (default 8h): an overnight run
+	@RESURGO_STRESS=$(SOAK_DURATION) go test -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
+
