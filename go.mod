@@ -26,7 +26,7 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	go.etcd.io/bbolt v1.4.1 // indirect
+	go.etcd.io/bbolt v1.5.0 // indirect
 	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
