@@ -13,7 +13,7 @@ GOLANGCI_LINT_VERSION := 2.14
 .PHONY: lint
 lint: ## check that the code is clean (gofmt, go vet, golangci-lint); every build runs it first
 	@echo "Checking the code..."
-	@unformatted="$$(gofmt -l cmd internal pkg)"; \
+	@unformatted="$$(gofmt -l cmd internal pkg test)"; \
 		if [ -n "$$unformatted" ]; then echo "not formatted with gofmt (run gofmt -w):" >&2; echo "$$unformatted" >&2; exit 1; fi
 	@go vet ./...
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint is not installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION).0" >&2; exit 1; }
@@ -99,3 +99,11 @@ vuln: ## check go.mod and the code for known vulnerabilities with govulncheck (r
 	go run golang.org/x/vuln/cmd/govulncheck@latest -C cmd/resurgo -scan module || rc=1; \
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./... || rc=1; \
 	exit $$rc
+
+# SPIKE_REPEAT is how many times make spike repeats the randomised spike tests
+SPIKE_REPEAT ?= 100
+
+.PHONY: spike
+spike: ## re-check the external assumptions (EXT-nn, EXT-S-nn) in depth: run on every bump of raft, go-plugin or go-sqlite3
+	@go test -race -count=1 -v ./test/spike/... -args -spike.repeat=$(SPIKE_REPEAT)
+	@go test -count=1 -run '^$$' -bench . -benchtime 3s ./test/spike/...

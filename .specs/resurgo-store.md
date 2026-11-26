@@ -1,6 +1,6 @@
 # resurgo: the replicated SQL store of a runnable
 
-- **Document Version:** `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
+- **Document Version:** `0.2.1` (2026-11-26): spike results (§7), OI-S-4; `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
 - **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
 - **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
@@ -253,13 +253,13 @@ The node stays a single static binary (parent NFR-6):
 
 ## 7. External assumptions (spike, parent chunk C0)
 
-| ID | Assumption |
-| :--- | :--- |
-| EXT-S-1 | `mattn/go-sqlite3` exposes an authorizer (`RegisterAuthorizer`) that sees every function call and pragma |
-| EXT-S-2 | A progress handler can be installed on the driver's connections (the driver, or a small cgo shim on the same bundled SQLite); the number of callbacks for a statement on the same data is the same on every node. If neither works, the fallback is S-1's alternative |
-| EXT-S-3 | A WAL read transaction gives a consistent copy (backup API or `VACUUM INTO`) while another connection commits |
-| EXT-S-4 | hashicorp/raft applies entries after the restored snapshot again on restart (the reason for STO-3), and offers no hook that makes STO-3 unnecessary |
-| EXT-S-5 | Throughput on the lab: batches of 10 small rows, 3 nodes, LAN: at least 500 batches/s; on the WAN profile (parent §8.7), at least 25 sequential and 300 concurrent batches/s |
+| ID | Assumption | Result (`test/spike`) |
+| :--- | :--- | :--- |
+| EXT-S-1 | `mattn/go-sqlite3` exposes an authorizer (`RegisterAuthorizer`) that sees every function call and pragma | Verified (2026-11-26): the authorizer sees `random`, `randomblob`, every date and time function, `current_timestamp`, every `PRAGMA`, `ATTACH`, temp objects; `VACUUM` arrives as an `ATTACH` with an empty name; a denial fails the statement. **Gap:** a function's arguments are not passed, so `date('now')` cannot be told from `date('2026-01-01')` (OI-S-4) |
+| EXT-S-2 | A progress handler can be installed on the driver's connections (the driver, or a small cgo shim on the same bundled SQLite); the number of callbacks for a statement on the same data is the same on every node. If neither works, the fallback is S-1's alternative | Verified (2026-11-26) with the cgo shim: the driver has no progress-handler API, so `test/spike/progress.go` reads its unexported `SQLiteConn.db` (reflection, checked against the pinned layout) and calls the bundled `sqlite3_progress_handler`. Counts identical across journal, cache and mmap settings; a runaway CTE stops at the budget with `SQLITE_INTERRUPT` |
+| EXT-S-3 | A WAL read transaction gives a consistent copy (backup API or `VACUUM INTO`) while another connection commits | Verified (2026-11-26): `VACUUM INTO` and the backup API, under a committing writer, give consistent copies |
+| EXT-S-4 | hashicorp/raft applies entries after the restored snapshot again on restart (the reason for STO-3), and offers no hook that makes STO-3 unnecessary | Verified (2026-11-26) on raft-boltdb/v2 and file snapshots: after a restart the snapshot is restored and every later entry applied again |
+| EXT-S-5 | Throughput on the lab: batches of 10 small rows, 3 nodes, LAN: at least 500 batches/s; on the WAN profile (parent §8.7), at least 25 sequential and 300 concurrent batches/s | Local part only (2026-11-26): in-memory transport and log, SQLite in WAL: about 13 000 sequential and 19 000 concurrent batches/s, so the apply path is not the limit; the thresholds are measured in the lab (C7, AC-16) |
 
 ## 8. Acceptance scenarios
 
@@ -284,3 +284,13 @@ The node stays a single static binary (parent NFR-6):
   database, 1 MiB batches, 50 M VM steps, 30 s queries.
 - **OI-S-3** *Decided* (2026-11-25): operators can inspect and modify the
   store through the log and the FSM (STO-16, STO-17).
+- **OI-S-4** Open (2026-11-26, from EXT-S-1): the authorizer sees a
+  function's name, never its arguments, so STO-4 cannot refuse
+  `date('now')` while allowing `date('2026-01-01')` through it. Proposed:
+  the FSM registers its own `date`, `time`, `datetime`, `julianday`,
+  `unixepoch` and `strftime` on every connection (`RegisterFunc`
+  overrides the built-ins), which fail on `'now'` and its modifiers and
+  otherwise call the built-in arithmetic; `current_time`, `current_date`
+  and `current_timestamp` are refused by name. Alternative: refuse the
+  date and time functions altogether, and let runnables compute dates
+  from `resurgo_now()` in Go.

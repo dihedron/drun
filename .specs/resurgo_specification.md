@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (bbolt), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -732,17 +732,17 @@ plus Raft's own metrics (FW-3).
 
 ### 12.1 External assumptions (verified by the spike, chunk C0)
 
-| ID | Assumption | Test |
-| :--- | :--- | :--- |
-| EXT-1 | `ApplyFuture.Error()` returns nil only after the entry is committed and applied on the leader; on leadership loss it returns an error, and the entry may or may not commit later | spike test with partitions on `InmemTransport` |
-| EXT-2 | Calling `BootstrapCluster` with identical configurations on all initial voters is safe | 3 and 5 nodes started in random order, repeated |
-| EXT-3 | A leader that cannot reach a quorum steps down within about `LeaderLeaseTimeout` and reports it on `LeaderCh` / an observation | measured bound, under partition |
-| EXT-4 | Pre-vote (raft ≥ 1.7) keeps a rejoining partitioned node from causing an election | partition, heal, no term change |
-| EXT-5 | A go-plugin child does not reliably exit when the host dies; `Pdeathsig` and the cgroup kill it | `kill -9` of the node, child observed |
-| EXT-6 | `CLOCK_BOOTTIME` is the same clock for two processes on a host, keeps running while a process is stopped, and moves forward across an LXD VM pause | `SIGSTOP`, `lxc pause` in the lab |
-| EXT-7 | `raft.Log` passed to `FSM.Apply` carries `Term` and `Index` | unit test |
-| EXT-8 | `VerifyLeader` fails once a newer leader exists or no quorum answers | spike test |
-| EXT-9 | A follower that heard from the leader within `HeartbeatTimeout` refuses to vote for another candidate, except for a leadership transfer started by that leader | spike test with a forced candidate |
+| ID | Assumption | Test | Result (`test/spike`) |
+| :--- | :--- | :--- | :--- |
+| EXT-1 | `ApplyFuture.Error()` returns nil only after the entry is committed and applied on the leader; on leadership loss it returns an error, and the entry may or may not commit later | spike test with partitions on `InmemTransport` | Verified (2026-11-26): over 40 partitions around a write, every nil error was applied on the leader and survived; errors were seen both for entries later committed and lost |
+| EXT-2 | Calling `BootstrapCluster` with identical configurations on all initial voters is safe | 3 and 5 nodes started in random order, repeated | Verified (2026-11-26): 3 and 5 nodes, random order and delays |
+| EXT-3 | A leader that cannot reach a quorum steps down within about `LeaderLeaseTimeout` and reports it on `LeaderCh` / an observation | measured bound, under partition | Verified (2026-11-26): worst step-down about 1.05 × `LeaderLeaseTimeout` (105 ms for 100 ms) |
+| EXT-4 | Pre-vote (raft ≥ 1.7) keeps a rejoining partitioned node from causing an election | partition, heal, no term change | Verified (2026-11-26), with a control: without pre-vote the same rejoin changes the term |
+| EXT-5 | A go-plugin child does not reliably exit when the host dies; `Pdeathsig` and the cgroup kill it | `kill -9` of the node, child observed | Verified locally (2026-11-26): without `Pdeathsig` the plugin outlives a `kill -9` of its host; with it, it is gone at once. `Pdeathsig` fires when the *thread* that started the child exits, so the supervisor starts each plugin from a goroutine locked to its OS thread for the plugin's life. Cgroup kill: lab (C7) |
+| EXT-6 | `CLOCK_BOOTTIME` is the same clock for two processes on a host, keeps running while a process is stopped, and moves forward across an LXD VM pause | `SIGSTOP`, `lxc pause` in the lab | Verified locally (2026-11-26): one clock for parent and child, advances across `SIGSTOP`. `lxc pause`: lab (C7) |
+| EXT-7 | `raft.Log` passed to `FSM.Apply` carries `Term` and `Index` | unit test | Verified (2026-11-26) |
+| EXT-8 | `VerifyLeader` fails once a newer leader exists or no quorum answers | spike test | Verified (2026-11-26): fails on an isolated leader at once, and on a deposed one |
+| EXT-9 | A follower that heard from the leader within `HeartbeatTimeout` refuses to vote for another candidate, except for a leadership transfer started by that leader | spike test with a forced candidate | Verified (2026-11-26), with a narrower mechanism: hashicorp/raft refuses a vote while it knows *any* leader other than the candidate (not a `HeartbeatTimeout` window), and grants it with `LeadershipTransfer` set |
 
 ## 13. System invariants
 
