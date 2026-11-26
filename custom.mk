@@ -110,4 +110,6 @@ spike: ## re-check the external assumptions (EXT-nn, EXT-S-nn) in depth: run on 
 
 .PHONY: proto
 proto: ## regenerate the Go code of the protobuf definitions in proto/ (needs protoc and protoc-gen-go)
-	@protoc --go_out=. --go_opt=module=github.com/dihedron/resurgo $$(find proto -name '*.proto')
+	@protoc --go_out=. --go_opt=module=github.com/dihedron/resurgo \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/dihedron/resurgo \
+		$$(find proto -name '*.proto')

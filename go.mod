@@ -13,7 +13,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.53
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/sys v0.50.0
-	google.golang.org/grpc v1.61.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 )
 
@@ -29,7 +29,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	go.etcd.io/bbolt v1.5.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1 // indirect
 )

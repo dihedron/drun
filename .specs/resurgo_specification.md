@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -391,7 +391,12 @@ message RunnableMessage {
 ```
 
 Requests on the stream carry an ID; the host answers each with a result of
-the same ID. The stream ending without `Exit` is a crash. The plugin's
+the same ID. The stream ending without `Exit` is a crash. As built (C3,
+`proto/runnable/v1`): `Start` also carries the first lease
+(`valid_until_boottime_ns`), so that `Run` never runs unleased; results
+are `CheckpointResult`, `StatusResult`, `ExecResult` and `QueryResult`
+(the query's rows in one message, bounded by `store.max_result`); errors
+say whether they are a fencing or a rolled-back batch. The plugin's
 stderr is captured into the node's log with `runnable` and `epoch`.
 
 ### 8.3 Leadership confirmation and the runnable lease
@@ -463,8 +468,8 @@ COMMIT;
 
 The claim's row lock waits for the predecessor's open transactions, and
 after the claim every predecessor transaction fails its check, so the
-store serialises the two incarnations whatever their timing. The SDK
-SHOULD ship this as a helper (`pkg/runnable/fence/postgres`, OI-12). Side
+store serialises the two incarnations whatever their timing. A helper in
+the SDK is future work (FW-10, OI-12). Side
 effects in systems that cannot check an epoch (an e-mail, a call to an
 external API) may happen twice during an overlap; runnables that need
 them exactly once must make them idempotent at the receiver.
@@ -858,9 +863,10 @@ checker).
   validation (FR-16) refuse leadership, i.e. transfer it away when elected,
   so that a misconfigured node never ends up running nothing? Proposed:
   yes, through the same mechanism as FR-8.
-- **OI-12 SDK scope.** Ship the PostgreSQL fence helper of §8.5 in v1?
-  Keep the SDK in this module (`pkg/runnable`) until v1.0.0, then a
-  separate module?
+- **OI-12 SDK scope.** *Decided* (2026-11-26): no fence helper for
+  external databases in v1; §8.5 stays the documented pattern for a
+  runnable that also writes to a database of its own, and the helper is
+  FW-10. The SDK stays in this module (`pkg/runnable`) until v1.0.0.
 
 ## 16. Implementation plan
 
