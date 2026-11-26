@@ -107,3 +107,7 @@ SPIKE_REPEAT ?= 100
 spike: ## re-check the external assumptions (EXT-nn, EXT-S-nn) in depth: run on every bump of raft, go-plugin or go-sqlite3
 	@go test -race -count=1 -v ./test/spike/... -args -spike.repeat=$(SPIKE_REPEAT)
 	@go test -count=1 -run '^$$' -bench . -benchtime 3s ./test/spike/...
+
+.PHONY: proto
+proto: ## regenerate the Go code of the protobuf definitions in proto/ (needs protoc and protoc-gen-go)
+	@protoc --go_out=. --go_opt=module=github.com/dihedron/resurgo $$(find proto -name '*.proto')
