@@ -1,6 +1,6 @@
 # resurgo: the replicated SQL store of a runnable
 
-- **Document Version:** `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
+- **Document Version:** `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
@@ -223,6 +223,11 @@ The node stays a single static binary (parent NFR-6):
   "not a dynamic executable", checked by a packaging test.
 - goreleaser gets one build per architecture with its `CC`; CI installs
   the toolchain; the race detector needs cgo anyway.
+- Checked in C2b (2026-11-26) with zig 0.17.1: the store's tests built
+  with `CC="zig cc -target x86_64-linux-musl"` and the flags above are
+  statically linked and pass; the `aarch64-linux-musl` build links
+  statically too. The release build switches to it when `serve` links the
+  store (C5).
 - Only the node links SQLite: runnables reach the store through the
   plugin protocol, so they and the SDK stay `CGO_ENABLED=0`.
 - `govulncheck` does not see the C code: the SQLite version bundled by the

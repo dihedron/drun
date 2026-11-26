@@ -14,14 +14,15 @@ type Store interface {
 	// Exec applies a batch the FSM has already fenced. A deterministic
 	// failure (SQL error, expectation, limit) is in the result, the same on
 	// every node; an error is a failure of this node (I/O), after which the
-	// FSM leaves its own state unchanged.
-	Exec(index uint64, batch *fsmpb.StoreBatch) (*fsmpb.BatchResult, error)
+	// FSM leaves its own state unchanged. limits are the runnable's, as
+	// replicated by its Incarnate (STO-7 to STO-9).
+	Exec(index uint64, batch *fsmpb.StoreBatch, limits *fsmpb.StoreLimits) (*fsmpb.BatchResult, error)
 	// PutCheckpoint replaces the runnable's checkpoint (STO-12).
 	PutCheckpoint(index uint64, runnable string, meta *fsmpb.CheckpointMeta, data []byte) error
 	// ClearCheckpoint removes the runnable's checkpoint.
 	ClearCheckpoint(index uint64, runnable string) error
 	// Forget removes the runnable's database.
-	Forget(runnable string) error
+	Forget(index uint64, runnable string) error
 	// Snapshot takes a consistent copy of every database (STO-14); it is
 	// called with applies stopped, and the copy is written later, while
 	// they run again.

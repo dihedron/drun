@@ -21,12 +21,12 @@ import (
 // nopStore is a fsm.Store without databases
 type nopStore struct{}
 
-func (nopStore) Exec(uint64, *fsmpb.StoreBatch) (*fsmpb.BatchResult, error) {
+func (nopStore) Exec(uint64, *fsmpb.StoreBatch, *fsmpb.StoreLimits) (*fsmpb.BatchResult, error) {
 	return &fsmpb.BatchResult{}, nil
 }
 func (nopStore) PutCheckpoint(uint64, string, *fsmpb.CheckpointMeta, []byte) error { return nil }
 func (nopStore) ClearCheckpoint(uint64, string) error                              { return nil }
-func (nopStore) Forget(string) error                                               { return nil }
+func (nopStore) Forget(uint64, string) error                                       { return nil }
 func (nopStore) Snapshot() (fsm.StoreSnapshot, error)                              { return nopSnapshot{}, nil }
 func (nopStore) Restore(io.Reader) error                                           { return nil }
 
@@ -56,6 +56,8 @@ type testCluster struct {
 	fsms   map[string]*fsm.FSM
 	// unlisted nodes are in no other node's cluster.tls.peers
 	unlisted map[string]bool
+	// newStore, if set, gives each node's store (default: none)
+	newStore func(id string) fsm.Store
 }
 
 // newTestCluster prepares nodes 0..n-1, the first voters of them initial
@@ -113,7 +115,11 @@ func (c *testCluster) configFor(id string) *config.Config {
 
 func (c *testCluster) start(id string) *Node {
 	c.t.Helper()
-	f := fsm.New(nopStore{}, discard)
+	var st fsm.Store = nopStore{}
+	if c.newStore != nil {
+		st = c.newStore(id)
+	}
+	f := fsm.New(st, discard)
 	nd, err := New(c.configFor(id), f, f.Peers, discard)
 	if err != nil {
 		c.t.Fatalf("starting %s: %v", id, err)

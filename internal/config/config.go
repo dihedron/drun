@@ -332,6 +332,15 @@ func (c *Config) validateRunnables(bad func(string, ...any)) {
 	}
 }
 
+// ValidRunnableName checks a runnable's name, which is also its store's
+// file name.
+func ValidRunnableName(name string) error {
+	if !runnableName.MatchString(name) {
+		return fmt.Errorf("runnable name %q: letters, digits, '.', '_' and '-' only, at most 64", name)
+	}
+	return nil
+}
+
 // ValidIdentity checks a peer identity: a spiffe:// URI or a DNS name.
 func ValidIdentity(identity string) error {
 	if u, err := url.Parse(identity); err == nil && u.Scheme == "spiffe" {

@@ -25,7 +25,7 @@ func newFakeStore() *fakeStore {
 	return &fakeStore{checkpoints: map[string][]byte{}, batches: map[string]int{}}
 }
 
-func (s *fakeStore) Exec(_ uint64, batch *fsmpb.StoreBatch) (*fsmpb.BatchResult, error) {
+func (s *fakeStore) Exec(_ uint64, batch *fsmpb.StoreBatch, _ *fsmpb.StoreLimits) (*fsmpb.BatchResult, error) {
 	if s.fail != nil {
 		return nil, s.fail
 	}
@@ -53,7 +53,7 @@ func (s *fakeStore) ClearCheckpoint(_ uint64, runnable string) error {
 	return nil
 }
 
-func (s *fakeStore) Forget(runnable string) error {
+func (s *fakeStore) Forget(_ uint64, runnable string) error {
 	if s.fail != nil {
 		return s.fail
 	}

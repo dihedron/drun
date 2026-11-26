@@ -106,7 +106,7 @@ func (f *FSM) Apply(l *raft.Log) any {
 	case *fsmpb.Command_ResetRunnable:
 		msg, res = c.ResetRunnable, f.reset(l, c.ResetRunnable)
 	case *fsmpb.Command_Forget:
-		msg, res = c.Forget, f.forget(c.Forget)
+		msg, res = c.Forget, f.forget(l, c.Forget)
 	case *fsmpb.Command_SetPeer:
 		msg, res = c.SetPeer, f.setPeer(c.SetPeer)
 	case *fsmpb.Command_RemovePeer:
@@ -165,10 +165,11 @@ func (f *FSM) writable(name string, epoch uint64) (*fsmpb.Runnable, error) {
 }
 
 func (f *FSM) storeBatch(l *raft.Log, c *fsmpb.StoreBatch) *Result {
-	if _, err := f.writable(c.GetRunnable(), c.GetEpoch()); err != nil {
+	r, err := f.writable(c.GetRunnable(), c.GetEpoch())
+	if err != nil {
 		return &Result{Err: err}
 	}
-	br, err := f.store.Exec(l.Index, c)
+	br, err := f.store.Exec(l.Index, c, r.GetStoreLimits())
 	if err != nil {
 		return &Result{Err: fmt.Errorf("%w: batch: %w", ErrStore, err)}
 	}
@@ -176,6 +177,9 @@ func (f *FSM) storeBatch(l *raft.Log, c *fsmpb.StoreBatch) *Result {
 }
 
 func (f *FSM) incarnate(l *raft.Log, c *fsmpb.Incarnate) *Result {
+	if err := config.ValidRunnableName(c.GetRunnable()); err != nil {
+		return &Result{Err: fmt.Errorf("%w: %w", ErrInvalid, err)}
+	}
 	r, ok := f.runnables[c.GetRunnable()]
 	switch {
 	case !ok:
@@ -261,6 +265,9 @@ func (f *FSM) fail(c *fsmpb.Fail) *Result {
 }
 
 func (f *FSM) setDisabled(c *fsmpb.SetDisabled) *Result {
+	if err := config.ValidRunnableName(c.GetRunnable()); err != nil {
+		return &Result{Err: fmt.Errorf("%w: %w", ErrInvalid, err)}
+	}
 	r, ok := f.runnables[c.GetRunnable()]
 	if !ok {
 		r = &fsmpb.Runnable{Name: c.GetRunnable()}
@@ -290,7 +297,7 @@ func (f *FSM) reset(l *raft.Log, c *fsmpb.Reset) *Result {
 	return &Result{}
 }
 
-func (f *FSM) forget(c *fsmpb.Forget) *Result {
+func (f *FSM) forget(l *raft.Log, c *fsmpb.Forget) *Result {
 	r, ok := f.runnables[c.GetRunnable()]
 	if !ok {
 		return &Result{Err: fmt.Errorf("%w %q", ErrUnknownRunnable, c.GetRunnable())}
@@ -298,7 +305,7 @@ func (f *FSM) forget(c *fsmpb.Forget) *Result {
 	if r.GetCurrent() != nil && !r.GetReleased() {
 		return &Result{Err: fmt.Errorf("%w: epoch %d was not released", ErrRunning, r.GetCurrent().GetEpoch())}
 	}
-	if err := f.store.Forget(r.GetName()); err != nil {
+	if err := f.store.Forget(l.Index, r.GetName()); err != nil {
 		return &Result{Err: fmt.Errorf("%w: forgetting: %w", ErrStore, err)}
 	}
 	delete(f.runnables, r.GetName())

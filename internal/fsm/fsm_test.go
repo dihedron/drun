@@ -150,6 +150,8 @@ func TestIncarnateRefused(t *testing.T) {
 		t.Fatal("a refused Incarnate used an epoch")
 	}
 	h.apply(setDisabled("svc", false))
+	wantErr(t, h.apply(incarnate("../svc", "n1")), ErrInvalid)
+	wantErr(t, h.apply(setDisabled("", true)), ErrInvalid)
 	e := h.incarnate("svc", "n1")
 
 	// INV-8: a completed task is not started again until reset
