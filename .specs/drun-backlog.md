@@ -14,7 +14,7 @@ is part of v1.
 | FW-7 | Signed runnable manifests, as in veho, for third-party runnables |
 | FW-8 | Non-voter promotion helpers (autopilot-like health checks). *Done 2026-11-27*: `member show` (health as the leader judges it), `member promote` and gated `member add` of a voter (healthy for `--stable`), `member demote` (FR-17); automatic promotion stays out |
 | FW-S-1 | Leader-local interactive transactions shipped as SQLite changesets (session extension) |
-| FW-S-2 | Group commit of concurrent batches into one Raft entry |
+| FW-S-2 | Group commit of concurrent batches into one Raft entry. *Dropped 2026-11-27*: hashicorp/raft's leader loop already writes every ready entry in one `StoreLogs` (one fsync); on the dev host, 3 nodes, raft-wal, 1 KiB: 108 commits/s with one writer, 520/s with 16; `BatchApplyCh` gave 290/s. The store does not fsync per batch (WAL, `synchronous=NORMAL`), the apply path does 19 000 batches/s (EXT-S-5), and grouping batches in one SQLite transaction would make page allocation, and so `store.max_size` (STO-8), depend on the grouping |
 | FW-S-3 | Stale reads from followers for administrators and reporting |
 | FW-9 | Preferred-leader policy (e.g. the region closest to the runnable's external systems), by leadership transfer after an election. *Dropped 2026-11-27*: no automatic policy; an operator places leadership by hand with `leader transfer --to ID` (FR-3) |
 | FW-10 | A fence helper in the SDK for runnables that also write to an external database (§8.5). *Done 2026-11-27*: `pkg/runnable/fence/postgres` on pgx (`Claim`, `Check`, `Tx`), keyed by cluster and runnable; the fenced-counter uses it; other databases stay the documented pattern |
