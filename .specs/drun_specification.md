@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `drun`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.4.3` (2026-11-27): member health and gated promotion (FR-17, FW-8); `0.4.2` (2026-11-27): the PostgreSQL fence helper (FW-10, §8.5, T-16, R-8), OI-12 revisited; `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.4.4` (2026-11-27): signed runnable manifests (SEC-4, §8.8, FW-7, T-18, T-19); `0.4.3` (2026-11-27): member health and gated promotion (FR-17, FW-8); `0.4.2` (2026-11-27): the PostgreSQL fence helper (FW-10, §8.5, T-16, R-8), OI-12 revisited; `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-wal` (v0.5.x, the default log store) and `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -584,6 +584,62 @@ Consequences, measured in the lab (AC-16):
 The profile is a starting point; the lab's measurements decide its final
 values.
 
+### 8.8 Signed runnable manifests (FW-7)
+
+A third-party runnable can be trusted through a manifest signed by its
+publisher, installed next to the binary by the publisher's package,
+instead of a digest the operator copies into every node's configuration.
+The design is veho's (`veho-plugin-distribution.md` §3), with drun's
+names.
+
+```yaml
+runnables:
+  - name: invoice-scheduler
+    binary: /usr/libexec/drun/runnables/invoice-scheduler
+    key: acme          # instead of sha256: /etc/drun/runnable-keys/acme.pub
+```
+
+- **Configuration:** a runnable has `sha256` or `key`, exactly one.
+  `key` names `/etc/drun/runnable-keys/<key>.pub`, a file of base64
+  Ed25519 public keys, one a line (`#` comments and blank lines
+  skipped), so that a key can be rotated over one release.
+- **Manifest:** `<binary>.manifest` holds
+  `{"name": "invoice-scheduler", "version": "1.2.0", "drun": "[0.5.0,0.6.0)", "sha256": "…", "protocol": 1}`;
+  `<binary>.manifest.sig` the base64 Ed25519 signature of its exact
+  bytes. `drun` is the range of drun versions the runnable supports, in
+  interval notation, Semantic Versioning precedence (`pkg/semver`, as
+  veho's).
+- **Verification**, at start, before FR-16's checks: the key directory
+  and file, the manifest, its signature and the binary's directory are
+  root-owned and not writable by group or others; one of the key's keys
+  verifies the signature; `name` is the configured runnable's name;
+  drun's version is in `drun`; `protocol` is the plugin protocol's. The
+  manifest's `sha256` then pins the binary as a configured one does: go-
+  plugin hashes the file before every start, and the digest is the one
+  recorded in `Incarnate` (FR-15 drift works unchanged). A failure is an
+  invalid runnable (FR-16), reported with the step that failed: the node
+  still joins the cluster.
+- **Development builds** have a version no release range contains, so
+  they run only runnables pinned by `sha256`.
+- **Signing:** `tools/runnable-manifest` (no cgo, so
+  publishers run it with `go run
+  github.com/dihedron/drun/tools/runnable-manifest@<version>`): `genkey
+  FILE` (the private key to FILE, 0600; the public key to stdout),
+  `pubkey` (the public key of `$RUNNABLE_SIGNING_KEY`), `sign -name N
+  -version V [-drun RANGE] [-out DIR] [-allow-unsigned] BINARY` (signed
+  with the base64 private key in `$RUNNABLE_SIGNING_KEY`; the default
+  range, `[V]`, is the release's own; `-allow-unsigned` signs a snapshot
+  with a throwaway key that no drun accepts).
+- **The release** signs the example runnables with drun's key (the
+  secret `RUNNABLE_SIGNING_KEY`, public half `packaging/runnable-signing.pub`,
+  checked against the secret before the build). The `drun` package
+  installs it as `/etc/drun/runnable-keys/drun.pub`, and the examples
+  package installs each manifest next to its binary, with the range
+  `[<release>]`: configure an example with `key: drun`, and upgrade drun
+  and the examples together.
+- **Scope:** a key signs only the runnables that name it, so adding a
+  key trusts nothing by itself.
+
 ## 9. The state machine
 
 ### 9.1 State
@@ -858,9 +914,10 @@ assumptions (§12.1).
 - **SEC-3** Certificates MAY come from files (reloaded on change) or from
   the SPIFFE Workload API (OI-4).
 - **SEC-4** Only runnable binaries whose SHA-256 matches the configured
-  digest are executed (go-plugin `SecureConfig`); the binary and its
-  directory MUST be root-owned and not writable by the service user,
-  checked at start.
+  digest, or the digest of a manifest signed by a key the runnable names
+  (§8.8), are executed (go-plugin `SecureConfig`); the binary, its
+  manifest and its directory MUST be root-owned and not writable by the
+  service user, checked at start.
 - **SEC-5** Plugins run with AutoMTLS and the handshake cookie; a plugin is
   given only its own incarnation's stream: it cannot checkpoint for another
   runnable or reach the admin API.
@@ -908,6 +965,8 @@ assumptions (§12.1).
 | T-15 | (I) A host that reaches `metrics.listen` reads the peers' IDs and Raft's replication timings | metrics off by default; bind to loopback or a monitoring network; no secrets, addresses or payloads in any series | — |
 | T-16 | (T) A stale incarnation writes to the runnable's external PostgreSQL after a newer one started | the fence helper (§8.5): claim, and a locked check in every writing transaction | R-4, R-8 |
 | T-17 | (D) An operator promotes a member that is still catching up, and commits stall until it does | FR-17: promotion only after `--stable` of healthy checks; `--force` is explicit | — |
+| T-18 | (T) A runnable binary is replaced by another, or by an older signed one with a known flaw | the signed manifest's digest (SEC-4); drun's version must be in the manifest's range; root-owned files | R-9 |
+| T-19 | (S, E) A key added to `/etc/drun/runnable-keys` trusts a malicious publisher | the directory and files root-owned; a key signs only the runnables that name it | — |
 
 ### 11.3 Accepted residual risks
 
@@ -933,6 +992,9 @@ assumptions (§12.1).
   could then write again until the current one claims. After a restore,
   restart the runnable (`runnable restart`) so a new epoch claims the
   fence.
+- **R-9** A publisher's older signed runnable can be put back within the
+  drun range the publisher signed: narrow ranges, or a new key, revoke
+  old manifests.
 
 ## 12. Decisions
 

@@ -133,6 +133,9 @@ type Runnable struct {
 	Kind   string `yaml:"kind"`
 	Binary string `yaml:"binary"`
 	SHA256 string `yaml:"sha256"`
+	// Key, instead of SHA256, names the publisher's key file that must
+	// have signed the binary's manifest (drun_specification.md §8.8).
+	Key string `yaml:"key"`
 	// Config is passed to Validate and Run as JSON.
 	Config        map[string]any `yaml:"config"`
 	TakeoverDelay TakeoverDelay  `yaml:"takeover_delay"`
@@ -383,7 +386,12 @@ func (c *Config) validateRunnables(bad func(string, ...any)) {
 		if !filepath.IsAbs(r.Binary) {
 			bad("runnables: %q: binary %q is not an absolute path", r.Name, r.Binary)
 		}
-		if !sha256Hex.MatchString(r.SHA256) {
+		switch {
+		case (r.SHA256 == "") == (r.Key == ""):
+			bad("runnables: %q: exactly one of sha256 and key", r.Name)
+		case r.Key != "" && !runnableName.MatchString(r.Key):
+			bad("runnables: %q: key %q: letters, digits, '.', '_' and '-' only, at most 64", r.Name, r.Key)
+		case r.SHA256 != "" && !sha256Hex.MatchString(r.SHA256):
 			bad("runnables: %q: sha256 must be 64 lower-case hexadecimal digits", r.Name)
 		}
 		if r.Checkpoint.MaxSize > maxCheckpointSize {

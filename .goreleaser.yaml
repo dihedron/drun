@@ -99,6 +99,12 @@ builds:
       - -s -w
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
     mod_timestamp: "{{ .CommitTimestamp }}"
+    # its signed manifest (drun_specification.md §8.8): a snapshot signs with
+    # a throwaway key no drun accepts
+    hooks:
+      post:
+        - cmd: go run ./tools/runnable-manifest sign -name ticker -version {{ .Version }} -out build/runnables/{{ .Os }}_{{ .Arch }} {{ if .IsSnapshot }}-allow-unsigned{{ end }} {{ .Path }}
+          output: true
   - id: fenced-counter
     main: ./cmd/drun-runnable-fenced-counter
     binary: drun-runnable-fenced-counter
@@ -110,6 +116,12 @@ builds:
       - -s -w
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
     mod_timestamp: "{{ .CommitTimestamp }}"
+    # its signed manifest (drun_specification.md §8.8): a snapshot signs with
+    # a throwaway key no drun accepts
+    hooks:
+      post:
+        - cmd: go run ./tools/runnable-manifest sign -name fenced-counter -version {{ .Version }} -out build/runnables/{{ .Os }}_{{ .Arch }} {{ if .IsSnapshot }}-allow-unsigned{{ end }} {{ .Path }}
+          output: true
 
 archives:
   - id: drun
@@ -138,6 +150,9 @@ archives:
       {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
+    files:
+      - src: "build/runnables/{{ .Os }}_{{ .Arch }}/*.manifest*"
+        strip_parent: true
 
 upx:
   - enabled: false
@@ -203,6 +218,20 @@ nfpms:
           mode: 0755
           owner: root
           group: root
+      # the release's runnable-signing keys: a plain file, not a configuration
+      # one, so that an upgrade installs the current keys (§8.8)
+      - dst: /etc/drun/runnable-keys
+        type: dir
+        file_info:
+          mode: 0755
+          owner: root
+          group: root
+      - src: ./packaging/runnable-signing.pub
+        dst: /etc/drun/runnable-keys/drun.pub
+        file_info:
+          mode: 0644
+          owner: root
+          group: root
       - src: ./build/completions/drun
         dst: /usr/share/bash-completion/completions/drun
         file_info:
@@ -233,6 +262,21 @@ nfpms:
     priority: "optional"
     # root's, writable by root only (SEC-4)
     bindir: /usr/libexec/drun/runnables
+    # the examples' signed manifests, next to the binaries (§8.8); they are
+    # of this release only, so drun and the examples are upgraded together
+    contents:
+      - src: "build/runnables/{{ .Os }}_{{ .Arch }}/drun-runnable-ticker.manifest"
+        dst: /usr/libexec/drun/runnables/drun-runnable-ticker.manifest
+        file_info: { mode: 0644, owner: root, group: root }
+      - src: "build/runnables/{{ .Os }}_{{ .Arch }}/drun-runnable-ticker.manifest.sig"
+        dst: /usr/libexec/drun/runnables/drun-runnable-ticker.manifest.sig
+        file_info: { mode: 0644, owner: root, group: root }
+      - src: "build/runnables/{{ .Os }}_{{ .Arch }}/drun-runnable-fenced-counter.manifest"
+        dst: /usr/libexec/drun/runnables/drun-runnable-fenced-counter.manifest
+        file_info: { mode: 0644, owner: root, group: root }
+      - src: "build/runnables/{{ .Os }}_{{ .Arch }}/drun-runnable-fenced-counter.manifest.sig"
+        dst: /usr/libexec/drun/runnables/drun-runnable-fenced-counter.manifest.sig
+        file_info: { mode: 0644, owner: root, group: root }
     rpm:
       signature:
         key_file: '{{ if index .Env "GPG_KEY_FILE" }}{{ .Env.GPG_KEY_FILE }}{{ end }}'

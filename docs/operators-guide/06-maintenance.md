@@ -12,7 +12,8 @@ without a takeover delay.
 
 Upgrade the packages one node at a time, as for a restart: followers
 first, the leader last. Runnable binaries are upgraded the same way, each
-with its new digest in every node's configuration (*Runnable binaries*).
+with its new digest in every node's configuration, unless it is signed
+(`key`): then its new manifest comes with it (*Runnable binaries*).
 
 Before version 1.0.0 a release may change the format of the Raft log,
 snapshots or the admin API without keeping the old one: read the release

@@ -55,6 +55,7 @@ node refuses timings that break the leadership lease:
 | `name` | | Letters, digits, `.`, `_`, `-`; at most 64 |
 | `kind` | `service` | or `task` |
 | `binary`, `sha256` | | Absolute path; the binary's SHA-256, 64 lower-case hex digits |
+| `key` | | Instead of `sha256`: the publisher key file, `/etc/drun/runnable-keys/<key>.pub`, whose keys must have signed the binary's manifest (`drun` for the examples) |
 | `config` | | Passed to the runnable as JSON; name secret files here, never secrets |
 | `takeover_delay` | `auto` | `auto` = `lease.duration + stop_grace - heartbeat_timeout + 500ms` (2.25 s on a LAN), or a duration such as `0s` |
 | `stop_grace` / `shutdown_grace` | 2 s / 30 s | |

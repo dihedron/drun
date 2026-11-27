@@ -37,6 +37,8 @@
 | T-15 | A host that reaches the metrics endpoint reads the peers' IDs and Raft's timings | metrics off by default; bind to loopback or a monitoring network; no secrets in any series | — |
 | T-16 | A stale incarnation writes to the runnable's external PostgreSQL after a newer one started | the fence helper: a claim, and a locked check in every writing transaction | R-4, R-8 |
 | T-17 | An operator promotes a member still catching up, and commits stall | promotion only after a stable run of healthy checks; `--force` is explicit | — |
+| T-18 | A runnable binary is replaced by another, or by an older signed one with a known flaw | the signed manifest's digest; drun's version must be in the manifest's range; root-owned files | R-9 |
+| T-19 | A key added to the key directory trusts a malicious publisher | root-owned directory and files; a key signs only the runnables that name it | — |
 
 
 ## Accepted risks
@@ -54,3 +56,6 @@
   expires; there are no per-command roles.
 - **R-8** Restoring a backup of a runnable's external database can put
   back an older fence epoch: restart the runnable afterwards.
+- **R-9** A publisher's older signed runnable can be put back within the
+  drun versions the publisher signed for: narrow ranges, or a new key,
+  revoke old manifests.

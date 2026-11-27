@@ -15,12 +15,9 @@ counts, saving its counter every second.
    install -o root -g drun -m 0640 node.crt node.key ca.crt /etc/drun/tls/
    ```
 
-3. Note the ticker's digest, printed when the examples package was
-   installed and shown again by:
-
-   ```
-   sha256sum /usr/libexec/drun/runnables/drun-runnable-ticker
-   ```
+3. The examples package installs the ticker with a manifest signed by
+   drun's release key, `/etc/drun/runnable-keys/drun.pub`: the
+   configuration names the key instead of the binary's digest.
 
 4. Write `/etc/drun/drun.yaml`; only `node.id` and
    `cluster.advertise` differ between the three nodes:
@@ -52,7 +49,7 @@ counts, saving its counter every second.
    runnables:
      - name: ticker
        binary: /usr/libexec/drun/runnables/drun-runnable-ticker
-       sha256: THE-DIGEST-FROM-STEP-3
+       key: drun
        config: { interval: 1s }
    ```
 
