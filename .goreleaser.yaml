@@ -87,6 +87,30 @@ builds:
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.GoReleaserVersion={{.Env._GORELEASER_VERSION}}'
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+  # the example runnables: the SDK only, no cgo (resurgo-store.md §4.1)
+  - id: ticker
+    main: ./cmd/resurgo-runnable-ticker
+    binary: resurgo-runnable-ticker
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: fenced-counter
+    main: ./cmd/resurgo-runnable-fenced-counter
+    binary: resurgo-runnable-fenced-counter
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
 archives:
   - id: resurgo
     ids:
@@ -105,6 +129,15 @@ archives:
     files:
       - src: build/completions/*
         dst: completions/
+
+  - id: examples
+    ids: [ticker, fenced-counter]
+    formats: [tar.gz]
+    name_template: >-
+      resurgo-runnable-examples_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
 
 upx:
   - enabled: false
@@ -181,6 +214,34 @@ nfpms:
     scripts:
       preinstall: ./packaging/preinstall.sh
       postinstall: ./packaging/postinstall.sh
+
+  - id: examples
+    package_name: resurgo-runnable-examples
+    ids: [ticker, fenced-counter]
+    description: |
+      The example runnables of resurgo: resurgo-runnable-ticker (stateless,
+      checkpoints a counter) and resurgo-runnable-fenced-counter (stateful,
+      appends rows to PostgreSQL fenced by its epoch, with a checker).
+    homepage: "https://github.com/dihedron/resurgo"
+    maintainer: "Andrea Funtò <dihedron.dev@gmail.com>"
+    vendor: "Andrea Funtò"
+    license: "MIT"
+    formats: [rpm, deb, apk]
+    epoch: "1"
+    release: "1"
+    section: default
+    priority: "optional"
+    # root's, writable by root only (SEC-4)
+    bindir: /usr/libexec/resurgo/runnables
+    rpm:
+      signature:
+        key_file: '{{ if index .Env "GPG_KEY_FILE" }}{{ .Env.GPG_KEY_FILE }}{{ end }}'
+    deb:
+      signature:
+        key_file: '{{ if index .Env "GPG_KEY_FILE" }}{{ .Env.GPG_KEY_FILE }}{{ end }}'
+        type: origin
+    scripts:
+      postinstall: ./packaging/examples-postinstall.sh
 
 source:
   enabled: true

@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -202,6 +203,25 @@ func (c *tcluster) follower(leader string) string {
 	}
 	c.t.Fatal("no follower")
 	return ""
+}
+
+// SEC-6: the socket and its directory belong to the first allowed group
+func TestSocketGroup(t *testing.T) {
+	c := newTCluster(t, 1)
+	c.start("node-0")
+	g, err := user.LookupGroup(c.group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{c.socks["node-0"], filepath.Dir(c.socks["node-0"])} {
+		var st syscall.Stat_t
+		if err := syscall.Stat(p, &st); err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprint(st.Gid) != g.Gid {
+			t.Fatalf("%s has gid %d, want %s", p, st.Gid, g.Gid)
+		}
+	}
 }
 
 func (c *tcluster) client(id string) *admin.Client {

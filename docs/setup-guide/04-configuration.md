@@ -61,7 +61,7 @@ Sizes are integers with an optional `B`, `KiB`, `MiB` or `GiB`.
 | Key | Default | Notes |
 | :--- | :--- | :--- |
 | `admin.socket` | `/run/resurgo/admin.sock` | Absolute path; created `0660`; a socket left by a node that died is replaced, one in use is not |
-| `admin.allowed_groups` | none | Groups whose members may use the socket; root always may. The groups must exist |
+| `admin.allowed_groups` | none | Groups whose members may use the socket; root always may. The groups must exist; the socket and its directory are given to the first one, of which the node must be a member (the packaged unit makes it a member of `resurgo-admin`) |
 | `admin.remote` | off | The remote endpoint, see below |
 
 The remote endpoint serves the same API over TCP to operators on other

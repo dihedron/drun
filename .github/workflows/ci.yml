@@ -83,6 +83,9 @@ jobs:
         # not only its own: the plugin SDK is mostly exercised from other packages
         run: go test -tags integration ./... -coverpkg=./... -coverprofile=coverage.txt
 
+      - name: Test the fenced counter against PostgreSQL
+        run: make test-postgres
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:

@@ -64,17 +64,25 @@ func (s serverOnly) OverrideServerName(string) error { return nil }
 type unixEndpoint struct {
 	path string
 	gids map[string]bool
+	// group is the first allowed group's, which the socket and its
+	// directory get, so that its members can reach the socket; -1: none
+	group int
 }
 
 // UnixEndpoint returns the local socket endpoint; the groups must exist.
 func UnixEndpoint(path string, allowedGroups []string) (Endpoint, error) {
-	e := &unixEndpoint{path: path, gids: map[string]bool{}}
+	e := &unixEndpoint{path: path, gids: map[string]bool{}, group: -1}
 	for _, name := range allowedGroups {
 		g, err := user.LookupGroup(name)
 		if err != nil {
 			return nil, fmt.Errorf("admin.allowed_groups: %w", err)
 		}
 		e.gids[g.Gid] = true
+		if e.group < 0 {
+			if e.group, err = strconv.Atoi(g.Gid); err != nil {
+				return nil, fmt.Errorf("admin.allowed_groups: %s: gid %q", name, g.Gid)
+			}
+		}
 	}
 	return e, nil
 }
@@ -101,7 +109,35 @@ func (e *unixEndpoint) Listen() (net.Listener, error) {
 		_ = ln.Close()
 		return nil, fmt.Errorf("admin socket: %w", err)
 	}
+	if err := e.shareWithGroup(); err != nil {
+		_ = ln.Close()
+		return nil, err
+	}
 	return ln, nil
+}
+
+// shareWithGroup gives the socket, and its directory if this process owns
+// it (systemd's RuntimeDirectory), to the first allowed group: the node
+// must be a member of it (the unit's SupplementaryGroups)
+func (e *unixEndpoint) shareWithGroup() error {
+	if e.group < 0 {
+		return nil
+	}
+	if err := os.Chown(e.path, -1, e.group); err != nil {
+		return fmt.Errorf("admin socket: giving it to the first of admin.allowed_groups (is the node a member?): %w", err)
+	}
+	dir := filepath.Dir(e.path)
+	var st unix.Stat_t
+	if err := unix.Stat(dir, &st); err != nil {
+		return fmt.Errorf("admin socket directory: %w", err)
+	}
+	if int(st.Uid) != os.Getuid() {
+		return nil
+	}
+	if err := os.Chown(dir, -1, e.group); err != nil {
+		return fmt.Errorf("admin socket directory: giving it to the first of admin.allowed_groups: %w", err)
+	}
+	return nil
 }
 
 func (e *unixEndpoint) Credentials() credentials.TransportCredentials { return unixCreds{e} }

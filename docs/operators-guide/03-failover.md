@@ -21,7 +21,7 @@ starts the runnables at once, without the takeover delay.
 A runnable that fails is restarted on the same node after a growing
 delay (1 s, 2 s, 4 s … up to 2 minutes by default). After 5 consecutive
 failures on the leader (`restart.handover_after`), leadership moves to the
-node where the runnable has failed least recently, in case the fault is
+voter where the runnable has failed fewest times, in case the fault is
 the node's own (a missing file, a full disk). When it has failed on every
 node, it keeps retrying with the growing delay.
 

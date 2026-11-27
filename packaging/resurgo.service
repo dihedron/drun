@@ -27,6 +27,12 @@ RestartSteps=10
 RestartMaxDelaySec=300
 StateDirectory=resurgo
 StateDirectoryMode=0700
+# the admin socket's directory, /run/resurgo: the node gives it and the
+# socket to the first of admin.allowed_groups (SEC-6), of which it must be
+# a member
+RuntimeDirectory=resurgo
+RuntimeDirectoryMode=0750
+SupplementaryGroups=resurgo-admin
 
 # confinement (.specs/resurgo_specification.md §11)
 NoNewPrivileges=true
