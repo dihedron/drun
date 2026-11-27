@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `drun`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.4.4` (2026-11-27): signed runnable manifests (SEC-4, §8.8, FW-7, T-18, T-19); `0.4.3` (2026-11-27): member health and gated promotion (FR-17, FW-8); `0.4.2` (2026-11-27): the PostgreSQL fence helper (FW-10, §8.5, T-16, R-8), OI-12 revisited; `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.4.5` (2026-11-27): encryption at rest left to the filesystem (SEC-7, R-2, FW-4); `0.4.4` (2026-11-27): signed runnable manifests (SEC-4, §8.8, FW-7, T-18, T-19); `0.4.3` (2026-11-27): member health and gated promotion (FR-17, FW-8); `0.4.2` (2026-11-27): the PostgreSQL fence helper (FW-10, §8.5, T-16, R-8), OI-12 revisited; `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-wal` (v0.5.x, the default log store) and `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -925,8 +925,10 @@ assumptions (§12.1).
   user and the admin group can enter; the node checks the caller with
   `SO_PEERCRED` against `admin.allowed_groups` (and root), and logs every
   mutation with the caller's UID at `info` (audit).
-- **SEC-7** `data_dir` is `0700`, owned by the service user; snapshots and
-  the log hold checkpoints in clear (R-2).
+- **SEC-7** `data_dir` is `0700`, owned by the service user; snapshots,
+  the log and the stores hold checkpoints and data in clear. Encryption
+  at rest is the filesystem's (LUKS, ZFS native encryption, fscrypt),
+  as the Setup Guide describes (R-2, FW-4).
 - **SEC-8** No secret appears in the cluster configuration, the Raft log,
   a checkpoint written by the shipped runnables, a log line or a metric.
   Runnable configuration is node-local and not replicated (ADR-6); only
@@ -973,8 +975,10 @@ assumptions (§12.1).
 - **R-1** A stolen node key lets an attacker act as that node until the
   certificate is revoked or expires: short-lived certificates (SPIFFE) are
   recommended.
-- **R-2** Checkpoints are stored unencrypted on every node (encryption at
-  rest: FW-4).
+- **R-2** Checkpoints and stores are written unencrypted by drun on every
+  node: encryption at rest is left to the filesystem under `data_dir`
+  (SEC-7; FW-4 decided so). Without it, a stolen disk or image reveals
+  them; with it, a running node still reads them in clear.
 - **R-3** A runnable runs as the service user: it can read the node's
   configuration, keys and `data_dir`. A separate UID per runnable is FW-5.
 - **R-4** Side effects outside fenced systems may repeat during an overlap

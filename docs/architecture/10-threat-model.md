@@ -45,7 +45,9 @@
 
 - **R-1** A stolen node key lets an attacker act as that node until the
   certificate is revoked or expires: prefer short-lived certificates.
-- **R-2** Checkpoints and stores are not encrypted on disk.
+- **R-2** Checkpoints and stores are not encrypted by drun: encrypt the
+  filesystem under the data directory (Setup Guide, *Encrypting the data
+  directory*).
 - **R-3** A runnable runs as the service user: it can read the node's
   configuration, keys and data.
 - **R-4** Side effects outside fenced systems may repeat during an overlap.

@@ -273,7 +273,7 @@ The node stays a single static binary (parent NFR-6):
 | T-S-1 | (D) A batch that never ends stops the FSM on every node | STO-7 deterministic step budget | — |
 | T-S-2 | (D) A runnable fills the disk of every node | STO-8, parent §9.3 compaction | — |
 | T-S-3 | (T) A non-deterministic statement makes replicas diverge | STO-4 authorizer, STO-5, INV-S-1 digests | R-S-1 |
-| T-S-4 | (I) The store holds application data in clear on every node and in every snapshot | parent SEC-7; documentation | parent R-2 |
+| T-S-4 | (I) The store holds application data in clear on every node and in every snapshot | parent SEC-7: filesystem encryption under `data_dir`, documented | parent R-2 |
 | T-S-5 | (E) SQL reaches files or extensions (`ATTACH`, `load_extension`) | STO-4; extensions not compiled in | — |
 | T-S-6 | (T) SQL injection in a runnable | parameters only in the SDK's helpers; the runnable's responsibility | — |
 | T-S-7 | (I) An administrator reads application data with `store query` | admin group only (parent SEC-6), logged | R-S-2 |
