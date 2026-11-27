@@ -289,6 +289,9 @@ signs:
       - "${artifact}"
 
 release:
+  # a tag with a pre-release suffix (v0.1.0-rc.1) is published as a
+  # GitHub pre-release
+  prerelease: auto
   # the release documents (make docs, before make release): see
   # .specs/resurgo_specification.md (rule 12)
   extra_files:
