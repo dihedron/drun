@@ -98,7 +98,7 @@ secrets: scanners ## scan the history and the working tree for secrets with gitl
 vuln: ## check go.mod and the code for known vulnerabilities with govulncheck (run before every commit)
 	@# both always run: a finding in one must not hide the other
 	@rc=0; \
-	go run golang.org/x/vuln/cmd/govulncheck@latest -C cmd/resurgo -scan module || rc=1; \
+	go run golang.org/x/vuln/cmd/govulncheck@latest -C cmd/drun -scan module || rc=1; \
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./... || rc=1; \
 	exit $$rc
 
@@ -112,8 +112,8 @@ spike: ## re-check the external assumptions (EXT-nn, EXT-S-nn) in depth: run on 
 
 .PHONY: proto
 proto: ## regenerate the Go code of the protobuf definitions in proto/ (needs protoc and protoc-gen-go)
-	@protoc --go_out=. --go_opt=module=github.com/dihedron/resurgo \
-		--go-grpc_out=. --go-grpc_opt=module=github.com/dihedron/resurgo \
+	@protoc --go_out=. --go_opt=module=github.com/dihedron/drun \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/dihedron/drun \
 		$$(find proto -name '*.proto')
 
 # STRESS_DURATION and SOAK_DURATION are how long the supervisor runs under
@@ -123,11 +123,11 @@ SOAK_DURATION ?= 8h
 
 .PHONY: stress
 stress: ## run an in-process cluster under random faults for STRESS_DURATION (default 2m), with the race detector
-	@RESURGO_STRESS=$(STRESS_DURATION) go test -race -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
+	@DRUN_STRESS=$(STRESS_DURATION) go test -race -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
 
 .PHONY: soak
 soak: ## the same for SOAK_DURATION (default 8h): an overnight run
-	@RESURGO_STRESS=$(SOAK_DURATION) go test -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
+	@DRUN_STRESS=$(SOAK_DURATION) go test -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
 
 .PHONY: bench-logstore
 bench-logstore: ## compare the Raft log stores (bolt, wal): append latency, cluster commits, disk after compaction (FW-2)
@@ -143,11 +143,11 @@ POSTGRES_IMAGE := docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093b
 
 .PHONY: test-postgres
 test-postgres: ## run the fenced-counter's PostgreSQL tests against a throwaway PostgreSQL container
-	@name=resurgo-test-postgres-$$$$; \
+	@name=drun-test-postgres-$$$$; \
 	$(CONTAINER) run -d --rm --name $$name -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test -p 127.0.0.1::5432 $(POSTGRES_IMAGE) >/dev/null || exit 1; \
 	trap '$(CONTAINER) stop '$$name' >/dev/null' EXIT; \
 	port=$$($(CONTAINER) port $$name 5432/tcp | head -1 | sed 's/.*://'); \
 	for i in $$(seq 1 60); do $(CONTAINER) exec $$name pg_isready -U postgres -d test -h 127.0.0.1 >/dev/null 2>&1 && break; sleep 1; done; \
-	RESURGO_TEST_POSTGRES="postgres://postgres:test@127.0.0.1:$$port/test?sslmode=disable" \
-		go test -race -count=1 -v -run 'TestConformance|TestFencing|TestCheckerFindsViolations' ./cmd/resurgo-runnable-fenced-counter/
+	DRUN_TEST_POSTGRES="postgres://postgres:test@127.0.0.1:$$port/test?sslmode=disable" \
+		go test -race -count=1 -v -run 'TestConformance|TestFencing|TestCheckerFindsViolations' ./cmd/drun-runnable-fenced-counter/
 

@@ -1,6 +1,6 @@
 # Introduction
 
-resurgo runs a program, a *runnable*, on exactly one node of a small
+drun runs a program, a *runnable*, on exactly one node of a small
 cluster: the leader of a Raft group. When the leader fails, is cut off or
 is stopped, another node becomes leader and starts the runnable again
 there, from the last state the runnable saved. It is meant for the jobs
@@ -24,7 +24,7 @@ What a runnable gets:
 
 A cluster has three or five voting nodes (one per failure domain), on one
 LAN or across three regions. The runnable is a separate executable built
-with resurgo's Go SDK; two examples ship with resurgo.
+with drun's Go SDK; two examples ship with drun.
 
 This guide installs a cluster and runs the example ticker on it. The
 *Operator's Guide* covers running it day to day; the *Architecture and

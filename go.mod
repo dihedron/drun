@@ -1,4 +1,4 @@
-module github.com/dihedron/resurgo
+module github.com/dihedron/drun
 
 go 1.27.4
 

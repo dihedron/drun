@@ -34,7 +34,7 @@ leader, which executes it.
 
 ## Assembly
 
-`internal/daemon` assembles a node for `resurgo serve` and for the tests:
+`internal/daemon` assembles a node for `drun serve` and for the tests:
 store, FSM, Raft node, supervisor, admin endpoints, then the FR-16 check
 of every runnable and a watcher that warns of drift (FR-15). Tests run
 clusters of real nodes in one process, over real TLS on loopback, with

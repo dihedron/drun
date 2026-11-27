@@ -36,7 +36,7 @@ func NewCA(t testing.TB) *CA {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber:          serial(t),
-		Subject:               pkix.Name{CommonName: "resurgo test CA"},
+		Subject:               pkix.Name{CommonName: "drun test CA"},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(24 * time.Hour),
 		IsCA:                  true,

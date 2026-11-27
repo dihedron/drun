@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable"
 )
 
 // Options of the checks.

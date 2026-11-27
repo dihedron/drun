@@ -11,7 +11,7 @@ the failure to the new incarnation with the default timings.
 
 ## Planned handover
 
-Stopping the service on the leader (`systemctl stop resurgo`) stops every
+Stopping the service on the leader (`systemctl stop drun`) stops every
 runnable within its `shutdown_grace` (30 s by default), records that it
 stopped cleanly, and only then hands leadership over. The new leader
 starts the runnables at once, without the takeover delay.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/runnable/runnablepb"
+	"github.com/dihedron/drun/pkg/runnable/runnablepb"
 )
 
 func toPBDescription(d Description) *runnablepb.Description {

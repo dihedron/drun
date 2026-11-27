@@ -8,7 +8,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -51,7 +51,7 @@ func (s *Store) change(d *database, index uint64, fn func(*sql.Tx) (*fsmpb.Batch
 		return false, nil, s.failed(fmt.Errorf("store %s: begin: %w", d.name, err))
 	}
 	var last uint64
-	if err := tx.QueryRowContext(ctx, "SELECT last_index FROM _resurgo_meta").Scan(&last); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT last_index FROM _drun_meta").Scan(&last); err != nil {
 		_ = tx.Rollback()
 		return false, nil, s.failed(fmt.Errorf("store %s: last index: %w", d.name, err))
 	}
@@ -64,7 +64,7 @@ func (s *Store) change(d *database, index uint64, fn func(*sql.Tx) (*fsmpb.Batch
 		_ = tx.Rollback()
 		return false, berr, err
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE _resurgo_meta SET last_index = ?", index); err != nil {
+	if _, err := tx.ExecContext(ctx, "UPDATE _drun_meta SET last_index = ?", index); err != nil {
 		_ = tx.Rollback()
 		return false, nil, s.failed(fmt.Errorf("store %s: last index: %w", d.name, err))
 	}

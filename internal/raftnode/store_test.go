@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/internal/store"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/store"
 )
 
 // the FSM, the SQL store and a 3-node cluster over TLS together: batches
@@ -49,7 +49,7 @@ func testStoreOnCluster(t *testing.T, logStore string) {
 		}
 		return f.Response().(*fsm.Result) //nolint:forcetypeassert // the FSM's
 	}
-	if res := batch(epoch, "CREATE TABLE t (x INTEGER, at INTEGER DEFAULT (resurgo_now()))"); res.Err != nil || res.Batch.GetError() != nil {
+	if res := batch(epoch, "CREATE TABLE t (x INTEGER, at INTEGER DEFAULT (drun_now()))"); res.Err != nil || res.Batch.GetError() != nil {
 		t.Fatalf("create: %v %v", res.Err, res.Batch.GetError())
 	}
 	for range 20 {

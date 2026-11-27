@@ -11,7 +11,7 @@ import (
 const valid = `
 node:
   id: node-a
-  data_dir: /var/lib/resurgo
+  data_dir: /var/lib/drun
 cluster:
   name: test
   bind: 0.0.0.0:7350
@@ -21,22 +21,22 @@ cluster:
     - { id: node-b, address: 10.0.1.12:7350 }
     - { id: node-c, address: 10.0.1.13:7350 }
   tls:
-    cert: /etc/resurgo/tls/node.crt
-    key: /etc/resurgo/tls/node.key
-    ca: /etc/resurgo/tls/ca.crt
+    cert: /etc/drun/tls/node.crt
+    key: /etc/drun/tls/node.key
+    ca: /etc/drun/tls/ca.crt
     peers:
-      node-a: "spiffe://example.org/resurgo/node-a"
-      node-b: "spiffe://example.org/resurgo/node-b"
+      node-a: "spiffe://example.org/drun/node-a"
+      node-b: "spiffe://example.org/drun/node-b"
       node-c: node-c.example.org
 runnables:
   - name: svc
-    binary: /usr/libexec/resurgo/runnables/svc
+    binary: /usr/libexec/drun/runnables/svc
     sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 `
 
 func load(t *testing.T, text string) (*Config, error) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "resurgo.yaml")
+	path := filepath.Join(t.TempDir(), "drun.yaml")
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func mustLoad(t *testing.T, text string) *Config {
 }
 
 func TestExampleLoads(t *testing.T) {
-	data, err := os.ReadFile("../../examples/resurgo.yaml")
+	data, err := os.ReadFile("../../examples/drun.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestDefaultsLAN(t *testing.T) {
 	if r.Store != (Store{MaxBatch: MiB, MaxSteps: 50_000_000, MaxSize: 256 * MiB, MaxResult: MiB, QueryTimeout: 30 * time.Second}) {
 		t.Fatalf("store defaults %+v", r.Store)
 	}
-	if cfg.Admin.Socket != "/run/resurgo/admin.sock" {
+	if cfg.Admin.Socket != "/run/drun/admin.sock" {
 		t.Fatalf("admin socket %q", cfg.Admin.Socket)
 	}
 	if d := cfg.TakeoverDelay(r); d != 2250*time.Millisecond {
@@ -137,7 +137,7 @@ func TestRefused(t *testing.T) {
 	}{
 		{"unknown field", "node:\n", "node:\n  colour: blue\n", "colour"},
 		{"no node id", "  id: node-a\n  data_dir", "  data_dir", "node.id"},
-		{"relative data dir", "/var/lib/resurgo", "var/lib/resurgo", "data_dir"},
+		{"relative data dir", "/var/lib/drun", "var/lib/drun", "data_dir"},
 		{"duplicate voter", "node-c, address: 10.0.1.13", "node-b, address: 10.0.1.13", "twice"},
 		{"duplicate address", "10.0.1.13:7350 }", "10.0.1.12:7350 }", "twice"},
 		{"voter without identity", "      node-c: node-c.example.org\n", "", "node-c"},
@@ -157,10 +157,10 @@ func TestRefused(t *testing.T) {
 		{"bad kind", "    sha256:", "    kind: daemon\n    sha256:", "kind"},
 		{"bad takeover delay", "    sha256:", "    takeover_delay: soon\n    sha256:", "takeover_delay"},
 		{"relative admin socket", "runnables:", "admin: { socket: admin.sock }\nrunnables:", "admin.socket"},
-		{"remote without identities", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "[\"spiffe://example.org/ops\"]", "[]", 1), "allowed_identities"},
-		{"remote with a bad identity", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "spiffe://example.org/ops", "http://ops", 1), "allowed_identities"},
-		{"remote with a bad listen", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "0.0.0.0:7351", "7351", 1), "admin.remote.listen"},
-		{"remote with a relative cert", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "/etc/resurgo/admin.crt", "admin.crt", 1), "admin.remote.tls.cert"},
+		{"remote without identities", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "[\"spiffe://example.org/ops\"]", "[]", 1), "allowed_identities"},
+		{"remote with a bad identity", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "spiffe://example.org/ops", "http://ops", 1), "allowed_identities"},
+		{"remote with a bad listen", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "0.0.0.0:7351", "7351", 1), "admin.remote.listen"},
+		{"remote with a relative cert", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "/etc/drun/admin.crt", "admin.crt", 1), "admin.remote.tls.cert"},
 		{"duplicate runnable", "runnables:\n", "runnables:\n  - { name: svc, binary: /x, sha256: " + strings.Repeat("0", 64) + " }\n", "twice"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -186,8 +186,8 @@ func TestLogStore(t *testing.T) {
 }
 
 func TestRemoteAdmin(t *testing.T) {
-	cfg := mustLoad(t, strings.Replace(valid, "runnables:", "admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", 1))
-	if r := cfg.Admin.Remote; r == nil || r.Listen != "0.0.0.0:7351" || r.TLS.CA != "/etc/resurgo/admin-ca.crt" || len(r.AllowedIdentities) != 1 {
+	cfg := mustLoad(t, strings.Replace(valid, "runnables:", "admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", 1))
+	if r := cfg.Admin.Remote; r == nil || r.Listen != "0.0.0.0:7351" || r.TLS.CA != "/etc/drun/admin-ca.crt" || len(r.AllowedIdentities) != 1 {
 		t.Fatalf("remote admin %+v", cfg.Admin.Remote)
 	}
 	if mustLoad(t, valid).Admin.Remote != nil {
@@ -196,7 +196,7 @@ func TestRemoteAdmin(t *testing.T) {
 }
 
 func TestAllProblemsReported(t *testing.T) {
-	text := strings.Replace(strings.Replace(valid, "  id: node-a\n  data_dir", "  data_dir", 1), "/var/lib/resurgo", "relative", 1)
+	text := strings.Replace(strings.Replace(valid, "  id: node-a\n  data_dir", "  data_dir", 1), "/var/lib/drun", "relative", 1)
 	_, err := load(t, text)
 	if err == nil || !strings.Contains(err.Error(), "node.id") || !strings.Contains(err.Error(), "data_dir") {
 		t.Fatalf("error %v, want both problems", err)

@@ -45,7 +45,7 @@ func child(ctx context.Context, mode string, extraEnv ...string) *exec.Cmd {
 	return cmd
 }
 
-var handshake = plugin.HandshakeConfig{ProtocolVersion: 1, MagicCookieKey: "RESURGO_SPIKE", MagicCookieValue: "spike"}
+var handshake = plugin.HandshakeConfig{ProtocolVersion: 1, MagicCookieKey: "DRUN_SPIKE", MagicCookieValue: "spike"}
 
 // nopPlugin serves no service of its own: go-plugin's health check is enough
 type nopPlugin struct{ plugin.NetRPCUnsupportedPlugin }

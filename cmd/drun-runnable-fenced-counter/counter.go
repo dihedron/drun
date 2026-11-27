@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/metadata"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/pkg/metadata"
+	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/jackc/pgx/v5"
 )
 
 // schema is created by the first incarnation; the fence is §8.5's
 const schema = `
-CREATE TABLE IF NOT EXISTS resurgo_fence (runnable text PRIMARY KEY, epoch bigint NOT NULL);
+CREATE TABLE IF NOT EXISTS drun_fence (runnable text PRIMARY KEY, epoch bigint NOT NULL);
 CREATE TABLE IF NOT EXISTS counter_rows (
 	id bigserial PRIMARY KEY,
 	runnable text NOT NULL,
@@ -148,9 +148,9 @@ func stopped(ctx context.Context, err error) error {
 // incarnation is stale (§8.5). The row lock waits for the predecessor's
 // open transactions.
 func claim(ctx context.Context, conn *pgx.Conn, name string, epoch uint64) error {
-	tag, err := conn.Exec(ctx, `INSERT INTO resurgo_fence VALUES ($1, $2)
+	tag, err := conn.Exec(ctx, `INSERT INTO drun_fence VALUES ($1, $2)
 		ON CONFLICT (runnable) DO UPDATE SET epoch = EXCLUDED.epoch
-		WHERE resurgo_fence.epoch < EXCLUDED.epoch`, name, int64(epoch)) //nolint:gosec // epochs fit
+		WHERE drun_fence.epoch < EXCLUDED.epoch`, name, int64(epoch)) //nolint:gosec // epochs fit
 	if err != nil {
 		return fmt.Errorf("claiming the fence: %w", err)
 	}
@@ -168,7 +168,7 @@ func write(ctx context.Context, conn *pgx.Conn, name string, epoch, seq uint64) 
 	}
 	defer tx.Rollback(context.Background()) //nolint:errcheck // a no-op after the commit
 	var fence int64
-	if err := tx.QueryRow(ctx, `SELECT epoch FROM resurgo_fence WHERE runnable = $1 FOR SHARE`, name).Scan(&fence); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT epoch FROM drun_fence WHERE runnable = $1 FOR SHARE`, name).Scan(&fence); err != nil {
 		return fmt.Errorf("reading the fence: %w", err)
 	}
 	if fence != int64(epoch) { //nolint:gosec // epochs fit

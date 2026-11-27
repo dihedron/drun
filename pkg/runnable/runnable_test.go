@@ -18,12 +18,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/runnable"
-	"github.com/dihedron/resurgo/pkg/runnable/conformance"
+	"github.com/dihedron/drun/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable/conformance"
 )
 
 // modeEnv selects what the re-executed test binary is
-const modeEnv = "RESURGO_RUNNABLE_TEST"
+const modeEnv = "DRUN_RUNNABLE_TEST"
 
 func TestMain(m *testing.M) {
 	switch os.Getenv(modeEnv) {

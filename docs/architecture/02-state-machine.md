@@ -51,9 +51,9 @@ snapshots.
 
 ## Snapshots
 
-A snapshot is the magic `RSGO`, the format version, the length of the
+A snapshot is the magic `DRUN`, the format version, the length of the
 encoded state, the state, and then the store's copy of every database,
 taken while applies are stopped and written while they run again. A
-restore refuses a snapshot that is not resurgo's, is newer than the node,
+restore refuses a snapshot that is not drun's, is newer than the node,
 or is inconsistent (a runnable twice, an epoch beyond the counter), and
 then keeps the state it had.

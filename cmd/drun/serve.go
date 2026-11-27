@@ -9,16 +9,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/daemon"
-	"github.com/dihedron/resurgo/internal/supervisor"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/daemon"
+	"github.com/dihedron/drun/internal/supervisor"
+	"github.com/dihedron/drun/pkg/runnable"
 )
 
 // ServeCommand runs a node until SIGTERM or SIGINT, then hands leadership
 // over (FR-12).
 type ServeCommand struct {
-	Config string `long:"config" short:"c" default:"/etc/resurgo/resurgo.yaml" description:"the node's configuration"`
+	Config string `long:"config" short:"c" default:"/etc/drun/drun.yaml" description:"the node's configuration"`
 }
 
 func (c *ServeCommand) Execute([]string) error {

@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 // FuzzApply feeds arbitrary entries after a fixed history: Apply never

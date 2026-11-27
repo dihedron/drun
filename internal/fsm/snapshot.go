@@ -8,7 +8,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	"google.golang.org/protobuf/proto"
 )
@@ -16,7 +16,7 @@ import (
 // A snapshot is: snapshotMagic, the format version (uint32), the length of
 // the encoded State (uint64), the State, then the Store's part (STO-14).
 // Integers are big-endian.
-const snapshotMagic = "RSGO"
+const snapshotMagic = "DRUN"
 
 // maxStateSize bounds the State read back, so that a corrupt length cannot
 // exhaust memory; the State holds metadata only.
@@ -135,7 +135,7 @@ func readState(r io.Reader) (*fsmpb.State, error) {
 		return nil, fmt.Errorf("header: %w", err)
 	}
 	if string(header[:len(snapshotMagic)]) != snapshotMagic {
-		return nil, errors.New("not a resurgo snapshot")
+		return nil, errors.New("not a drun snapshot")
 	}
 	if v := binary.BigEndian.Uint32(header[len(snapshotMagic):]); v == 0 || v > FormatVersion {
 		return nil, fmt.Errorf("%w: snapshot format version %d, this node reads up to %d", ErrUnsupported, v, FormatVersion)

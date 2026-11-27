@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin"
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/supervisor"
-	"github.com/dihedron/resurgo/internal/tlstest"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/admin"
+	"github.com/dihedron/drun/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/supervisor"
+	"github.com/dihedron/drun/internal/tlstest"
+	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -127,7 +127,7 @@ func newTCluster(t *testing.T, n int) *tcluster {
 	return c
 }
 
-func identity(id string) string { return "spiffe://example.org/resurgo/" + id }
+func identity(id string) string { return "spiffe://example.org/drun/" + id }
 
 func (c *tcluster) config(id string) *config.Config {
 	c.t.Helper()
@@ -162,7 +162,7 @@ func (c *tcluster) config(id string) *config.Config {
 	fmt.Fprintf(&b, "runnables:\n  - name: ticker\n    binary: /usr/libexec/ticker\n    sha256: %s\n    config: %s\n", strings.Repeat("ab", 32), rc)
 	b.WriteString("    takeover_delay: 300ms\n    stop_grace: 200ms\n    shutdown_grace: 2s\n    checkpoint: { min_interval: 10ms }\n")
 	b.WriteString("    restart: { initial: 50ms, max: 200ms, handover_after: 2 }\n")
-	path := filepath.Join(dir, "resurgo.yaml")
+	path := filepath.Join(dir, "drun.yaml")
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		c.t.Fatal(err)
 	}
@@ -420,7 +420,7 @@ func adminClientOver(t *testing.T, conn net.Conn) adminpb.AdminClient {
 }
 
 func withCaller(ctx context.Context, who string) context.Context {
-	return metadata.AppendToOutgoingContext(ctx, "resurgo-caller", who)
+	return metadata.AppendToOutgoingContext(ctx, "drun-caller", who)
 }
 
 // SEC-6: a caller in no allowed group is refused
@@ -647,9 +647,9 @@ func TestMetricsEndpoint(t *testing.T) {
 		defer resp.Body.Close() //nolint:errcheck // test
 		body, _ := io.ReadAll(resp.Body)
 		out := string(body)
-		return strings.Contains(out, "resurgo_is_leader 1") &&
-			strings.Contains(out, `resurgo_incarnation_state{runnable="ticker",state="running"} 1`) &&
-			strings.Contains(out, `resurgo_failover_seconds{kind="planned",runnable="ticker"}`) &&
-			strings.Contains(out, `resurgo_checkpoint_commit_seconds_count{runnable="ticker"}`)
+		return strings.Contains(out, "drun_is_leader 1") &&
+			strings.Contains(out, `drun_incarnation_state{runnable="ticker",state="running"} 1`) &&
+			strings.Contains(out, `drun_failover_seconds{kind="planned",runnable="ticker"}`) &&
+			strings.Contains(out, `drun_checkpoint_commit_seconds_count{runnable="ticker"}`)
 	})
 }

@@ -1,4 +1,4 @@
-// Package metrics serves a node's metrics (resurgo_specification.md
+// Package metrics serves a node's metrics (drun_specification.md
 // §10.3) in the Prometheus text format, written by hand: a dozen
 // families do not need a client library (FW-3 adds Raft's own).
 package metrics
@@ -29,7 +29,7 @@ type Source interface {
 	Runnables() []Runnable
 }
 
-// buckets of resurgo_checkpoint_commit_seconds
+// buckets of drun_checkpoint_commit_seconds
 var buckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5}
 
 type histogram struct {
@@ -53,7 +53,7 @@ type Metrics struct {
 }
 
 // New returns the metrics of a node; states are the incarnation states
-// resurgo_incarnation_state reports.
+// drun_incarnation_state reports.
 func New(src Source, states []string) *Metrics {
 	return &Metrics{src: src, states: states, incarnations: map[[2]string]uint64{}, failover: map[[2]string]float64{},
 		takeoverWait: map[string]float64{}, commits: map[string]*histogram{}}
@@ -151,61 +151,61 @@ func (m *Metrics) text() string {
 	leader, term := m.src.Leader()
 	runnables := m.src.Runnables()
 
-	f.head("resurgo_is_leader", "gauge", "1 if this node is the leader")
-	f.sample("resurgo_is_leader", b2f(leader))
-	f.head("resurgo_raft_term", "gauge", "the Raft term")
-	f.sample("resurgo_raft_term", float64(term))
-	f.head("resurgo_epoch", "gauge", "the epoch of the runnable's current incarnation")
+	f.head("drun_is_leader", "gauge", "1 if this node is the leader")
+	f.sample("drun_is_leader", b2f(leader))
+	f.head("drun_raft_term", "gauge", "the Raft term")
+	f.sample("drun_raft_term", float64(term))
+	f.head("drun_epoch", "gauge", "the epoch of the runnable's current incarnation")
 	for _, r := range runnables {
-		f.sample("resurgo_epoch", float64(r.Epoch), "runnable", r.Name)
+		f.sample("drun_epoch", float64(r.Epoch), "runnable", r.Name)
 	}
-	f.head("resurgo_incarnation_state", "gauge", "1 for the state the leader's supervisor shows the runnable in")
+	f.head("drun_incarnation_state", "gauge", "1 for the state the leader's supervisor shows the runnable in")
 	for _, r := range runnables {
 		for _, st := range m.states {
-			f.sample("resurgo_incarnation_state", b2f(st == r.State), "runnable", r.Name, "state", st)
+			f.sample("drun_incarnation_state", b2f(st == r.State), "runnable", r.Name, "state", st)
 		}
 	}
-	f.head("resurgo_checkpoint_bytes", "gauge", "the size of the runnable's latest checkpoint")
+	f.head("drun_checkpoint_bytes", "gauge", "the size of the runnable's latest checkpoint")
 	for _, r := range runnables {
-		f.sample("resurgo_checkpoint_bytes", float64(r.CheckpointBytes), "runnable", r.Name)
+		f.sample("drun_checkpoint_bytes", float64(r.CheckpointBytes), "runnable", r.Name)
 	}
-	f.head("resurgo_checkpoint_seq", "gauge", "the sequence number of the runnable's latest checkpoint")
+	f.head("drun_checkpoint_seq", "gauge", "the sequence number of the runnable's latest checkpoint")
 	for _, r := range runnables {
-		f.sample("resurgo_checkpoint_seq", float64(r.CheckpointSeq), "runnable", r.Name)
+		f.sample("drun_checkpoint_seq", float64(r.CheckpointSeq), "runnable", r.Name)
 	}
-	f.head("resurgo_config_drift", "gauge", "1 if this node's digests of the runnable differ from its current incarnation's")
+	f.head("drun_config_drift", "gauge", "1 if this node's digests of the runnable differ from its current incarnation's")
 	for _, r := range runnables {
-		f.sample("resurgo_config_drift", b2f(r.Drift), "runnable", r.Name)
+		f.sample("drun_config_drift", b2f(r.Drift), "runnable", r.Name)
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	f.head("resurgo_incarnations_total", "counter", "incarnations run by this node, by how they ended")
+	f.head("drun_incarnations_total", "counter", "incarnations run by this node, by how they ended")
 	for _, k := range sortedKeys(m.incarnations) {
-		f.sample("resurgo_incarnations_total", float64(m.incarnations[k]), "outcome", k[1], "runnable", k[0])
+		f.sample("drun_incarnations_total", float64(m.incarnations[k]), "outcome", k[1], "runnable", k[0])
 	}
-	f.head("resurgo_failover_seconds", "gauge", "from becoming leader to the runnable's first incarnation, the last time")
+	f.head("drun_failover_seconds", "gauge", "from becoming leader to the runnable's first incarnation, the last time")
 	for _, k := range sortedKeys(m.failover) {
-		f.sample("resurgo_failover_seconds", m.failover[k], "kind", k[1], "runnable", k[0])
+		f.sample("drun_failover_seconds", m.failover[k], "kind", k[1], "runnable", k[0])
 	}
-	f.head("resurgo_takeover_wait_seconds", "gauge", "the takeover delay waited before the runnable's first incarnation, the last time")
+	f.head("drun_takeover_wait_seconds", "gauge", "the takeover delay waited before the runnable's first incarnation, the last time")
 	for _, k := range sortedKeys(m.takeoverWait) {
-		f.sample("resurgo_takeover_wait_seconds", m.takeoverWait[k], "runnable", k)
+		f.sample("drun_takeover_wait_seconds", m.takeoverWait[k], "runnable", k)
 	}
-	f.head("resurgo_checkpoint_commit_seconds", "histogram", "time to commit a checkpoint")
+	f.head("drun_checkpoint_commit_seconds", "histogram", "time to commit a checkpoint")
 	for _, name := range sortedKeys(m.commits) {
 		h := m.commits[name]
 		var cum uint64
 		for i, le := range buckets {
 			cum += h.counts[i]
-			f.sample("resurgo_checkpoint_commit_seconds_bucket", float64(cum), "runnable", name, "le", strconv.FormatFloat(le, 'g', -1, 64))
+			f.sample("drun_checkpoint_commit_seconds_bucket", float64(cum), "runnable", name, "le", strconv.FormatFloat(le, 'g', -1, 64))
 		}
-		f.sample("resurgo_checkpoint_commit_seconds_bucket", float64(h.n), "runnable", name, "le", "+Inf")
-		f.sample("resurgo_checkpoint_commit_seconds_sum", h.sum, "runnable", name)
-		f.sample("resurgo_checkpoint_commit_seconds_count", float64(h.n), "runnable", name)
+		f.sample("drun_checkpoint_commit_seconds_bucket", float64(h.n), "runnable", name, "le", "+Inf")
+		f.sample("drun_checkpoint_commit_seconds_sum", h.sum, "runnable", name)
+		f.sample("drun_checkpoint_commit_seconds_count", float64(h.n), "runnable", name)
 	}
-	f.head("resurgo_lease_renew_failures_total", "counter", "lease renewals that failed: leadership not confirmed, or the renewal not delivered")
-	f.sample("resurgo_lease_renew_failures_total", float64(m.renewFailures))
+	f.head("drun_lease_renew_failures_total", "counter", "lease renewals that failed: leadership not confirmed, or the renewal not delivered")
+	f.sample("drun_lease_renew_failures_total", float64(m.renewFailures))
 	return b.String()
 }
 

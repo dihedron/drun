@@ -1,4 +1,4 @@
-// Package daemon assembles a node (resurgo serve): its runnables' store,
+// Package daemon assembles a node (drun serve): its runnables' store,
 // the FSM, the Raft node, the supervisor and the admin API, started and
 // stopped in order.
 package daemon
@@ -15,14 +15,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin"
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/metrics"
-	"github.com/dihedron/resurgo/internal/raftnode"
-	"github.com/dihedron/resurgo/internal/store"
-	"github.com/dihedron/resurgo/internal/supervisor"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/admin"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/metrics"
+	"github.com/dihedron/drun/internal/raftnode"
+	"github.com/dihedron/drun/internal/store"
+	"github.com/dihedron/drun/internal/supervisor"
+	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/hashicorp/raft"
 )
 

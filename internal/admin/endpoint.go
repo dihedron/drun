@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/raftnode"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/raftnode"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/credentials"
 )

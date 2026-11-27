@@ -1,7 +1,7 @@
 # Configuration
 
-Each node reads one file, `/etc/resurgo/resurgo.yaml` (an example ships as
-`examples/resurgo.yaml`). Unknown keys are refused, so a misspelt key
+Each node reads one file, `/etc/drun/drun.yaml` (an example ships as
+`examples/drun.yaml`). Unknown keys are refused, so a misspelt key
 stops the node instead of being ignored. All problems in the file are
 reported together.
 
@@ -69,8 +69,8 @@ Sizes are integers with an optional `B`, `KiB`, `MiB` or `GiB`.
 
 | Key | Default | Notes |
 | :--- | :--- | :--- |
-| `admin.socket` | `/run/resurgo/admin.sock` | Absolute path; created `0660`; a socket left by a node that died is replaced, one in use is not |
-| `admin.allowed_groups` | none | Groups whose members may use the socket; root always may. The groups must exist; the socket and its directory are given to the first one, of which the node must be a member (the packaged unit makes it a member of `resurgo-admin`) |
+| `admin.socket` | `/run/drun/admin.sock` | Absolute path; created `0660`; a socket left by a node that died is replaced, one in use is not |
+| `admin.allowed_groups` | none | Groups whose members may use the socket; root always may. The groups must exist; the socket and its directory are given to the first one, of which the node must be a member (the packaged unit makes it a member of `drun-admin`) |
 | `admin.remote` | off | The remote endpoint, see below |
 
 The remote endpoint serves the same API over TCP to operators on other
@@ -83,9 +83,9 @@ admin:
   remote:
     listen: 10.0.1.11:7351
     tls:
-      cert: /etc/resurgo/tls/admin.crt   # the node's certificate on this endpoint
-      key: /etc/resurgo/tls/admin.key
-      ca: /etc/resurgo/tls/admin-ca.crt  # signs the operators' certificates
+      cert: /etc/drun/tls/admin.crt   # the node's certificate on this endpoint
+      key: /etc/drun/tls/admin.key
+      ca: /etc/drun/tls/admin-ca.crt  # signs the operators' certificates
     allowed_identities:
       - spiffe://example.org/ops/alice
       - bob.ops.example.org              # a DNS SAN

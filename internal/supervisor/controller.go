@@ -8,10 +8,10 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/hashicorp/raft"
 )
 

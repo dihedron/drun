@@ -133,7 +133,7 @@ func (s *Store) Digest(runnable string) (string, uint64, error) {
 	defer tx.Rollback() //nolint:errcheck // read only
 
 	var index uint64
-	if err := tx.QueryRowContext(ctx, "SELECT last_index FROM _resurgo_meta").Scan(&index); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT last_index FROM _drun_meta").Scan(&index); err != nil {
 		return "", 0, fmt.Errorf("store %s: digest: %w", runnable, err)
 	}
 	h := sha256.New()

@@ -1,14 +1,14 @@
-// The admin API of a node (resurgo_specification.md §10.2): served on the
+// The admin API of a node (drun_specification.md §10.2): served on the
 // local unix socket (SEC-6), optionally on a remote mutual-TLS endpoint
 // (SEC-11), and between nodes over the cluster port's admin stream, which
 // carries the calls a follower forwards to the leader (ADR-3).
 syntax = "proto3";
 
-package resurgo.admin.v1;
+package drun.admin.v1;
 
 import "proto/fsm/v1/fsm.proto";
 
-option go_package = "github.com/dihedron/resurgo/internal/admin/adminpb";
+option go_package = "github.com/dihedron/drun/internal/admin/adminpb";
 
 service Admin {
   // answered by the node called
@@ -106,7 +106,7 @@ message RunnableShowReply {
 message RunnableInfo {
   string name = 1;
   // the replicated state, as applied on the node that answered
-  resurgo.fsm.v1.Runnable state = 2;
+  drun.fsm.v1.Runnable state = 2;
   // the leader supervisor's view
   View view = 3;
   // FR-16: why this node cannot run the runnable, if it cannot
@@ -140,7 +140,7 @@ message CheckpointShowRequest {
 
 message CheckpointShowReply {
   bool found = 1;
-  resurgo.fsm.v1.CheckpointMeta meta = 2;
+  drun.fsm.v1.CheckpointMeta meta = 2;
   bytes data = 3;
 }
 
@@ -178,7 +178,7 @@ message StoreQueryRequest {
 
 message StoreQueryReply {
   repeated string columns = 1;
-  repeated resurgo.fsm.v1.Row rows = 2;
+  repeated drun.fsm.v1.Row rows = 2;
   string node = 3;
   // answered by a follower: possibly behind the leader
   bool stale = 4;
@@ -195,7 +195,7 @@ message StoreExecRequest {
 }
 
 message StoreExecReply {
-  resurgo.fsm.v1.BatchResult result = 1;
+  drun.fsm.v1.BatchResult result = 1;
   uint64 epoch = 2; // the operator's incarnation; 0 for a dry run
 }
 

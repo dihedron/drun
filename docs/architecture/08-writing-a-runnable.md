@@ -1,6 +1,6 @@
 # Writing a runnable
 
-A runnable is a Go program built with the SDK, `github.com/dihedron/resurgo/pkg/runnable`.
+A runnable is a Go program built with the SDK, `github.com/dihedron/drun/pkg/runnable`.
 Its `main` calls `runnable.Serve` with a value that implements
 `runnable.Runnable`:
 
@@ -49,8 +49,8 @@ rows it affects (`runnable.Exactly(1)`), so that a batch checks its own
 preconditions. The SQL is SQLite's, minus what would make the nodes
 differ: no `random()`, no clock (`'now'`, `CURRENT_TIMESTAMP` and
 `localtime` are refused), no `ATTACH`, no transactions of its own, no
-extensions. The only clock is `resurgo_now()`, the leader's time of the
-batch in Unix milliseconds, the same on every node; `resurgo_epoch()` is
+extensions. The only clock is `drun_now()`, the leader's time of the
+batch in Unix milliseconds, the same on every node; `drun_epoch()` is
 the incarnation's epoch.
 
 The schema is the runnable's: migrate it at the start of `Run` with
@@ -65,7 +65,7 @@ version, err := migrate.Run(ctx, host.Store(), []migrate.Migration{
 
 ## The example: the ticker
 
-```{.go include="cmd/resurgo-runnable-ticker/main.go"}
+```{.go include="cmd/drun-runnable-ticker/main.go"}
 ```
 
 ## Testing
@@ -85,6 +85,6 @@ conformance.Check(t, func(*testing.T) runnable.Instance { return runnable.InProc
 ## Shipping it
 
 Build it statically (`CGO_ENABLED=0`), install it root-owned in
-`/usr/libexec/resurgo/runnables`, and pin its SHA-256 in every node's
+`/usr/libexec/drun/runnables`, and pin its SHA-256 in every node's
 configuration. Its standard error goes to the node's journal: never write
 secrets there.

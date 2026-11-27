@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/dihedron/resurgo/pkg/runnable/runnablepb"
+	"github.com/dihedron/drun/pkg/runnable/runnablepb"
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 )
@@ -16,7 +16,7 @@ import (
 // of another protocol version is refused before the first call.
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  1,
-	MagicCookieKey:   "RESURGO_RUNNABLE",
+	MagicCookieKey:   "DRUN_RUNNABLE",
 	MagicCookieValue: "runnable-v1",
 }
 

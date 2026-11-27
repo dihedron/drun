@@ -1,4 +1,4 @@
-// The admin API of a node (resurgo_specification.md §10.2): served on the
+// The admin API of a node (drun_specification.md §10.2): served on the
 // local unix socket (SEC-6), optionally on a remote mutual-TLS endpoint
 // (SEC-11), and between nodes over the cluster port's admin stream, which
 // carries the calls a follower forwards to the leader (ADR-3).
@@ -24,22 +24,22 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Admin_ClusterShow_FullMethodName     = "/resurgo.admin.v1.Admin/ClusterShow"
-	Admin_RunnableShow_FullMethodName    = "/resurgo.admin.v1.Admin/RunnableShow"
-	Admin_CheckpointShow_FullMethodName  = "/resurgo.admin.v1.Admin/CheckpointShow"
-	Admin_MemberAdd_FullMethodName       = "/resurgo.admin.v1.Admin/MemberAdd"
-	Admin_MemberRemove_FullMethodName    = "/resurgo.admin.v1.Admin/MemberRemove"
-	Admin_LeaderTransfer_FullMethodName  = "/resurgo.admin.v1.Admin/LeaderTransfer"
-	Admin_RunnableSet_FullMethodName     = "/resurgo.admin.v1.Admin/RunnableSet"
-	Admin_RunnableRestart_FullMethodName = "/resurgo.admin.v1.Admin/RunnableRestart"
-	Admin_RunnableReset_FullMethodName   = "/resurgo.admin.v1.Admin/RunnableReset"
-	Admin_Views_FullMethodName           = "/resurgo.admin.v1.Admin/Views"
-	Admin_StoreShow_FullMethodName       = "/resurgo.admin.v1.Admin/StoreShow"
-	Admin_StoreQuery_FullMethodName      = "/resurgo.admin.v1.Admin/StoreQuery"
-	Admin_StoreExec_FullMethodName       = "/resurgo.admin.v1.Admin/StoreExec"
-	Admin_StoreReset_FullMethodName      = "/resurgo.admin.v1.Admin/StoreReset"
-	Admin_StoreBackup_FullMethodName     = "/resurgo.admin.v1.Admin/StoreBackup"
-	Admin_StoreDigest_FullMethodName     = "/resurgo.admin.v1.Admin/StoreDigest"
+	Admin_ClusterShow_FullMethodName     = "/drun.admin.v1.Admin/ClusterShow"
+	Admin_RunnableShow_FullMethodName    = "/drun.admin.v1.Admin/RunnableShow"
+	Admin_CheckpointShow_FullMethodName  = "/drun.admin.v1.Admin/CheckpointShow"
+	Admin_MemberAdd_FullMethodName       = "/drun.admin.v1.Admin/MemberAdd"
+	Admin_MemberRemove_FullMethodName    = "/drun.admin.v1.Admin/MemberRemove"
+	Admin_LeaderTransfer_FullMethodName  = "/drun.admin.v1.Admin/LeaderTransfer"
+	Admin_RunnableSet_FullMethodName     = "/drun.admin.v1.Admin/RunnableSet"
+	Admin_RunnableRestart_FullMethodName = "/drun.admin.v1.Admin/RunnableRestart"
+	Admin_RunnableReset_FullMethodName   = "/drun.admin.v1.Admin/RunnableReset"
+	Admin_Views_FullMethodName           = "/drun.admin.v1.Admin/Views"
+	Admin_StoreShow_FullMethodName       = "/drun.admin.v1.Admin/StoreShow"
+	Admin_StoreQuery_FullMethodName      = "/drun.admin.v1.Admin/StoreQuery"
+	Admin_StoreExec_FullMethodName       = "/drun.admin.v1.Admin/StoreExec"
+	Admin_StoreReset_FullMethodName      = "/drun.admin.v1.Admin/StoreReset"
+	Admin_StoreBackup_FullMethodName     = "/drun.admin.v1.Admin/StoreBackup"
+	Admin_StoreDigest_FullMethodName     = "/drun.admin.v1.Admin/StoreDigest"
 )
 
 // AdminClient is the client API for Admin service.
@@ -639,7 +639,7 @@ func _Admin_StoreDigest_Handler(srv interface{}, ctx context.Context, dec func(i
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Admin_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "resurgo.admin.v1.Admin",
+	ServiceName: "drun.admin.v1.Admin",
 	HandlerType: (*AdminServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

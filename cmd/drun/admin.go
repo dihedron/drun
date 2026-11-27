@@ -8,8 +8,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin"
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/admin"
+	"github.com/dihedron/drun/internal/admin/adminpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )

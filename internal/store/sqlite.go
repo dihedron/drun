@@ -4,9 +4,9 @@ package store
 #include <stdint.h>
 #include <stdlib.h>
 typedef struct sqlite3 sqlite3;
-void resurgo_set_progress(sqlite3 *db, int every, uintptr_t handle);
-int resurgo_statements(sqlite3 *db, const char *sql);
-int resurgo_complete(const char *sql);
+void drun_set_progress(sqlite3 *db, int every, uintptr_t handle);
+int drun_statements(sqlite3 *db, const char *sql);
+int drun_complete(const char *sql);
 */
 import "C"
 
@@ -26,8 +26,8 @@ type progress struct {
 	limit int64
 }
 
-//export resurgoProgress
-func resurgoProgress(handle C.uintptr_t) C.int {
+//export drunProgress
+func drunProgress(handle C.uintptr_t) C.int {
 	p := cgo.Handle(handle).Value().(*progress) //nolint:forcetypeassert // only progress handles are registered
 	p.calls++
 	if p.limit > 0 && p.calls > p.limit {
@@ -44,9 +44,9 @@ func setProgress(conn *sqlite3.SQLiteConn, every int, p *progress) (func(), erro
 		return nil, err
 	}
 	h := cgo.NewHandle(p)
-	C.resurgo_set_progress(db, C.int(every), C.uintptr_t(h))
+	C.drun_set_progress(db, C.int(every), C.uintptr_t(h))
 	return func() {
-		C.resurgo_set_progress(db, 0, 0)
+		C.drun_set_progress(db, 0, 0)
 		h.Delete()
 	}, nil
 }
@@ -60,7 +60,7 @@ func statements(conn *sqlite3.SQLiteConn, sql string) (int, error) {
 	}
 	cs := C.CString(sql)
 	defer C.free(unsafe.Pointer(cs))
-	return int(C.resurgo_statements(db, cs)), nil
+	return int(C.drun_statements(db, cs)), nil
 }
 
 // complete reports whether sql ends a complete statement, by SQLite's
@@ -68,7 +68,7 @@ func statements(conn *sqlite3.SQLiteConn, sql string) (int, error) {
 func complete(sql string) bool {
 	cs := C.CString(sql)
 	defer C.free(unsafe.Pointer(cs))
-	return C.resurgo_complete(cs) != 0
+	return C.drun_complete(cs) != 0
 }
 
 // rawDB reads the driver's unexported *C.sqlite3: it depends on the layout

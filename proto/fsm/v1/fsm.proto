@@ -1,14 +1,14 @@
-// The replicated state machine of resurgo: the commands in the Raft log and
-// the state in its snapshots (resurgo_specification.md §9).
+// The replicated state machine of drun: the commands in the Raft log and
+// the state in its snapshots (drun_specification.md §9).
 //
 // Every timestamp is set by the leader, in Unix milliseconds: the FSM never
 // reads a clock. The messages hold no maps, so that their encoding, and so
 // every snapshot, is the same on every node (INV-7).
 syntax = "proto3";
 
-package resurgo.fsm.v1;
+package drun.fsm.v1;
 
-option go_package = "github.com/dihedron/resurgo/internal/fsm/fsmpb";
+option go_package = "github.com/dihedron/drun/internal/fsm/fsmpb";
 
 // Command is one Raft log entry.
 message Command {
@@ -31,7 +31,7 @@ message Command {
 }
 
 // StoreBatch is applied to the runnable's database in one transaction
-// (resurgo-store.md STO-1, STO-2).
+// (drun-store.md STO-1, STO-2).
 message StoreBatch {
   string runnable = 1;
   uint64 epoch = 2;

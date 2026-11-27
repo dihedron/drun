@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/internal/store"
+	"github.com/dihedron/drun/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/store"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

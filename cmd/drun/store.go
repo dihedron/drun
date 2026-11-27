@@ -10,9 +10,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/dihedron/resurgo/internal/admin"
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/admin"
+	"github.com/dihedron/drun/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 type StoreShowCommand struct {

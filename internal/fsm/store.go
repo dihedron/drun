@@ -3,10 +3,10 @@ package fsm
 import (
 	"io"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
-// Store is the runnables' SQL stores (resurgo-store.md), as the FSM sees
+// Store is the runnables' SQL stores (drun-store.md), as the FSM sees
 // them. Every method that changes a database gets the index of the entry,
 // so that the store applies each entry exactly once (STO-3). The FSM calls
 // it from Apply, Snapshot and Restore only, one call at a time.

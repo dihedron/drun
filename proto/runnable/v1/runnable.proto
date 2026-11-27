@@ -1,10 +1,10 @@
-// The protocol between a resurgo node and a runnable's plugin process
-// (resurgo_specification.md §8.2), over hashicorp/go-plugin with gRPC.
+// The protocol between a drun node and a runnable's plugin process
+// (drun_specification.md §8.2), over hashicorp/go-plugin with gRPC.
 syntax = "proto3";
 
-package resurgo.runnable.v1;
+package drun.runnable.v1;
 
-option go_package = "github.com/dihedron/resurgo/pkg/runnable/runnablepb";
+option go_package = "github.com/dihedron/drun/pkg/runnable/runnablepb";
 
 service Runnable {
   rpc Describe(DescribeRequest) returns (Description);

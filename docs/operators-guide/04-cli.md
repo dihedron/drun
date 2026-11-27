@@ -5,14 +5,14 @@ admin API: the local socket by default, or another one with `--admin`:
 
 | Option | Meaning |
 | :--- | :--- |
-| `--admin unix:///path` | A local socket (default `unix:///run/resurgo/admin.sock`) |
+| `--admin unix:///path` | A local socket (default `unix:///run/drun/admin.sock`) |
 | `--admin tls://host:port` | A node's remote endpoint, with `--cert`, `--key` (your certificate) and `--ca` (the CA of the node's certificate); `--server-identity` checks the identity the node presents |
 | `--json` | Print replies as JSON |
 | `--timeout` | How long a call may take (default 90 s; a handover waits for the runnables to stop) |
 
-Each option can also come from the environment: `RESURGO_ADMIN`,
-`RESURGO_ADMIN_CERT`, `RESURGO_ADMIN_KEY`, `RESURGO_ADMIN_CA`,
-`RESURGO_ADMIN_SERVER_IDENTITY`.
+Each option can also come from the environment: `DRUN_ADMIN`,
+`DRUN_ADMIN_CERT`, `DRUN_ADMIN_KEY`, `DRUN_ADMIN_CA`,
+`DRUN_ADMIN_SERVER_IDENTITY`.
 
 ## Commands
 

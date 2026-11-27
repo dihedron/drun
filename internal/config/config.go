@@ -1,5 +1,5 @@
 // Package config loads and checks a node's configuration file
-// (resurgo_specification.md §10.1), with the defaults and constraints of
+// (drun_specification.md §10.1), with the defaults and constraints of
 // §8.3, §8.4, §8.6 and §8.7.
 package config
 
@@ -159,7 +159,7 @@ type Health struct {
 	Timeout time.Duration `yaml:"timeout"`
 }
 
-// Store holds the limits of the runnable's store (resurgo-store.md STO-7
+// Store holds the limits of the runnable's store (drun-store.md STO-7
 // to STO-11).
 type Store struct {
 	MaxBatch     ByteSize      `yaml:"max_batch"`
@@ -209,7 +209,7 @@ func (c *Config) applyDefaults() {
 	setDefault(&c.Raft.TrailingLogs, 256)
 	setDefault(&c.Lease.Duration, lease)
 	setDefault(&c.Lease.RenewInterval, renew)
-	setDefault(&c.Admin.Socket, "/run/resurgo/admin.sock")
+	setDefault(&c.Admin.Socket, "/run/drun/admin.sock")
 	for i := range c.Runnables {
 		r := &c.Runnables[i]
 		setDefault(&r.Kind, KindService)

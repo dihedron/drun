@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 func TestSplit(t *testing.T) {

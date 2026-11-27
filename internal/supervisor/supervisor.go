@@ -1,5 +1,5 @@
 // Package supervisor runs the runnables on the leader
-// (resurgo_specification.md §7.2): one incarnation controller per
+// (drun_specification.md §7.2): one incarnation controller per
 // configured runnable while the node is leader, nothing on a follower.
 package supervisor
 
@@ -15,11 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/internal/store"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/store"
+	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/hashicorp/raft"
 )
 

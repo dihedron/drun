@@ -20,7 +20,7 @@ dist
 *.mprof
 
 # Local test files
-_test/resurgo_*.yaml
+_test/drun_*.yaml
 _test/devenv.*
 fetch/server.crt
 fetch/server.key

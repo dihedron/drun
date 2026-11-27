@@ -2,14 +2,14 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{small}
-\noindent\textbf{resurgo} --- run a plugin on the leader of a Raft cluster, and run it again on every new leader.\\
-\url{https://github.com/dihedron/resurgo}
+\noindent\textbf{drun} --- run a plugin on the leader of a Raft cluster, and run it again on every new leader.\\
+\url{https://github.com/dihedron/drun}
 
 \medskip
 \noindent This document describes version \textbf{$version$}, built on $date$.
 
 \medskip
-\noindent \textbf{Preliminary.} resurgo has not been released yet: this document describes the software as it is built and tested today, and both may change before version 1.0.0.
+\noindent \textbf{Preliminary.} drun has not been released yet: this document describes the software as it is built and tested today, and both may change before version 1.0.0.
 
 \medskip
 \noindent Copyright \copyright{} 2026 Andrea Funtò. The software is licensed under the MIT License.

@@ -1,5 +1,5 @@
 # Gitleaks configuration: the default rules.
-title = "resurgo"
+title = "drun"
 
 [extend]
 useDefault = true

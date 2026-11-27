@@ -3,7 +3,7 @@
 A node starts a runnable's binary only if:
 
 - its SHA-256 equals `sha256` in the runnable's configuration
-  (`sha256sum /usr/libexec/resurgo/runnables/NAME`);
+  (`sha256sum /usr/libexec/drun/runnables/NAME`);
 - the binary and its directory are owned by root and not writable by group
   or others (`chown root:root`, `chmod 0755` or stricter).
 

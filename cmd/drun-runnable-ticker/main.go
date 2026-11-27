@@ -1,4 +1,4 @@
-// resurgo-runnable-ticker is the stateless example runnable: a service
+// drun-runnable-ticker is the stateless example runnable: a service
 // that counts, checkpointing the counter every interval, so that each
 // incarnation resumes where the last acknowledged one stopped (AC-6).
 //
@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/metadata"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/pkg/metadata"
+	"github.com/dihedron/drun/pkg/runnable"
 )
 
 func main() { runnable.Serve(ticker{}) }

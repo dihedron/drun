@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/admin/adminpb"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -17,7 +17,7 @@ import (
 )
 
 // the metadata that carries a forwarded call's caller
-const callerKey = "resurgo-caller"
+const callerKey = "drun-caller"
 
 // electionWait is how long a call waits for a leader to be known
 const electionWait = 5 * time.Second

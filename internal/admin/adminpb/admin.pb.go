@@ -1,4 +1,4 @@
-// The admin API of a node (resurgo_specification.md §10.2): served on the
+// The admin API of a node (drun_specification.md §10.2): served on the
 // local unix socket (SEC-6), optionally on a remote mutual-TLS endpoint
 // (SEC-11), and between nodes over the cluster port's admin stream, which
 // carries the calls a follower forwards to the leader (ADR-3).
@@ -12,7 +12,7 @@
 package adminpb
 
 import (
-	fsmpb "github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	fsmpb "github.com/dihedron/drun/internal/fsm/fsmpb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1582,8 +1582,8 @@ var File_proto_admin_v1_admin_proto protoreflect.FileDescriptor
 
 const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\n" +
-	"\x1aproto/admin/v1/admin.proto\x12\x10resurgo.admin.v1\x1a\x16proto/fsm/v1/fsm.proto\"\a\n" +
-	"\x05Empty\"\xcd\x02\n" +
+	"\x1aproto/admin/v1/admin.proto\x12\rdrun.admin.v1\x1a\x16proto/fsm/v1/fsm.proto\"\a\n" +
+	"\x05Empty\"\xca\x02\n" +
 	"\x10ClusterShowReply\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x18\n" +
 	"\acluster\x18\x02 \x01(\tR\acluster\x12\x14\n" +
@@ -1593,9 +1593,9 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\x04term\x18\x06 \x01(\x04R\x04term\x12!\n" +
 	"\fcommit_index\x18\a \x01(\x04R\vcommitIndex\x12#\n" +
 	"\rapplied_index\x18\b \x01(\x04R\fappliedIndex\x12!\n" +
-	"\flast_contact\x18\t \x01(\tR\vlastContact\x122\n" +
+	"\flast_contact\x18\t \x01(\tR\vlastContact\x12/\n" +
 	"\amembers\x18\n" +
-	" \x03(\v2\x18.resurgo.admin.v1.MemberR\amembers\"\x82\x01\n" +
+	" \x03(\v2\x15.drun.admin.v1.MemberR\amembers\"\x82\x01\n" +
 	"\x06Member\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1a\n" +
@@ -1626,16 +1626,16 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"completion\x12\x1a\n" +
 	"\bfailures\x18\x04 \x01(\bR\bfailures\")\n" +
 	"\x13RunnableShowRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x86\x01\n" +
-	"\x11RunnableShowReply\x12<\n" +
-	"\trunnables\x18\x01 \x03(\v2\x1e.resurgo.admin.v1.RunnableInfoR\trunnables\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x83\x01\n" +
+	"\x11RunnableShowReply\x129\n" +
+	"\trunnables\x18\x01 \x03(\v2\x1b.drun.admin.v1.RunnableInfoR\trunnables\x12\x12\n" +
 	"\x04node\x18\x02 \x01(\tR\x04node\x12\x1f\n" +
 	"\vviews_error\x18\x03 \x01(\tR\n" +
-	"viewsError\"\xa9\x02\n" +
+	"viewsError\"\xa3\x02\n" +
 	"\fRunnableInfo\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
-	"\x05state\x18\x02 \x01(\v2\x18.resurgo.fsm.v1.RunnableR\x05state\x12*\n" +
-	"\x04view\x18\x03 \x01(\v2\x16.resurgo.admin.v1.ViewR\x04view\x12)\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
+	"\x05state\x18\x02 \x01(\v2\x15.drun.fsm.v1.RunnableR\x05state\x12'\n" +
+	"\x04view\x18\x03 \x01(\v2\x13.drun.admin.v1.ViewR\x04view\x12)\n" +
 	"\x10validation_error\x18\x04 \x01(\tR\x0fvalidationError\x12#\n" +
 	"\rbinary_sha256\x18\x05 \x01(\fR\fbinarySha256\x12#\n" +
 	"\rconfig_sha256\x18\x06 \x01(\fR\fconfigSha256\x12\x14\n" +
@@ -1650,29 +1650,29 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\ahealthy\x18\x04 \x01(\bR\ahealthy\x12\x16\n" +
 	"\x06detail\x18\x05 \x01(\tR\x06detail\x12\x14\n" +
 	"\x05since\x18\x06 \x01(\x03R\x05since\x12\x12\n" +
-	"\x04node\x18\a \x01(\tR\x04node\":\n" +
+	"\x04node\x18\a \x01(\tR\x04node\"7\n" +
 	"\n" +
-	"ViewsReply\x12,\n" +
-	"\x05views\x18\x01 \x03(\v2\x16.resurgo.admin.v1.ViewR\x05views\"?\n" +
+	"ViewsReply\x12)\n" +
+	"\x05views\x18\x01 \x03(\v2\x13.drun.admin.v1.ViewR\x05views\"?\n" +
 	"\x15CheckpointShowRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\bR\x04data\"s\n" +
+	"\x04data\x18\x02 \x01(\bR\x04data\"p\n" +
 	"\x13CheckpointShowReply\x12\x14\n" +
-	"\x05found\x18\x01 \x01(\bR\x05found\x122\n" +
-	"\x04meta\x18\x02 \x01(\v2\x1e.resurgo.fsm.v1.CheckpointMetaR\x04meta\x12\x12\n" +
+	"\x05found\x18\x01 \x01(\bR\x05found\x12/\n" +
+	"\x04meta\x18\x02 \x01(\v2\x1b.drun.fsm.v1.CheckpointMetaR\x04meta\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\"&\n" +
 	"\x10StoreShowRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"E\n" +
-	"\x0eStoreShowReply\x123\n" +
-	"\x06stores\x18\x01 \x03(\v2\x1b.resurgo.admin.v1.StoreInfoR\x06stores\"\xd2\x01\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"B\n" +
+	"\x0eStoreShowReply\x120\n" +
+	"\x06stores\x18\x01 \x03(\v2\x18.drun.admin.v1.StoreInfoR\x06stores\"\xcf\x01\n" +
 	"\tStoreInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06exists\x18\x02 \x01(\bR\x06exists\x12\x12\n" +
 	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x16\n" +
 	"\x06tables\x18\x04 \x03(\tR\x06tables\x12\x1d\n" +
 	"\n" +
-	"last_index\x18\x05 \x01(\x04R\tlastIndex\x122\n" +
-	"\adigests\x18\x06 \x03(\v2\x18.resurgo.admin.v1.DigestR\adigests\x12\x1a\n" +
+	"last_index\x18\x05 \x01(\x04R\tlastIndex\x12/\n" +
+	"\adigests\x18\x06 \x03(\v2\x15.drun.admin.v1.DigestR\adigests\x12\x1a\n" +
 	"\bmismatch\x18\a \x01(\bR\bmismatch\"`\n" +
 	"\x06Digest\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x16\n" +
@@ -1682,42 +1682,41 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\x11StoreQueryRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x12\x14\n" +
-	"\x05local\x18\x03 \x01(\bR\x05local\"~\n" +
+	"\x05local\x18\x03 \x01(\bR\x05local\"{\n" +
 	"\x0fStoreQueryReply\x12\x18\n" +
-	"\acolumns\x18\x01 \x03(\tR\acolumns\x12'\n" +
-	"\x04rows\x18\x02 \x03(\v2\x13.resurgo.fsm.v1.RowR\x04rows\x12\x12\n" +
+	"\acolumns\x18\x01 \x03(\tR\acolumns\x12$\n" +
+	"\x04rows\x18\x02 \x03(\v2\x10.drun.fsm.v1.RowR\x04rows\x12\x12\n" +
 	"\x04node\x18\x03 \x01(\tR\x04node\x12\x14\n" +
 	"\x05stale\x18\x04 \x01(\bR\x05stale\"k\n" +
 	"\x10StoreExecRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x12\x18\n" +
 	"\adisable\x18\x03 \x01(\bR\adisable\x12\x17\n" +
-	"\adry_run\x18\x04 \x01(\bR\x06dryRun\"[\n" +
-	"\x0eStoreExecReply\x123\n" +
-	"\x06result\x18\x01 \x01(\v2\x1b.resurgo.fsm.v1.BatchResultR\x06result\x12\x14\n" +
+	"\adry_run\x18\x04 \x01(\bR\x06dryRun\"X\n" +
+	"\x0eStoreExecReply\x120\n" +
+	"\x06result\x18\x01 \x01(\v2\x18.drun.fsm.v1.BatchResultR\x06result\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\"\x1b\n" +
 	"\x05Chunk\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data2\x8d\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data2\xad\t\n" +
+	"\x05Admin\x12D\n" +
+	"\vClusterShow\x12\x14.drun.admin.v1.Empty\x1a\x1f.drun.admin.v1.ClusterShowReply\x12T\n" +
+	"\fRunnableShow\x12\".drun.admin.v1.RunnableShowRequest\x1a .drun.admin.v1.RunnableShowReply\x12Z\n" +
+	"\x0eCheckpointShow\x12$.drun.admin.v1.CheckpointShowRequest\x1a\".drun.admin.v1.CheckpointShowReply\x12B\n" +
+	"\tMemberAdd\x12\x1f.drun.admin.v1.MemberAddRequest\x1a\x14.drun.admin.v1.Empty\x12H\n" +
+	"\fMemberRemove\x12\".drun.admin.v1.MemberRemoveRequest\x1a\x14.drun.admin.v1.Empty\x12L\n" +
+	"\x0eLeaderTransfer\x12$.drun.admin.v1.LeaderTransferRequest\x1a\x14.drun.admin.v1.Empty\x12F\n" +
+	"\vRunnableSet\x12!.drun.admin.v1.RunnableSetRequest\x1a\x14.drun.admin.v1.Empty\x12G\n" +
+	"\x0fRunnableRestart\x12\x1e.drun.admin.v1.RunnableRequest\x1a\x14.drun.admin.v1.Empty\x12J\n" +
+	"\rRunnableReset\x12#.drun.admin.v1.RunnableResetRequest\x1a\x14.drun.admin.v1.Empty\x128\n" +
+	"\x05Views\x12\x14.drun.admin.v1.Empty\x1a\x19.drun.admin.v1.ViewsReply\x12K\n" +
+	"\tStoreShow\x12\x1f.drun.admin.v1.StoreShowRequest\x1a\x1d.drun.admin.v1.StoreShowReply\x12N\n" +
 	"\n" +
-	"\x05Admin\x12J\n" +
-	"\vClusterShow\x12\x17.resurgo.admin.v1.Empty\x1a\".resurgo.admin.v1.ClusterShowReply\x12Z\n" +
-	"\fRunnableShow\x12%.resurgo.admin.v1.RunnableShowRequest\x1a#.resurgo.admin.v1.RunnableShowReply\x12`\n" +
-	"\x0eCheckpointShow\x12'.resurgo.admin.v1.CheckpointShowRequest\x1a%.resurgo.admin.v1.CheckpointShowReply\x12H\n" +
-	"\tMemberAdd\x12\".resurgo.admin.v1.MemberAddRequest\x1a\x17.resurgo.admin.v1.Empty\x12N\n" +
-	"\fMemberRemove\x12%.resurgo.admin.v1.MemberRemoveRequest\x1a\x17.resurgo.admin.v1.Empty\x12R\n" +
-	"\x0eLeaderTransfer\x12'.resurgo.admin.v1.LeaderTransferRequest\x1a\x17.resurgo.admin.v1.Empty\x12L\n" +
-	"\vRunnableSet\x12$.resurgo.admin.v1.RunnableSetRequest\x1a\x17.resurgo.admin.v1.Empty\x12M\n" +
-	"\x0fRunnableRestart\x12!.resurgo.admin.v1.RunnableRequest\x1a\x17.resurgo.admin.v1.Empty\x12P\n" +
-	"\rRunnableReset\x12&.resurgo.admin.v1.RunnableResetRequest\x1a\x17.resurgo.admin.v1.Empty\x12>\n" +
-	"\x05Views\x12\x17.resurgo.admin.v1.Empty\x1a\x1c.resurgo.admin.v1.ViewsReply\x12Q\n" +
-	"\tStoreShow\x12\".resurgo.admin.v1.StoreShowRequest\x1a .resurgo.admin.v1.StoreShowReply\x12T\n" +
+	"StoreQuery\x12 .drun.admin.v1.StoreQueryRequest\x1a\x1e.drun.admin.v1.StoreQueryReply\x12K\n" +
+	"\tStoreExec\x12\x1f.drun.admin.v1.StoreExecRequest\x1a\x1d.drun.admin.v1.StoreExecReply\x12B\n" +
 	"\n" +
-	"StoreQuery\x12#.resurgo.admin.v1.StoreQueryRequest\x1a!.resurgo.admin.v1.StoreQueryReply\x12Q\n" +
-	"\tStoreExec\x12\".resurgo.admin.v1.StoreExecRequest\x1a .resurgo.admin.v1.StoreExecReply\x12H\n" +
-	"\n" +
-	"StoreReset\x12!.resurgo.admin.v1.RunnableRequest\x1a\x17.resurgo.admin.v1.Empty\x12K\n" +
-	"\vStoreBackup\x12!.resurgo.admin.v1.RunnableRequest\x1a\x17.resurgo.admin.v1.Chunk0\x01\x12J\n" +
-	"\vStoreDigest\x12!.resurgo.admin.v1.RunnableRequest\x1a\x18.resurgo.admin.v1.DigestB4Z2github.com/dihedron/resurgo/internal/admin/adminpbb\x06proto3"
+	"StoreReset\x12\x1e.drun.admin.v1.RunnableRequest\x1a\x14.drun.admin.v1.Empty\x12E\n" +
+	"\vStoreBackup\x12\x1e.drun.admin.v1.RunnableRequest\x1a\x14.drun.admin.v1.Chunk0\x01\x12D\n" +
+	"\vStoreDigest\x12\x1e.drun.admin.v1.RunnableRequest\x1a\x15.drun.admin.v1.DigestB1Z/github.com/dihedron/drun/internal/admin/adminpbb\x06proto3"
 
 var (
 	file_proto_admin_v1_admin_proto_rawDescOnce sync.Once
@@ -1733,79 +1732,79 @@ func file_proto_admin_v1_admin_proto_rawDescGZIP() []byte {
 
 var file_proto_admin_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_proto_admin_v1_admin_proto_goTypes = []any{
-	(*Empty)(nil),                 // 0: resurgo.admin.v1.Empty
-	(*ClusterShowReply)(nil),      // 1: resurgo.admin.v1.ClusterShowReply
-	(*Member)(nil),                // 2: resurgo.admin.v1.Member
-	(*MemberAddRequest)(nil),      // 3: resurgo.admin.v1.MemberAddRequest
-	(*MemberRemoveRequest)(nil),   // 4: resurgo.admin.v1.MemberRemoveRequest
-	(*LeaderTransferRequest)(nil), // 5: resurgo.admin.v1.LeaderTransferRequest
-	(*RunnableRequest)(nil),       // 6: resurgo.admin.v1.RunnableRequest
-	(*RunnableSetRequest)(nil),    // 7: resurgo.admin.v1.RunnableSetRequest
-	(*RunnableResetRequest)(nil),  // 8: resurgo.admin.v1.RunnableResetRequest
-	(*RunnableShowRequest)(nil),   // 9: resurgo.admin.v1.RunnableShowRequest
-	(*RunnableShowReply)(nil),     // 10: resurgo.admin.v1.RunnableShowReply
-	(*RunnableInfo)(nil),          // 11: resurgo.admin.v1.RunnableInfo
-	(*View)(nil),                  // 12: resurgo.admin.v1.View
-	(*ViewsReply)(nil),            // 13: resurgo.admin.v1.ViewsReply
-	(*CheckpointShowRequest)(nil), // 14: resurgo.admin.v1.CheckpointShowRequest
-	(*CheckpointShowReply)(nil),   // 15: resurgo.admin.v1.CheckpointShowReply
-	(*StoreShowRequest)(nil),      // 16: resurgo.admin.v1.StoreShowRequest
-	(*StoreShowReply)(nil),        // 17: resurgo.admin.v1.StoreShowReply
-	(*StoreInfo)(nil),             // 18: resurgo.admin.v1.StoreInfo
-	(*Digest)(nil),                // 19: resurgo.admin.v1.Digest
-	(*StoreQueryRequest)(nil),     // 20: resurgo.admin.v1.StoreQueryRequest
-	(*StoreQueryReply)(nil),       // 21: resurgo.admin.v1.StoreQueryReply
-	(*StoreExecRequest)(nil),      // 22: resurgo.admin.v1.StoreExecRequest
-	(*StoreExecReply)(nil),        // 23: resurgo.admin.v1.StoreExecReply
-	(*Chunk)(nil),                 // 24: resurgo.admin.v1.Chunk
-	(*fsmpb.Runnable)(nil),        // 25: resurgo.fsm.v1.Runnable
-	(*fsmpb.CheckpointMeta)(nil),  // 26: resurgo.fsm.v1.CheckpointMeta
-	(*fsmpb.Row)(nil),             // 27: resurgo.fsm.v1.Row
-	(*fsmpb.BatchResult)(nil),     // 28: resurgo.fsm.v1.BatchResult
+	(*Empty)(nil),                 // 0: drun.admin.v1.Empty
+	(*ClusterShowReply)(nil),      // 1: drun.admin.v1.ClusterShowReply
+	(*Member)(nil),                // 2: drun.admin.v1.Member
+	(*MemberAddRequest)(nil),      // 3: drun.admin.v1.MemberAddRequest
+	(*MemberRemoveRequest)(nil),   // 4: drun.admin.v1.MemberRemoveRequest
+	(*LeaderTransferRequest)(nil), // 5: drun.admin.v1.LeaderTransferRequest
+	(*RunnableRequest)(nil),       // 6: drun.admin.v1.RunnableRequest
+	(*RunnableSetRequest)(nil),    // 7: drun.admin.v1.RunnableSetRequest
+	(*RunnableResetRequest)(nil),  // 8: drun.admin.v1.RunnableResetRequest
+	(*RunnableShowRequest)(nil),   // 9: drun.admin.v1.RunnableShowRequest
+	(*RunnableShowReply)(nil),     // 10: drun.admin.v1.RunnableShowReply
+	(*RunnableInfo)(nil),          // 11: drun.admin.v1.RunnableInfo
+	(*View)(nil),                  // 12: drun.admin.v1.View
+	(*ViewsReply)(nil),            // 13: drun.admin.v1.ViewsReply
+	(*CheckpointShowRequest)(nil), // 14: drun.admin.v1.CheckpointShowRequest
+	(*CheckpointShowReply)(nil),   // 15: drun.admin.v1.CheckpointShowReply
+	(*StoreShowRequest)(nil),      // 16: drun.admin.v1.StoreShowRequest
+	(*StoreShowReply)(nil),        // 17: drun.admin.v1.StoreShowReply
+	(*StoreInfo)(nil),             // 18: drun.admin.v1.StoreInfo
+	(*Digest)(nil),                // 19: drun.admin.v1.Digest
+	(*StoreQueryRequest)(nil),     // 20: drun.admin.v1.StoreQueryRequest
+	(*StoreQueryReply)(nil),       // 21: drun.admin.v1.StoreQueryReply
+	(*StoreExecRequest)(nil),      // 22: drun.admin.v1.StoreExecRequest
+	(*StoreExecReply)(nil),        // 23: drun.admin.v1.StoreExecReply
+	(*Chunk)(nil),                 // 24: drun.admin.v1.Chunk
+	(*fsmpb.Runnable)(nil),        // 25: drun.fsm.v1.Runnable
+	(*fsmpb.CheckpointMeta)(nil),  // 26: drun.fsm.v1.CheckpointMeta
+	(*fsmpb.Row)(nil),             // 27: drun.fsm.v1.Row
+	(*fsmpb.BatchResult)(nil),     // 28: drun.fsm.v1.BatchResult
 }
 var file_proto_admin_v1_admin_proto_depIdxs = []int32{
-	2,  // 0: resurgo.admin.v1.ClusterShowReply.members:type_name -> resurgo.admin.v1.Member
-	11, // 1: resurgo.admin.v1.RunnableShowReply.runnables:type_name -> resurgo.admin.v1.RunnableInfo
-	25, // 2: resurgo.admin.v1.RunnableInfo.state:type_name -> resurgo.fsm.v1.Runnable
-	12, // 3: resurgo.admin.v1.RunnableInfo.view:type_name -> resurgo.admin.v1.View
-	12, // 4: resurgo.admin.v1.ViewsReply.views:type_name -> resurgo.admin.v1.View
-	26, // 5: resurgo.admin.v1.CheckpointShowReply.meta:type_name -> resurgo.fsm.v1.CheckpointMeta
-	18, // 6: resurgo.admin.v1.StoreShowReply.stores:type_name -> resurgo.admin.v1.StoreInfo
-	19, // 7: resurgo.admin.v1.StoreInfo.digests:type_name -> resurgo.admin.v1.Digest
-	27, // 8: resurgo.admin.v1.StoreQueryReply.rows:type_name -> resurgo.fsm.v1.Row
-	28, // 9: resurgo.admin.v1.StoreExecReply.result:type_name -> resurgo.fsm.v1.BatchResult
-	0,  // 10: resurgo.admin.v1.Admin.ClusterShow:input_type -> resurgo.admin.v1.Empty
-	9,  // 11: resurgo.admin.v1.Admin.RunnableShow:input_type -> resurgo.admin.v1.RunnableShowRequest
-	14, // 12: resurgo.admin.v1.Admin.CheckpointShow:input_type -> resurgo.admin.v1.CheckpointShowRequest
-	3,  // 13: resurgo.admin.v1.Admin.MemberAdd:input_type -> resurgo.admin.v1.MemberAddRequest
-	4,  // 14: resurgo.admin.v1.Admin.MemberRemove:input_type -> resurgo.admin.v1.MemberRemoveRequest
-	5,  // 15: resurgo.admin.v1.Admin.LeaderTransfer:input_type -> resurgo.admin.v1.LeaderTransferRequest
-	7,  // 16: resurgo.admin.v1.Admin.RunnableSet:input_type -> resurgo.admin.v1.RunnableSetRequest
-	6,  // 17: resurgo.admin.v1.Admin.RunnableRestart:input_type -> resurgo.admin.v1.RunnableRequest
-	8,  // 18: resurgo.admin.v1.Admin.RunnableReset:input_type -> resurgo.admin.v1.RunnableResetRequest
-	0,  // 19: resurgo.admin.v1.Admin.Views:input_type -> resurgo.admin.v1.Empty
-	16, // 20: resurgo.admin.v1.Admin.StoreShow:input_type -> resurgo.admin.v1.StoreShowRequest
-	20, // 21: resurgo.admin.v1.Admin.StoreQuery:input_type -> resurgo.admin.v1.StoreQueryRequest
-	22, // 22: resurgo.admin.v1.Admin.StoreExec:input_type -> resurgo.admin.v1.StoreExecRequest
-	6,  // 23: resurgo.admin.v1.Admin.StoreReset:input_type -> resurgo.admin.v1.RunnableRequest
-	6,  // 24: resurgo.admin.v1.Admin.StoreBackup:input_type -> resurgo.admin.v1.RunnableRequest
-	6,  // 25: resurgo.admin.v1.Admin.StoreDigest:input_type -> resurgo.admin.v1.RunnableRequest
-	1,  // 26: resurgo.admin.v1.Admin.ClusterShow:output_type -> resurgo.admin.v1.ClusterShowReply
-	10, // 27: resurgo.admin.v1.Admin.RunnableShow:output_type -> resurgo.admin.v1.RunnableShowReply
-	15, // 28: resurgo.admin.v1.Admin.CheckpointShow:output_type -> resurgo.admin.v1.CheckpointShowReply
-	0,  // 29: resurgo.admin.v1.Admin.MemberAdd:output_type -> resurgo.admin.v1.Empty
-	0,  // 30: resurgo.admin.v1.Admin.MemberRemove:output_type -> resurgo.admin.v1.Empty
-	0,  // 31: resurgo.admin.v1.Admin.LeaderTransfer:output_type -> resurgo.admin.v1.Empty
-	0,  // 32: resurgo.admin.v1.Admin.RunnableSet:output_type -> resurgo.admin.v1.Empty
-	0,  // 33: resurgo.admin.v1.Admin.RunnableRestart:output_type -> resurgo.admin.v1.Empty
-	0,  // 34: resurgo.admin.v1.Admin.RunnableReset:output_type -> resurgo.admin.v1.Empty
-	13, // 35: resurgo.admin.v1.Admin.Views:output_type -> resurgo.admin.v1.ViewsReply
-	17, // 36: resurgo.admin.v1.Admin.StoreShow:output_type -> resurgo.admin.v1.StoreShowReply
-	21, // 37: resurgo.admin.v1.Admin.StoreQuery:output_type -> resurgo.admin.v1.StoreQueryReply
-	23, // 38: resurgo.admin.v1.Admin.StoreExec:output_type -> resurgo.admin.v1.StoreExecReply
-	0,  // 39: resurgo.admin.v1.Admin.StoreReset:output_type -> resurgo.admin.v1.Empty
-	24, // 40: resurgo.admin.v1.Admin.StoreBackup:output_type -> resurgo.admin.v1.Chunk
-	19, // 41: resurgo.admin.v1.Admin.StoreDigest:output_type -> resurgo.admin.v1.Digest
+	2,  // 0: drun.admin.v1.ClusterShowReply.members:type_name -> drun.admin.v1.Member
+	11, // 1: drun.admin.v1.RunnableShowReply.runnables:type_name -> drun.admin.v1.RunnableInfo
+	25, // 2: drun.admin.v1.RunnableInfo.state:type_name -> drun.fsm.v1.Runnable
+	12, // 3: drun.admin.v1.RunnableInfo.view:type_name -> drun.admin.v1.View
+	12, // 4: drun.admin.v1.ViewsReply.views:type_name -> drun.admin.v1.View
+	26, // 5: drun.admin.v1.CheckpointShowReply.meta:type_name -> drun.fsm.v1.CheckpointMeta
+	18, // 6: drun.admin.v1.StoreShowReply.stores:type_name -> drun.admin.v1.StoreInfo
+	19, // 7: drun.admin.v1.StoreInfo.digests:type_name -> drun.admin.v1.Digest
+	27, // 8: drun.admin.v1.StoreQueryReply.rows:type_name -> drun.fsm.v1.Row
+	28, // 9: drun.admin.v1.StoreExecReply.result:type_name -> drun.fsm.v1.BatchResult
+	0,  // 10: drun.admin.v1.Admin.ClusterShow:input_type -> drun.admin.v1.Empty
+	9,  // 11: drun.admin.v1.Admin.RunnableShow:input_type -> drun.admin.v1.RunnableShowRequest
+	14, // 12: drun.admin.v1.Admin.CheckpointShow:input_type -> drun.admin.v1.CheckpointShowRequest
+	3,  // 13: drun.admin.v1.Admin.MemberAdd:input_type -> drun.admin.v1.MemberAddRequest
+	4,  // 14: drun.admin.v1.Admin.MemberRemove:input_type -> drun.admin.v1.MemberRemoveRequest
+	5,  // 15: drun.admin.v1.Admin.LeaderTransfer:input_type -> drun.admin.v1.LeaderTransferRequest
+	7,  // 16: drun.admin.v1.Admin.RunnableSet:input_type -> drun.admin.v1.RunnableSetRequest
+	6,  // 17: drun.admin.v1.Admin.RunnableRestart:input_type -> drun.admin.v1.RunnableRequest
+	8,  // 18: drun.admin.v1.Admin.RunnableReset:input_type -> drun.admin.v1.RunnableResetRequest
+	0,  // 19: drun.admin.v1.Admin.Views:input_type -> drun.admin.v1.Empty
+	16, // 20: drun.admin.v1.Admin.StoreShow:input_type -> drun.admin.v1.StoreShowRequest
+	20, // 21: drun.admin.v1.Admin.StoreQuery:input_type -> drun.admin.v1.StoreQueryRequest
+	22, // 22: drun.admin.v1.Admin.StoreExec:input_type -> drun.admin.v1.StoreExecRequest
+	6,  // 23: drun.admin.v1.Admin.StoreReset:input_type -> drun.admin.v1.RunnableRequest
+	6,  // 24: drun.admin.v1.Admin.StoreBackup:input_type -> drun.admin.v1.RunnableRequest
+	6,  // 25: drun.admin.v1.Admin.StoreDigest:input_type -> drun.admin.v1.RunnableRequest
+	1,  // 26: drun.admin.v1.Admin.ClusterShow:output_type -> drun.admin.v1.ClusterShowReply
+	10, // 27: drun.admin.v1.Admin.RunnableShow:output_type -> drun.admin.v1.RunnableShowReply
+	15, // 28: drun.admin.v1.Admin.CheckpointShow:output_type -> drun.admin.v1.CheckpointShowReply
+	0,  // 29: drun.admin.v1.Admin.MemberAdd:output_type -> drun.admin.v1.Empty
+	0,  // 30: drun.admin.v1.Admin.MemberRemove:output_type -> drun.admin.v1.Empty
+	0,  // 31: drun.admin.v1.Admin.LeaderTransfer:output_type -> drun.admin.v1.Empty
+	0,  // 32: drun.admin.v1.Admin.RunnableSet:output_type -> drun.admin.v1.Empty
+	0,  // 33: drun.admin.v1.Admin.RunnableRestart:output_type -> drun.admin.v1.Empty
+	0,  // 34: drun.admin.v1.Admin.RunnableReset:output_type -> drun.admin.v1.Empty
+	13, // 35: drun.admin.v1.Admin.Views:output_type -> drun.admin.v1.ViewsReply
+	17, // 36: drun.admin.v1.Admin.StoreShow:output_type -> drun.admin.v1.StoreShowReply
+	21, // 37: drun.admin.v1.Admin.StoreQuery:output_type -> drun.admin.v1.StoreQueryReply
+	23, // 38: drun.admin.v1.Admin.StoreExec:output_type -> drun.admin.v1.StoreExecReply
+	0,  // 39: drun.admin.v1.Admin.StoreReset:output_type -> drun.admin.v1.Empty
+	24, // 40: drun.admin.v1.Admin.StoreBackup:output_type -> drun.admin.v1.Chunk
+	19, // 41: drun.admin.v1.Admin.StoreDigest:output_type -> drun.admin.v1.Digest
 	26, // [26:42] is the sub-list for method output_type
 	10, // [10:26] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name

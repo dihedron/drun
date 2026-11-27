@@ -8,8 +8,8 @@ mode. Only the FSM writes to it, one batch per log entry.
 
 | Table | Holds |
 | :--- | :--- |
-| `_resurgo_meta` | `last_index`: the index of the last entry applied to this database |
-| `_resurgo_checkpoint` | The runnable's checkpoint: sequence number, epoch, commit time, data |
+| `_drun_meta` | `last_index`: the index of the last entry applied to this database |
+| `_drun_checkpoint` | The runnable's checkpoint: sequence number, epoch, commit time, data |
 
 A runnable can neither read nor write them.
 
@@ -28,12 +28,12 @@ The same batch must have the same effect on every node:
   `random`, `randomblob`, `current_*` and `load_extension`; `ATTACH`,
   `DETACH` (and so `VACUUM`); transactions and savepoints (a batch is the
   transaction); temporary objects; every `PRAGMA` but the schema reads and
-  `user_version`; and every `_resurgo_*` table.
+  `user_version`; and every `_drun_*` table.
 - **Time.** `date`, `time`, `datetime`, `julianday`, `unixepoch`,
   `strftime` and `timediff` are replaced on every connection by versions
   that refuse `'now'`, a missing time value and the `localtime` and `utc`
   modifiers, and otherwise return SQLite's own results. The batch's time
-  and epoch, set by the leader, are `resurgo_now()` and `resurgo_epoch()`.
+  and epoch, set by the leader, are `drun_now()` and `drun_epoch()`.
 - **Work.** A progress handler counts virtual machine steps and aborts a
   batch beyond `store.max_steps`; the count depends only on the statement
   and the data, so every node aborts it at the same point.

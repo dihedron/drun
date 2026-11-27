@@ -3,7 +3,7 @@ package store
 import (
 	"time"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 	"github.com/mattn/go-sqlite3"
 )
 

@@ -1,8 +1,8 @@
-# resurgo: the replicated SQL store of a runnable
+# drun: the replicated SQL store of a runnable
 
 - **Document Version:** `0.2.3` (2026-11-27): STO-16, STO-17 as built, static release build (§4.1); `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
-- **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
+- **Parent:** `drun_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
 
 ---
@@ -85,7 +85,7 @@ type Host interface {
   (`BEGIN IMMEDIATE … COMMIT`); any failing statement or expectation rolls
   back the whole batch, with the same error on every node.
 - **STO-3 (exactly once)** The index of the last applied entry is stored in
-  the database (`_resurgo_meta`), in the same transaction as the batch; an
+  the database (`_drun_meta`), in the same transaction as the batch; an
   entry whose index is not greater is skipped. Raft re-applies the log
   from the last snapshot on restart; without this the batches since the
   snapshot would be applied twice (INV-S-3).
@@ -106,7 +106,7 @@ type Host interface {
   what the built-in returns; `current_time`, `current_date` and
   `current_timestamp` are refused by the authorizer.
 - **STO-5 (time)** The leader stamps every batch with its time; the FSM
-  exposes it as `resurgo_now()` (Unix ms) and `resurgo_epoch()`, the only
+  exposes it as `drun_now()` (Unix ms) and `drun_epoch()`, the only
   clock and identity a statement may use.
 - **STO-6 (conditions)** A statement MAY carry an expectation on the rows
   it affects; together with conditional SQL (`UPDATE … WHERE version = ?`,
@@ -139,8 +139,8 @@ type Host interface {
 
 ### Checkpoints and schema
 - **STO-12 (checkpoints)** `Checkpoint` becomes a convenience over the
-  store: an upsert into the reserved table `_resurgo_checkpoint`, with the
-  same semantics as parent FR-9; tables starting with `_resurgo_` are
+  store: an upsert into the reserved table `_drun_checkpoint`, with the
+  same semantics as parent FR-9; tables starting with `_drun_` are
   reserved and read-only to the runnable.
 - **STO-13 (migrations are the runnable's)** The runnable owns its schema.
   It migrates it at the start of `Run`, on the leader, before doing any
@@ -166,18 +166,18 @@ type Host interface {
   writes each database to a temporary file, syncs it and renames it over
   the old one.
 - **STO-15 (identical replicas)** Every node computes, on demand, a digest
-  of each database's logical content at an index; `resurgo store show`
+  of each database's logical content at an index; `drun store show`
   compares them across nodes (INV-S-1).
-- **STO-16 (CLI)** `resurgo store show [NAME]` (size, tables, last index,
-  digests), `resurgo store query NAME SQL` (read-only; on the leader after
+- **STO-16 (CLI)** `drun store show [NAME]` (size, tables, last index,
+  digests), `drun store query NAME SQL` (read-only; on the leader after
   `VerifyLeader` by default, with `--local` on the local node, flagged as
-  possibly stale on a follower), `resurgo store exec NAME [SQL | --file
-  F]` (STO-17), `resurgo store backup NAME FILE`, `resurgo store reset
+  possibly stale on a follower), `drun store exec NAME [SQL | --file
+  F]` (STO-17), `drun store backup NAME FILE`, `drun store reset
   NAME` (committed, refused while the runnable runs). Admin access as
   parent SEC-6; every query and batch is logged with the caller, not with
   its results.
 - **STO-17 (operator writes)** An operator MAY write to a runnable's store
-  with `resurgo store exec`. The batch goes through the Raft log and the
+  with `drun store exec`. The batch goes through the Raft log and the
   FSM like a runnable's, under the same rules (STO-2 to STO-9), and is
   recorded with the caller's identity (UID, node) in the entry and in the
   audit log. To keep the runnable the only writer while it runs, an
@@ -291,7 +291,7 @@ The node stays a single static binary (parent NFR-6):
 | AC-S-2 | `SIGSTOP` the leader during writes, then resume it (parent AC-5) | its batches return `ErrFenced`; no row of the old epoch after the new incarnation's first batch |
 | AC-S-3 | `kill -9` a node between snapshots, restart it | no batch applied twice (row counts, digests) |
 | AC-S-4 | A batch with `random()`, `datetime('now')`, `ATTACH`, a runaway CTE, an oversized result | refused or aborted identically on every node; the FSM keeps going |
-| AC-S-5 | Two runnables on one cluster | neither sees the other's tables; `_resurgo_*` cannot be written |
+| AC-S-5 | Two runnables on one cluster | neither sees the other's tables; `_drun_*` cannot be written |
 | AC-S-6 | Overnight soak with a writing runnable (parent AC-13) | digests equal on all nodes at every check |
 | AC-S-7 | Failover in the middle of a chunked backfill | it resumes from the recorded progress, every chunk applied once |
 | AC-S-8 | An older binary is pinned on one node and becomes leader | it refuses to start on the newer schema; leadership moves (parent FR-8) |

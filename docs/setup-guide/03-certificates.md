@@ -9,9 +9,9 @@ there is no plaintext mode.
 - Usable for both client and server authentication (extended key usages
   `serverAuth` and `clientAuth`).
 - The node's identity, exactly as written in `cluster.tls.peers`:
-  - a SPIFFE ID such as `spiffe://example.org/resurgo/node-a`, as a URI
+  - a SPIFFE ID such as `spiffe://example.org/drun/node-a`, as a URI
     subject alternative name; or
-  - a DNS name such as `node-a.resurgo.example.org`, as a DNS subject
+  - a DNS name such as `node-a.drun.example.org`, as a DNS subject
     alternative name.
 - The identity of one node only: a certificate that carries the
   identities of two nodes is refused.
@@ -30,7 +30,7 @@ not need to be in any existing node's file: give its identity when adding
 it,
 
 ```
-resurgo member add node-d 10.0.1.14:7350 --identity spiffe://example.org/resurgo/node-d
+drun member add node-d 10.0.1.14:7350 --identity spiffe://example.org/drun/node-d
 ```
 
 and the leader records the identity through the Raft log before it adds

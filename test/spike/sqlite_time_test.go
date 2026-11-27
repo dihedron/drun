@@ -17,7 +17,7 @@ var timeFunctions = map[string][]int{
 	"strftime": {1}, "timediff": {0, 1},
 }
 
-var errNotDeterministic = errors.New("not deterministic: use resurgo_now()")
+var errNotDeterministic = errors.New("not deterministic: use drun_now()")
 
 // overrideTimeFunctions replaces the date and time functions on conn with
 // ones that refuse what depends on the node ('now', a missing time value,

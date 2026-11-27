@@ -1,4 +1,4 @@
-// Package store is the runnables' replicated SQL stores (resurgo-store.md):
+// Package store is the runnables' replicated SQL stores (drun-store.md):
 // one SQLite database per runnable, written only by the FSM, one batch per
 // Raft entry, each applied exactly once and deterministically on every
 // node. It implements fsm.Store.
@@ -21,7 +21,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// the defaults of the limits (resurgo-store.md STO-7 to STO-9), for a
+// the defaults of the limits (drun-store.md STO-7 to STO-9), for a
 // runnable whose Incarnate carried none
 const (
 	defaultMaxSteps  = 50_000_000
@@ -57,7 +57,7 @@ type database struct {
 	// enforce is set while runnable SQL runs: the authorizer applies the
 	// rules of STO-4 only then, not to the store's own statements
 	enforce atomic.Bool
-	// now and epoch are resurgo_now() and resurgo_epoch() (STO-5)
+	// now and epoch are drun_now() and drun_epoch() (STO-5)
 	now, epoch atomic.Int64
 
 	roOnce sync.Once
