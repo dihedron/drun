@@ -19,6 +19,10 @@ service Admin {
   // executed by the leader, forwarded there by a follower
   rpc MemberAdd(MemberAddRequest) returns (Empty);
   rpc MemberRemove(MemberRemoveRequest) returns (Empty);
+  // every member's health, as the leader judges it (FR-17)
+  rpc MemberShow(MemberShowRequest) returns (MemberShowReply);
+  rpc MemberPromote(MemberPromoteRequest) returns (Empty);
+  rpc MemberDemote(MemberDemoteRequest) returns (Empty);
   rpc LeaderTransfer(LeaderTransferRequest) returns (Empty);
   rpc RunnableSet(RunnableSetRequest) returns (Empty);
   rpc RunnableRestart(RunnableRequest) returns (Empty);
@@ -66,6 +70,43 @@ message MemberAddRequest {
   string address = 2;
   string identity = 3;
   bool non_voter = 4;
+  // a voter goes through the promotion gate (FR-17)
+  Gate gate = 5;
+}
+
+// Gate is when a non-voter may be promoted (FR-17).
+message Gate {
+  int64 stable_ms = 1; // healthy for this long; 0: at the first healthy check
+  uint64 max_lag = 2;  // 0: the default (256)
+  bool force = 3;      // no checks
+}
+
+message MemberShowRequest {
+  uint64 max_lag = 1; // 0: the default (256)
+}
+
+message MemberShowReply {
+  repeated MemberHealth members = 1;
+}
+
+message MemberHealth {
+  string id = 1;
+  string address = 2;
+  string suffrage = 3;
+  bool leader = 4;
+  bool healthy = 5;
+  uint64 lag = 6;           // the leader's commit index minus its applied index
+  string last_contact = 7;  // as the member reports it
+  string reason = 8;        // why it is not healthy
+}
+
+message MemberPromoteRequest {
+  string id = 1;
+  Gate gate = 2;
+}
+
+message MemberDemoteRequest {
+  string id = 1;
 }
 
 message MemberRemoveRequest {

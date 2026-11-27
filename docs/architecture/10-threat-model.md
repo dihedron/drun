@@ -36,6 +36,7 @@
 | T-14 | A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
 | T-15 | A host that reaches the metrics endpoint reads the peers' IDs and Raft's timings | metrics off by default; bind to loopback or a monitoring network; no secrets in any series | — |
 | T-16 | A stale incarnation writes to the runnable's external PostgreSQL after a newer one started | the fence helper: a claim, and a locked check in every writing transaction | R-4, R-8 |
+| T-17 | An operator promotes a member still catching up, and commits stall | promotion only after a stable run of healthy checks; `--force` is explicit | — |
 
 
 ## Accepted risks

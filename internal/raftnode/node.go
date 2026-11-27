@@ -358,6 +358,18 @@ func (n *Node) AddNonvoter(id, address, identity string) error {
 	return n.add(id, address, identity, false)
 }
 
+// Demote makes a voter a non-voter (FR-17).
+func (n *Node) Demote(id string) error {
+	if err := n.leaderOnly(); err != nil {
+		return err
+	}
+	if err := n.raft.DemoteVoter(raft.ServerID(id), 0, changeTimeout).Error(); err != nil {
+		return fmt.Errorf("demoting %s: %w", id, err)
+	}
+	n.logger.Info("member demoted", "member", id)
+	return nil
+}
+
 func (n *Node) add(id, address, identity string, voter bool) error {
 	if err := n.leaderOnly(); err != nil {
 		return err

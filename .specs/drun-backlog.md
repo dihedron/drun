@@ -12,7 +12,7 @@ is part of v1.
 | FW-5 | A separate UID (and systemd sandbox) per runnable |
 | FW-6 | *Done in v0.2.0 of the specification*: the SQL store (`drun-store.md`) |
 | FW-7 | Signed runnable manifests, as in veho, for third-party runnables |
-| FW-8 | Non-voter promotion helpers (autopilot-like health checks) |
+| FW-8 | Non-voter promotion helpers (autopilot-like health checks). *Done 2026-11-27*: `member show` (health as the leader judges it), `member promote` and gated `member add` of a voter (healthy for `--stable`), `member demote` (FR-17); automatic promotion stays out |
 | FW-S-1 | Leader-local interactive transactions shipped as SQLite changesets (session extension) |
 | FW-S-2 | Group commit of concurrent batches into one Raft entry |
 | FW-S-3 | Stale reads from followers for administrators and reporting |

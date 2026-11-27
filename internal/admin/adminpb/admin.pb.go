@@ -256,11 +256,13 @@ func (x *Member) GetLeader() bool {
 }
 
 type MemberAddRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	Identity      string                 `protobuf:"bytes,3,opt,name=identity,proto3" json:"identity,omitempty"`
-	NonVoter      bool                   `protobuf:"varint,4,opt,name=non_voter,json=nonVoter,proto3" json:"non_voter,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Address  string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Identity string                 `protobuf:"bytes,3,opt,name=identity,proto3" json:"identity,omitempty"`
+	NonVoter bool                   `protobuf:"varint,4,opt,name=non_voter,json=nonVoter,proto3" json:"non_voter,omitempty"`
+	// a voter goes through the promotion gate (FR-17)
+	Gate          *Gate `protobuf:"bytes,5,opt,name=gate,proto3" json:"gate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -323,6 +325,358 @@ func (x *MemberAddRequest) GetNonVoter() bool {
 	return false
 }
 
+func (x *MemberAddRequest) GetGate() *Gate {
+	if x != nil {
+		return x.Gate
+	}
+	return nil
+}
+
+// Gate is when a non-voter may be promoted (FR-17).
+type Gate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StableMs      int64                  `protobuf:"varint,1,opt,name=stable_ms,json=stableMs,proto3" json:"stable_ms,omitempty"` // healthy for this long; 0: at the first healthy check
+	MaxLag        uint64                 `protobuf:"varint,2,opt,name=max_lag,json=maxLag,proto3" json:"max_lag,omitempty"`       // 0: the default (256)
+	Force         bool                   `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`                       // no checks
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Gate) Reset() {
+	*x = Gate{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Gate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Gate) ProtoMessage() {}
+
+func (x *Gate) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Gate.ProtoReflect.Descriptor instead.
+func (*Gate) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Gate) GetStableMs() int64 {
+	if x != nil {
+		return x.StableMs
+	}
+	return 0
+}
+
+func (x *Gate) GetMaxLag() uint64 {
+	if x != nil {
+		return x.MaxLag
+	}
+	return 0
+}
+
+func (x *Gate) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+type MemberShowRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MaxLag        uint64                 `protobuf:"varint,1,opt,name=max_lag,json=maxLag,proto3" json:"max_lag,omitempty"` // 0: the default (256)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberShowRequest) Reset() {
+	*x = MemberShowRequest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberShowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberShowRequest) ProtoMessage() {}
+
+func (x *MemberShowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberShowRequest.ProtoReflect.Descriptor instead.
+func (*MemberShowRequest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *MemberShowRequest) GetMaxLag() uint64 {
+	if x != nil {
+		return x.MaxLag
+	}
+	return 0
+}
+
+type MemberShowReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Members       []*MemberHealth        `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberShowReply) Reset() {
+	*x = MemberShowReply{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberShowReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberShowReply) ProtoMessage() {}
+
+func (x *MemberShowReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberShowReply.ProtoReflect.Descriptor instead.
+func (*MemberShowReply) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *MemberShowReply) GetMembers() []*MemberHealth {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+type MemberHealth struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Suffrage      string                 `protobuf:"bytes,3,opt,name=suffrage,proto3" json:"suffrage,omitempty"`
+	Leader        bool                   `protobuf:"varint,4,opt,name=leader,proto3" json:"leader,omitempty"`
+	Healthy       bool                   `protobuf:"varint,5,opt,name=healthy,proto3" json:"healthy,omitempty"`
+	Lag           uint64                 `protobuf:"varint,6,opt,name=lag,proto3" json:"lag,omitempty"`                                   // the leader's commit index minus its applied index
+	LastContact   string                 `protobuf:"bytes,7,opt,name=last_contact,json=lastContact,proto3" json:"last_contact,omitempty"` // as the member reports it
+	Reason        string                 `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`                              // why it is not healthy
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberHealth) Reset() {
+	*x = MemberHealth{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberHealth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberHealth) ProtoMessage() {}
+
+func (x *MemberHealth) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberHealth.ProtoReflect.Descriptor instead.
+func (*MemberHealth) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *MemberHealth) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MemberHealth) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *MemberHealth) GetSuffrage() string {
+	if x != nil {
+		return x.Suffrage
+	}
+	return ""
+}
+
+func (x *MemberHealth) GetLeader() bool {
+	if x != nil {
+		return x.Leader
+	}
+	return false
+}
+
+func (x *MemberHealth) GetHealthy() bool {
+	if x != nil {
+		return x.Healthy
+	}
+	return false
+}
+
+func (x *MemberHealth) GetLag() uint64 {
+	if x != nil {
+		return x.Lag
+	}
+	return 0
+}
+
+func (x *MemberHealth) GetLastContact() string {
+	if x != nil {
+		return x.LastContact
+	}
+	return ""
+}
+
+func (x *MemberHealth) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type MemberPromoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Gate          *Gate                  `protobuf:"bytes,2,opt,name=gate,proto3" json:"gate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberPromoteRequest) Reset() {
+	*x = MemberPromoteRequest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberPromoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberPromoteRequest) ProtoMessage() {}
+
+func (x *MemberPromoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberPromoteRequest.ProtoReflect.Descriptor instead.
+func (*MemberPromoteRequest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *MemberPromoteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MemberPromoteRequest) GetGate() *Gate {
+	if x != nil {
+		return x.Gate
+	}
+	return nil
+}
+
+type MemberDemoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberDemoteRequest) Reset() {
+	*x = MemberDemoteRequest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberDemoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberDemoteRequest) ProtoMessage() {}
+
+func (x *MemberDemoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberDemoteRequest.ProtoReflect.Descriptor instead.
+func (*MemberDemoteRequest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *MemberDemoteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 type MemberRemoveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -332,7 +686,7 @@ type MemberRemoveRequest struct {
 
 func (x *MemberRemoveRequest) Reset() {
 	*x = MemberRemoveRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[4]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -344,7 +698,7 @@ func (x *MemberRemoveRequest) String() string {
 func (*MemberRemoveRequest) ProtoMessage() {}
 
 func (x *MemberRemoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[4]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -357,7 +711,7 @@ func (x *MemberRemoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberRemoveRequest.ProtoReflect.Descriptor instead.
 func (*MemberRemoveRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{4}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *MemberRemoveRequest) GetId() string {
@@ -376,7 +730,7 @@ type LeaderTransferRequest struct {
 
 func (x *LeaderTransferRequest) Reset() {
 	*x = LeaderTransferRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[5]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +742,7 @@ func (x *LeaderTransferRequest) String() string {
 func (*LeaderTransferRequest) ProtoMessage() {}
 
 func (x *LeaderTransferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[5]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +755,7 @@ func (x *LeaderTransferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaderTransferRequest.ProtoReflect.Descriptor instead.
 func (*LeaderTransferRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{5}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *LeaderTransferRequest) GetTo() string {
@@ -420,7 +774,7 @@ type RunnableRequest struct {
 
 func (x *RunnableRequest) Reset() {
 	*x = RunnableRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[6]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -432,7 +786,7 @@ func (x *RunnableRequest) String() string {
 func (*RunnableRequest) ProtoMessage() {}
 
 func (x *RunnableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[6]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -445,7 +799,7 @@ func (x *RunnableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnableRequest.ProtoReflect.Descriptor instead.
 func (*RunnableRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{6}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RunnableRequest) GetName() string {
@@ -465,7 +819,7 @@ type RunnableSetRequest struct {
 
 func (x *RunnableSetRequest) Reset() {
 	*x = RunnableSetRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[7]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -477,7 +831,7 @@ func (x *RunnableSetRequest) String() string {
 func (*RunnableSetRequest) ProtoMessage() {}
 
 func (x *RunnableSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[7]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -490,7 +844,7 @@ func (x *RunnableSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnableSetRequest.ProtoReflect.Descriptor instead.
 func (*RunnableSetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{7}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RunnableSetRequest) GetName() string {
@@ -519,7 +873,7 @@ type RunnableResetRequest struct {
 
 func (x *RunnableResetRequest) Reset() {
 	*x = RunnableResetRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[8]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +885,7 @@ func (x *RunnableResetRequest) String() string {
 func (*RunnableResetRequest) ProtoMessage() {}
 
 func (x *RunnableResetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[8]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +898,7 @@ func (x *RunnableResetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnableResetRequest.ProtoReflect.Descriptor instead.
 func (*RunnableResetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{8}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RunnableResetRequest) GetName() string {
@@ -584,7 +938,7 @@ type RunnableShowRequest struct {
 
 func (x *RunnableShowRequest) Reset() {
 	*x = RunnableShowRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[9]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -596,7 +950,7 @@ func (x *RunnableShowRequest) String() string {
 func (*RunnableShowRequest) ProtoMessage() {}
 
 func (x *RunnableShowRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[9]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -609,7 +963,7 @@ func (x *RunnableShowRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnableShowRequest.ProtoReflect.Descriptor instead.
 func (*RunnableShowRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{9}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RunnableShowRequest) GetName() string {
@@ -631,7 +985,7 @@ type RunnableShowReply struct {
 
 func (x *RunnableShowReply) Reset() {
 	*x = RunnableShowReply{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[10]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -643,7 +997,7 @@ func (x *RunnableShowReply) String() string {
 func (*RunnableShowReply) ProtoMessage() {}
 
 func (x *RunnableShowReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[10]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -656,7 +1010,7 @@ func (x *RunnableShowReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnableShowReply.ProtoReflect.Descriptor instead.
 func (*RunnableShowReply) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{10}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RunnableShowReply) GetRunnables() []*RunnableInfo {
@@ -701,7 +1055,7 @@ type RunnableInfo struct {
 
 func (x *RunnableInfo) Reset() {
 	*x = RunnableInfo{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[11]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -713,7 +1067,7 @@ func (x *RunnableInfo) String() string {
 func (*RunnableInfo) ProtoMessage() {}
 
 func (x *RunnableInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[11]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -726,7 +1080,7 @@ func (x *RunnableInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunnableInfo.ProtoReflect.Descriptor instead.
 func (*RunnableInfo) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{11}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RunnableInfo) GetName() string {
@@ -800,7 +1154,7 @@ type View struct {
 
 func (x *View) Reset() {
 	*x = View{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[12]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -812,7 +1166,7 @@ func (x *View) String() string {
 func (*View) ProtoMessage() {}
 
 func (x *View) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[12]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -825,7 +1179,7 @@ func (x *View) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use View.ProtoReflect.Descriptor instead.
 func (*View) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{12}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *View) GetRunnable() string {
@@ -886,7 +1240,7 @@ type ViewsReply struct {
 
 func (x *ViewsReply) Reset() {
 	*x = ViewsReply{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[13]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -898,7 +1252,7 @@ func (x *ViewsReply) String() string {
 func (*ViewsReply) ProtoMessage() {}
 
 func (x *ViewsReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[13]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -911,7 +1265,7 @@ func (x *ViewsReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ViewsReply.ProtoReflect.Descriptor instead.
 func (*ViewsReply) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{13}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ViewsReply) GetViews() []*View {
@@ -931,7 +1285,7 @@ type CheckpointShowRequest struct {
 
 func (x *CheckpointShowRequest) Reset() {
 	*x = CheckpointShowRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[14]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -943,7 +1297,7 @@ func (x *CheckpointShowRequest) String() string {
 func (*CheckpointShowRequest) ProtoMessage() {}
 
 func (x *CheckpointShowRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[14]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -956,7 +1310,7 @@ func (x *CheckpointShowRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointShowRequest.ProtoReflect.Descriptor instead.
 func (*CheckpointShowRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{14}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CheckpointShowRequest) GetName() string {
@@ -984,7 +1338,7 @@ type CheckpointShowReply struct {
 
 func (x *CheckpointShowReply) Reset() {
 	*x = CheckpointShowReply{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[15]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -996,7 +1350,7 @@ func (x *CheckpointShowReply) String() string {
 func (*CheckpointShowReply) ProtoMessage() {}
 
 func (x *CheckpointShowReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[15]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1009,7 +1363,7 @@ func (x *CheckpointShowReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointShowReply.ProtoReflect.Descriptor instead.
 func (*CheckpointShowReply) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{15}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CheckpointShowReply) GetFound() bool {
@@ -1042,7 +1396,7 @@ type StoreShowRequest struct {
 
 func (x *StoreShowRequest) Reset() {
 	*x = StoreShowRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[16]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1054,7 +1408,7 @@ func (x *StoreShowRequest) String() string {
 func (*StoreShowRequest) ProtoMessage() {}
 
 func (x *StoreShowRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[16]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1067,7 +1421,7 @@ func (x *StoreShowRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreShowRequest.ProtoReflect.Descriptor instead.
 func (*StoreShowRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{16}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StoreShowRequest) GetName() string {
@@ -1086,7 +1440,7 @@ type StoreShowReply struct {
 
 func (x *StoreShowReply) Reset() {
 	*x = StoreShowReply{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[17]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1098,7 +1452,7 @@ func (x *StoreShowReply) String() string {
 func (*StoreShowReply) ProtoMessage() {}
 
 func (x *StoreShowReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[17]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1111,7 +1465,7 @@ func (x *StoreShowReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreShowReply.ProtoReflect.Descriptor instead.
 func (*StoreShowReply) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{17}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *StoreShowReply) GetStores() []*StoreInfo {
@@ -1137,7 +1491,7 @@ type StoreInfo struct {
 
 func (x *StoreInfo) Reset() {
 	*x = StoreInfo{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[18]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1149,7 +1503,7 @@ func (x *StoreInfo) String() string {
 func (*StoreInfo) ProtoMessage() {}
 
 func (x *StoreInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[18]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1162,7 +1516,7 @@ func (x *StoreInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreInfo.ProtoReflect.Descriptor instead.
 func (*StoreInfo) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{18}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *StoreInfo) GetName() string {
@@ -1226,7 +1580,7 @@ type Digest struct {
 
 func (x *Digest) Reset() {
 	*x = Digest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[19]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1238,7 +1592,7 @@ func (x *Digest) String() string {
 func (*Digest) ProtoMessage() {}
 
 func (x *Digest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[19]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1251,7 +1605,7 @@ func (x *Digest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Digest.ProtoReflect.Descriptor instead.
 func (*Digest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{19}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Digest) GetNode() string {
@@ -1293,7 +1647,7 @@ type StoreQueryRequest struct {
 
 func (x *StoreQueryRequest) Reset() {
 	*x = StoreQueryRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[20]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1305,7 +1659,7 @@ func (x *StoreQueryRequest) String() string {
 func (*StoreQueryRequest) ProtoMessage() {}
 
 func (x *StoreQueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[20]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1318,7 +1672,7 @@ func (x *StoreQueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreQueryRequest.ProtoReflect.Descriptor instead.
 func (*StoreQueryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{20}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *StoreQueryRequest) GetName() string {
@@ -1355,7 +1709,7 @@ type StoreQueryReply struct {
 
 func (x *StoreQueryReply) Reset() {
 	*x = StoreQueryReply{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[21]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1367,7 +1721,7 @@ func (x *StoreQueryReply) String() string {
 func (*StoreQueryReply) ProtoMessage() {}
 
 func (x *StoreQueryReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[21]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1380,7 +1734,7 @@ func (x *StoreQueryReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreQueryReply.ProtoReflect.Descriptor instead.
 func (*StoreQueryReply) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{21}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *StoreQueryReply) GetColumns() []string {
@@ -1426,7 +1780,7 @@ type StoreExecRequest struct {
 
 func (x *StoreExecRequest) Reset() {
 	*x = StoreExecRequest{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[22]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1792,7 @@ func (x *StoreExecRequest) String() string {
 func (*StoreExecRequest) ProtoMessage() {}
 
 func (x *StoreExecRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[22]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1805,7 @@ func (x *StoreExecRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreExecRequest.ProtoReflect.Descriptor instead.
 func (*StoreExecRequest) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{22}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StoreExecRequest) GetName() string {
@@ -1492,7 +1846,7 @@ type StoreExecReply struct {
 
 func (x *StoreExecReply) Reset() {
 	*x = StoreExecReply{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[23]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1504,7 +1858,7 @@ func (x *StoreExecReply) String() string {
 func (*StoreExecReply) ProtoMessage() {}
 
 func (x *StoreExecReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[23]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1517,7 +1871,7 @@ func (x *StoreExecReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreExecReply.ProtoReflect.Descriptor instead.
 func (*StoreExecReply) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{23}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *StoreExecReply) GetResult() *fsmpb.BatchResult {
@@ -1543,7 +1897,7 @@ type Chunk struct {
 
 func (x *Chunk) Reset() {
 	*x = Chunk{}
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[24]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1555,7 +1909,7 @@ func (x *Chunk) String() string {
 func (*Chunk) ProtoMessage() {}
 
 func (x *Chunk) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_admin_v1_admin_proto_msgTypes[24]
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1568,7 +1922,7 @@ func (x *Chunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chunk.ProtoReflect.Descriptor instead.
 func (*Chunk) Descriptor() ([]byte, []int) {
-	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{24}
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Chunk) GetData() []byte {
@@ -1601,12 +1955,35 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1a\n" +
 	"\bsuffrage\x18\x03 \x01(\tR\bsuffrage\x12\x1a\n" +
 	"\bidentity\x18\x04 \x01(\tR\bidentity\x12\x16\n" +
-	"\x06leader\x18\x05 \x01(\bR\x06leader\"u\n" +
+	"\x06leader\x18\x05 \x01(\bR\x06leader\"\x9e\x01\n" +
 	"\x10MemberAddRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1a\n" +
 	"\bidentity\x18\x03 \x01(\tR\bidentity\x12\x1b\n" +
-	"\tnon_voter\x18\x04 \x01(\bR\bnonVoter\"%\n" +
+	"\tnon_voter\x18\x04 \x01(\bR\bnonVoter\x12'\n" +
+	"\x04gate\x18\x05 \x01(\v2\x13.drun.admin.v1.GateR\x04gate\"R\n" +
+	"\x04Gate\x12\x1b\n" +
+	"\tstable_ms\x18\x01 \x01(\x03R\bstableMs\x12\x17\n" +
+	"\amax_lag\x18\x02 \x01(\x04R\x06maxLag\x12\x14\n" +
+	"\x05force\x18\x03 \x01(\bR\x05force\",\n" +
+	"\x11MemberShowRequest\x12\x17\n" +
+	"\amax_lag\x18\x01 \x01(\x04R\x06maxLag\"H\n" +
+	"\x0fMemberShowReply\x125\n" +
+	"\amembers\x18\x01 \x03(\v2\x1b.drun.admin.v1.MemberHealthR\amembers\"\xd3\x01\n" +
+	"\fMemberHealth\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1a\n" +
+	"\bsuffrage\x18\x03 \x01(\tR\bsuffrage\x12\x16\n" +
+	"\x06leader\x18\x04 \x01(\bR\x06leader\x12\x18\n" +
+	"\ahealthy\x18\x05 \x01(\bR\ahealthy\x12\x10\n" +
+	"\x03lag\x18\x06 \x01(\x04R\x03lag\x12!\n" +
+	"\flast_contact\x18\a \x01(\tR\vlastContact\x12\x16\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\"O\n" +
+	"\x14MemberPromoteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
+	"\x04gate\x18\x02 \x01(\v2\x13.drun.admin.v1.GateR\x04gate\"%\n" +
+	"\x13MemberDemoteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"%\n" +
 	"\x13MemberRemoveRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"'\n" +
 	"\x15LeaderTransferRequest\x12\x0e\n" +
@@ -1697,13 +2074,17 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\x06result\x18\x01 \x01(\v2\x18.drun.fsm.v1.BatchResultR\x06result\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\"\x1b\n" +
 	"\x05Chunk\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data2\xad\t\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data2\x93\v\n" +
 	"\x05Admin\x12D\n" +
 	"\vClusterShow\x12\x14.drun.admin.v1.Empty\x1a\x1f.drun.admin.v1.ClusterShowReply\x12T\n" +
 	"\fRunnableShow\x12\".drun.admin.v1.RunnableShowRequest\x1a .drun.admin.v1.RunnableShowReply\x12Z\n" +
 	"\x0eCheckpointShow\x12$.drun.admin.v1.CheckpointShowRequest\x1a\".drun.admin.v1.CheckpointShowReply\x12B\n" +
 	"\tMemberAdd\x12\x1f.drun.admin.v1.MemberAddRequest\x1a\x14.drun.admin.v1.Empty\x12H\n" +
-	"\fMemberRemove\x12\".drun.admin.v1.MemberRemoveRequest\x1a\x14.drun.admin.v1.Empty\x12L\n" +
+	"\fMemberRemove\x12\".drun.admin.v1.MemberRemoveRequest\x1a\x14.drun.admin.v1.Empty\x12N\n" +
+	"\n" +
+	"MemberShow\x12 .drun.admin.v1.MemberShowRequest\x1a\x1e.drun.admin.v1.MemberShowReply\x12J\n" +
+	"\rMemberPromote\x12#.drun.admin.v1.MemberPromoteRequest\x1a\x14.drun.admin.v1.Empty\x12H\n" +
+	"\fMemberDemote\x12\".drun.admin.v1.MemberDemoteRequest\x1a\x14.drun.admin.v1.Empty\x12L\n" +
 	"\x0eLeaderTransfer\x12$.drun.admin.v1.LeaderTransferRequest\x1a\x14.drun.admin.v1.Empty\x12F\n" +
 	"\vRunnableSet\x12!.drun.admin.v1.RunnableSetRequest\x1a\x14.drun.admin.v1.Empty\x12G\n" +
 	"\x0fRunnableRestart\x12\x1e.drun.admin.v1.RunnableRequest\x1a\x14.drun.admin.v1.Empty\x12J\n" +
@@ -1730,86 +2111,101 @@ func file_proto_admin_v1_admin_proto_rawDescGZIP() []byte {
 	return file_proto_admin_v1_admin_proto_rawDescData
 }
 
-var file_proto_admin_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_proto_admin_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_proto_admin_v1_admin_proto_goTypes = []any{
 	(*Empty)(nil),                 // 0: drun.admin.v1.Empty
 	(*ClusterShowReply)(nil),      // 1: drun.admin.v1.ClusterShowReply
 	(*Member)(nil),                // 2: drun.admin.v1.Member
 	(*MemberAddRequest)(nil),      // 3: drun.admin.v1.MemberAddRequest
-	(*MemberRemoveRequest)(nil),   // 4: drun.admin.v1.MemberRemoveRequest
-	(*LeaderTransferRequest)(nil), // 5: drun.admin.v1.LeaderTransferRequest
-	(*RunnableRequest)(nil),       // 6: drun.admin.v1.RunnableRequest
-	(*RunnableSetRequest)(nil),    // 7: drun.admin.v1.RunnableSetRequest
-	(*RunnableResetRequest)(nil),  // 8: drun.admin.v1.RunnableResetRequest
-	(*RunnableShowRequest)(nil),   // 9: drun.admin.v1.RunnableShowRequest
-	(*RunnableShowReply)(nil),     // 10: drun.admin.v1.RunnableShowReply
-	(*RunnableInfo)(nil),          // 11: drun.admin.v1.RunnableInfo
-	(*View)(nil),                  // 12: drun.admin.v1.View
-	(*ViewsReply)(nil),            // 13: drun.admin.v1.ViewsReply
-	(*CheckpointShowRequest)(nil), // 14: drun.admin.v1.CheckpointShowRequest
-	(*CheckpointShowReply)(nil),   // 15: drun.admin.v1.CheckpointShowReply
-	(*StoreShowRequest)(nil),      // 16: drun.admin.v1.StoreShowRequest
-	(*StoreShowReply)(nil),        // 17: drun.admin.v1.StoreShowReply
-	(*StoreInfo)(nil),             // 18: drun.admin.v1.StoreInfo
-	(*Digest)(nil),                // 19: drun.admin.v1.Digest
-	(*StoreQueryRequest)(nil),     // 20: drun.admin.v1.StoreQueryRequest
-	(*StoreQueryReply)(nil),       // 21: drun.admin.v1.StoreQueryReply
-	(*StoreExecRequest)(nil),      // 22: drun.admin.v1.StoreExecRequest
-	(*StoreExecReply)(nil),        // 23: drun.admin.v1.StoreExecReply
-	(*Chunk)(nil),                 // 24: drun.admin.v1.Chunk
-	(*fsmpb.Runnable)(nil),        // 25: drun.fsm.v1.Runnable
-	(*fsmpb.CheckpointMeta)(nil),  // 26: drun.fsm.v1.CheckpointMeta
-	(*fsmpb.Row)(nil),             // 27: drun.fsm.v1.Row
-	(*fsmpb.BatchResult)(nil),     // 28: drun.fsm.v1.BatchResult
+	(*Gate)(nil),                  // 4: drun.admin.v1.Gate
+	(*MemberShowRequest)(nil),     // 5: drun.admin.v1.MemberShowRequest
+	(*MemberShowReply)(nil),       // 6: drun.admin.v1.MemberShowReply
+	(*MemberHealth)(nil),          // 7: drun.admin.v1.MemberHealth
+	(*MemberPromoteRequest)(nil),  // 8: drun.admin.v1.MemberPromoteRequest
+	(*MemberDemoteRequest)(nil),   // 9: drun.admin.v1.MemberDemoteRequest
+	(*MemberRemoveRequest)(nil),   // 10: drun.admin.v1.MemberRemoveRequest
+	(*LeaderTransferRequest)(nil), // 11: drun.admin.v1.LeaderTransferRequest
+	(*RunnableRequest)(nil),       // 12: drun.admin.v1.RunnableRequest
+	(*RunnableSetRequest)(nil),    // 13: drun.admin.v1.RunnableSetRequest
+	(*RunnableResetRequest)(nil),  // 14: drun.admin.v1.RunnableResetRequest
+	(*RunnableShowRequest)(nil),   // 15: drun.admin.v1.RunnableShowRequest
+	(*RunnableShowReply)(nil),     // 16: drun.admin.v1.RunnableShowReply
+	(*RunnableInfo)(nil),          // 17: drun.admin.v1.RunnableInfo
+	(*View)(nil),                  // 18: drun.admin.v1.View
+	(*ViewsReply)(nil),            // 19: drun.admin.v1.ViewsReply
+	(*CheckpointShowRequest)(nil), // 20: drun.admin.v1.CheckpointShowRequest
+	(*CheckpointShowReply)(nil),   // 21: drun.admin.v1.CheckpointShowReply
+	(*StoreShowRequest)(nil),      // 22: drun.admin.v1.StoreShowRequest
+	(*StoreShowReply)(nil),        // 23: drun.admin.v1.StoreShowReply
+	(*StoreInfo)(nil),             // 24: drun.admin.v1.StoreInfo
+	(*Digest)(nil),                // 25: drun.admin.v1.Digest
+	(*StoreQueryRequest)(nil),     // 26: drun.admin.v1.StoreQueryRequest
+	(*StoreQueryReply)(nil),       // 27: drun.admin.v1.StoreQueryReply
+	(*StoreExecRequest)(nil),      // 28: drun.admin.v1.StoreExecRequest
+	(*StoreExecReply)(nil),        // 29: drun.admin.v1.StoreExecReply
+	(*Chunk)(nil),                 // 30: drun.admin.v1.Chunk
+	(*fsmpb.Runnable)(nil),        // 31: drun.fsm.v1.Runnable
+	(*fsmpb.CheckpointMeta)(nil),  // 32: drun.fsm.v1.CheckpointMeta
+	(*fsmpb.Row)(nil),             // 33: drun.fsm.v1.Row
+	(*fsmpb.BatchResult)(nil),     // 34: drun.fsm.v1.BatchResult
 }
 var file_proto_admin_v1_admin_proto_depIdxs = []int32{
 	2,  // 0: drun.admin.v1.ClusterShowReply.members:type_name -> drun.admin.v1.Member
-	11, // 1: drun.admin.v1.RunnableShowReply.runnables:type_name -> drun.admin.v1.RunnableInfo
-	25, // 2: drun.admin.v1.RunnableInfo.state:type_name -> drun.fsm.v1.Runnable
-	12, // 3: drun.admin.v1.RunnableInfo.view:type_name -> drun.admin.v1.View
-	12, // 4: drun.admin.v1.ViewsReply.views:type_name -> drun.admin.v1.View
-	26, // 5: drun.admin.v1.CheckpointShowReply.meta:type_name -> drun.fsm.v1.CheckpointMeta
-	18, // 6: drun.admin.v1.StoreShowReply.stores:type_name -> drun.admin.v1.StoreInfo
-	19, // 7: drun.admin.v1.StoreInfo.digests:type_name -> drun.admin.v1.Digest
-	27, // 8: drun.admin.v1.StoreQueryReply.rows:type_name -> drun.fsm.v1.Row
-	28, // 9: drun.admin.v1.StoreExecReply.result:type_name -> drun.fsm.v1.BatchResult
-	0,  // 10: drun.admin.v1.Admin.ClusterShow:input_type -> drun.admin.v1.Empty
-	9,  // 11: drun.admin.v1.Admin.RunnableShow:input_type -> drun.admin.v1.RunnableShowRequest
-	14, // 12: drun.admin.v1.Admin.CheckpointShow:input_type -> drun.admin.v1.CheckpointShowRequest
-	3,  // 13: drun.admin.v1.Admin.MemberAdd:input_type -> drun.admin.v1.MemberAddRequest
-	4,  // 14: drun.admin.v1.Admin.MemberRemove:input_type -> drun.admin.v1.MemberRemoveRequest
-	5,  // 15: drun.admin.v1.Admin.LeaderTransfer:input_type -> drun.admin.v1.LeaderTransferRequest
-	7,  // 16: drun.admin.v1.Admin.RunnableSet:input_type -> drun.admin.v1.RunnableSetRequest
-	6,  // 17: drun.admin.v1.Admin.RunnableRestart:input_type -> drun.admin.v1.RunnableRequest
-	8,  // 18: drun.admin.v1.Admin.RunnableReset:input_type -> drun.admin.v1.RunnableResetRequest
-	0,  // 19: drun.admin.v1.Admin.Views:input_type -> drun.admin.v1.Empty
-	16, // 20: drun.admin.v1.Admin.StoreShow:input_type -> drun.admin.v1.StoreShowRequest
-	20, // 21: drun.admin.v1.Admin.StoreQuery:input_type -> drun.admin.v1.StoreQueryRequest
-	22, // 22: drun.admin.v1.Admin.StoreExec:input_type -> drun.admin.v1.StoreExecRequest
-	6,  // 23: drun.admin.v1.Admin.StoreReset:input_type -> drun.admin.v1.RunnableRequest
-	6,  // 24: drun.admin.v1.Admin.StoreBackup:input_type -> drun.admin.v1.RunnableRequest
-	6,  // 25: drun.admin.v1.Admin.StoreDigest:input_type -> drun.admin.v1.RunnableRequest
-	1,  // 26: drun.admin.v1.Admin.ClusterShow:output_type -> drun.admin.v1.ClusterShowReply
-	10, // 27: drun.admin.v1.Admin.RunnableShow:output_type -> drun.admin.v1.RunnableShowReply
-	15, // 28: drun.admin.v1.Admin.CheckpointShow:output_type -> drun.admin.v1.CheckpointShowReply
-	0,  // 29: drun.admin.v1.Admin.MemberAdd:output_type -> drun.admin.v1.Empty
-	0,  // 30: drun.admin.v1.Admin.MemberRemove:output_type -> drun.admin.v1.Empty
-	0,  // 31: drun.admin.v1.Admin.LeaderTransfer:output_type -> drun.admin.v1.Empty
-	0,  // 32: drun.admin.v1.Admin.RunnableSet:output_type -> drun.admin.v1.Empty
-	0,  // 33: drun.admin.v1.Admin.RunnableRestart:output_type -> drun.admin.v1.Empty
-	0,  // 34: drun.admin.v1.Admin.RunnableReset:output_type -> drun.admin.v1.Empty
-	13, // 35: drun.admin.v1.Admin.Views:output_type -> drun.admin.v1.ViewsReply
-	17, // 36: drun.admin.v1.Admin.StoreShow:output_type -> drun.admin.v1.StoreShowReply
-	21, // 37: drun.admin.v1.Admin.StoreQuery:output_type -> drun.admin.v1.StoreQueryReply
-	23, // 38: drun.admin.v1.Admin.StoreExec:output_type -> drun.admin.v1.StoreExecReply
-	0,  // 39: drun.admin.v1.Admin.StoreReset:output_type -> drun.admin.v1.Empty
-	24, // 40: drun.admin.v1.Admin.StoreBackup:output_type -> drun.admin.v1.Chunk
-	19, // 41: drun.admin.v1.Admin.StoreDigest:output_type -> drun.admin.v1.Digest
-	26, // [26:42] is the sub-list for method output_type
-	10, // [10:26] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	4,  // 1: drun.admin.v1.MemberAddRequest.gate:type_name -> drun.admin.v1.Gate
+	7,  // 2: drun.admin.v1.MemberShowReply.members:type_name -> drun.admin.v1.MemberHealth
+	4,  // 3: drun.admin.v1.MemberPromoteRequest.gate:type_name -> drun.admin.v1.Gate
+	17, // 4: drun.admin.v1.RunnableShowReply.runnables:type_name -> drun.admin.v1.RunnableInfo
+	31, // 5: drun.admin.v1.RunnableInfo.state:type_name -> drun.fsm.v1.Runnable
+	18, // 6: drun.admin.v1.RunnableInfo.view:type_name -> drun.admin.v1.View
+	18, // 7: drun.admin.v1.ViewsReply.views:type_name -> drun.admin.v1.View
+	32, // 8: drun.admin.v1.CheckpointShowReply.meta:type_name -> drun.fsm.v1.CheckpointMeta
+	24, // 9: drun.admin.v1.StoreShowReply.stores:type_name -> drun.admin.v1.StoreInfo
+	25, // 10: drun.admin.v1.StoreInfo.digests:type_name -> drun.admin.v1.Digest
+	33, // 11: drun.admin.v1.StoreQueryReply.rows:type_name -> drun.fsm.v1.Row
+	34, // 12: drun.admin.v1.StoreExecReply.result:type_name -> drun.fsm.v1.BatchResult
+	0,  // 13: drun.admin.v1.Admin.ClusterShow:input_type -> drun.admin.v1.Empty
+	15, // 14: drun.admin.v1.Admin.RunnableShow:input_type -> drun.admin.v1.RunnableShowRequest
+	20, // 15: drun.admin.v1.Admin.CheckpointShow:input_type -> drun.admin.v1.CheckpointShowRequest
+	3,  // 16: drun.admin.v1.Admin.MemberAdd:input_type -> drun.admin.v1.MemberAddRequest
+	10, // 17: drun.admin.v1.Admin.MemberRemove:input_type -> drun.admin.v1.MemberRemoveRequest
+	5,  // 18: drun.admin.v1.Admin.MemberShow:input_type -> drun.admin.v1.MemberShowRequest
+	8,  // 19: drun.admin.v1.Admin.MemberPromote:input_type -> drun.admin.v1.MemberPromoteRequest
+	9,  // 20: drun.admin.v1.Admin.MemberDemote:input_type -> drun.admin.v1.MemberDemoteRequest
+	11, // 21: drun.admin.v1.Admin.LeaderTransfer:input_type -> drun.admin.v1.LeaderTransferRequest
+	13, // 22: drun.admin.v1.Admin.RunnableSet:input_type -> drun.admin.v1.RunnableSetRequest
+	12, // 23: drun.admin.v1.Admin.RunnableRestart:input_type -> drun.admin.v1.RunnableRequest
+	14, // 24: drun.admin.v1.Admin.RunnableReset:input_type -> drun.admin.v1.RunnableResetRequest
+	0,  // 25: drun.admin.v1.Admin.Views:input_type -> drun.admin.v1.Empty
+	22, // 26: drun.admin.v1.Admin.StoreShow:input_type -> drun.admin.v1.StoreShowRequest
+	26, // 27: drun.admin.v1.Admin.StoreQuery:input_type -> drun.admin.v1.StoreQueryRequest
+	28, // 28: drun.admin.v1.Admin.StoreExec:input_type -> drun.admin.v1.StoreExecRequest
+	12, // 29: drun.admin.v1.Admin.StoreReset:input_type -> drun.admin.v1.RunnableRequest
+	12, // 30: drun.admin.v1.Admin.StoreBackup:input_type -> drun.admin.v1.RunnableRequest
+	12, // 31: drun.admin.v1.Admin.StoreDigest:input_type -> drun.admin.v1.RunnableRequest
+	1,  // 32: drun.admin.v1.Admin.ClusterShow:output_type -> drun.admin.v1.ClusterShowReply
+	16, // 33: drun.admin.v1.Admin.RunnableShow:output_type -> drun.admin.v1.RunnableShowReply
+	21, // 34: drun.admin.v1.Admin.CheckpointShow:output_type -> drun.admin.v1.CheckpointShowReply
+	0,  // 35: drun.admin.v1.Admin.MemberAdd:output_type -> drun.admin.v1.Empty
+	0,  // 36: drun.admin.v1.Admin.MemberRemove:output_type -> drun.admin.v1.Empty
+	6,  // 37: drun.admin.v1.Admin.MemberShow:output_type -> drun.admin.v1.MemberShowReply
+	0,  // 38: drun.admin.v1.Admin.MemberPromote:output_type -> drun.admin.v1.Empty
+	0,  // 39: drun.admin.v1.Admin.MemberDemote:output_type -> drun.admin.v1.Empty
+	0,  // 40: drun.admin.v1.Admin.LeaderTransfer:output_type -> drun.admin.v1.Empty
+	0,  // 41: drun.admin.v1.Admin.RunnableSet:output_type -> drun.admin.v1.Empty
+	0,  // 42: drun.admin.v1.Admin.RunnableRestart:output_type -> drun.admin.v1.Empty
+	0,  // 43: drun.admin.v1.Admin.RunnableReset:output_type -> drun.admin.v1.Empty
+	19, // 44: drun.admin.v1.Admin.Views:output_type -> drun.admin.v1.ViewsReply
+	23, // 45: drun.admin.v1.Admin.StoreShow:output_type -> drun.admin.v1.StoreShowReply
+	27, // 46: drun.admin.v1.Admin.StoreQuery:output_type -> drun.admin.v1.StoreQueryReply
+	29, // 47: drun.admin.v1.Admin.StoreExec:output_type -> drun.admin.v1.StoreExecReply
+	0,  // 48: drun.admin.v1.Admin.StoreReset:output_type -> drun.admin.v1.Empty
+	30, // 49: drun.admin.v1.Admin.StoreBackup:output_type -> drun.admin.v1.Chunk
+	25, // 50: drun.admin.v1.Admin.StoreDigest:output_type -> drun.admin.v1.Digest
+	32, // [32:51] is the sub-list for method output_type
+	13, // [13:32] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_proto_admin_v1_admin_proto_init() }
@@ -1823,7 +2219,7 @@ func file_proto_admin_v1_admin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_admin_v1_admin_proto_rawDesc), len(file_proto_admin_v1_admin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   25,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

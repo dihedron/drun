@@ -29,6 +29,9 @@ const (
 	Admin_CheckpointShow_FullMethodName  = "/drun.admin.v1.Admin/CheckpointShow"
 	Admin_MemberAdd_FullMethodName       = "/drun.admin.v1.Admin/MemberAdd"
 	Admin_MemberRemove_FullMethodName    = "/drun.admin.v1.Admin/MemberRemove"
+	Admin_MemberShow_FullMethodName      = "/drun.admin.v1.Admin/MemberShow"
+	Admin_MemberPromote_FullMethodName   = "/drun.admin.v1.Admin/MemberPromote"
+	Admin_MemberDemote_FullMethodName    = "/drun.admin.v1.Admin/MemberDemote"
 	Admin_LeaderTransfer_FullMethodName  = "/drun.admin.v1.Admin/LeaderTransfer"
 	Admin_RunnableSet_FullMethodName     = "/drun.admin.v1.Admin/RunnableSet"
 	Admin_RunnableRestart_FullMethodName = "/drun.admin.v1.Admin/RunnableRestart"
@@ -53,6 +56,10 @@ type AdminClient interface {
 	// executed by the leader, forwarded there by a follower
 	MemberAdd(ctx context.Context, in *MemberAddRequest, opts ...grpc.CallOption) (*Empty, error)
 	MemberRemove(ctx context.Context, in *MemberRemoveRequest, opts ...grpc.CallOption) (*Empty, error)
+	// every member's health, as the leader judges it (FR-17)
+	MemberShow(ctx context.Context, in *MemberShowRequest, opts ...grpc.CallOption) (*MemberShowReply, error)
+	MemberPromote(ctx context.Context, in *MemberPromoteRequest, opts ...grpc.CallOption) (*Empty, error)
+	MemberDemote(ctx context.Context, in *MemberDemoteRequest, opts ...grpc.CallOption) (*Empty, error)
 	LeaderTransfer(ctx context.Context, in *LeaderTransferRequest, opts ...grpc.CallOption) (*Empty, error)
 	RunnableSet(ctx context.Context, in *RunnableSetRequest, opts ...grpc.CallOption) (*Empty, error)
 	RunnableRestart(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -123,6 +130,36 @@ func (c *adminClient) MemberRemove(ctx context.Context, in *MemberRemoveRequest,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, Admin_MemberRemove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) MemberShow(ctx context.Context, in *MemberShowRequest, opts ...grpc.CallOption) (*MemberShowReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemberShowReply)
+	err := c.cc.Invoke(ctx, Admin_MemberShow_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) MemberPromote(ctx context.Context, in *MemberPromoteRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Admin_MemberPromote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) MemberDemote(ctx context.Context, in *MemberDemoteRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Admin_MemberDemote_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +296,10 @@ type AdminServer interface {
 	// executed by the leader, forwarded there by a follower
 	MemberAdd(context.Context, *MemberAddRequest) (*Empty, error)
 	MemberRemove(context.Context, *MemberRemoveRequest) (*Empty, error)
+	// every member's health, as the leader judges it (FR-17)
+	MemberShow(context.Context, *MemberShowRequest) (*MemberShowReply, error)
+	MemberPromote(context.Context, *MemberPromoteRequest) (*Empty, error)
+	MemberDemote(context.Context, *MemberDemoteRequest) (*Empty, error)
 	LeaderTransfer(context.Context, *LeaderTransferRequest) (*Empty, error)
 	RunnableSet(context.Context, *RunnableSetRequest) (*Empty, error)
 	RunnableRestart(context.Context, *RunnableRequest) (*Empty, error)
@@ -299,6 +340,15 @@ func (UnimplementedAdminServer) MemberAdd(context.Context, *MemberAddRequest) (*
 }
 func (UnimplementedAdminServer) MemberRemove(context.Context, *MemberRemoveRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MemberRemove not implemented")
+}
+func (UnimplementedAdminServer) MemberShow(context.Context, *MemberShowRequest) (*MemberShowReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MemberShow not implemented")
+}
+func (UnimplementedAdminServer) MemberPromote(context.Context, *MemberPromoteRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MemberPromote not implemented")
+}
+func (UnimplementedAdminServer) MemberDemote(context.Context, *MemberDemoteRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MemberDemote not implemented")
 }
 func (UnimplementedAdminServer) LeaderTransfer(context.Context, *LeaderTransferRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LeaderTransfer not implemented")
@@ -440,6 +490,60 @@ func _Admin_MemberRemove_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AdminServer).MemberRemove(ctx, req.(*MemberRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_MemberShow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemberShowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).MemberShow(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_MemberShow_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).MemberShow(ctx, req.(*MemberShowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_MemberPromote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemberPromoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).MemberPromote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_MemberPromote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).MemberPromote(ctx, req.(*MemberPromoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_MemberDemote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemberDemoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).MemberDemote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_MemberDemote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).MemberDemote(ctx, req.(*MemberDemoteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -661,6 +765,18 @@ var Admin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MemberRemove",
 			Handler:    _Admin_MemberRemove_Handler,
+		},
+		{
+			MethodName: "MemberShow",
+			Handler:    _Admin_MemberShow_Handler,
+		},
+		{
+			MethodName: "MemberPromote",
+			Handler:    _Admin_MemberPromote_Handler,
+		},
+		{
+			MethodName: "MemberDemote",
+			Handler:    _Admin_MemberDemote_Handler,
 		},
 		{
 			MethodName: "LeaderTransfer",

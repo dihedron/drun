@@ -68,10 +68,22 @@ func (c *LeaderShowCommand) Execute([]string) error {
 	})
 }
 
+// GateOptions are the promotion gate's flags (FR-17)
+type GateOptions struct {
+	Stable time.Duration `long:"stable" default:"10s" description:"how long the member must stay healthy before it is promoted (0: at the first healthy check)"`
+	MaxLag uint64        `long:"max-lag" default:"256" description:"the most entries a healthy member may be behind the leader's commit index"`
+	Force  bool          `long:"force" description:"promote without checking the member's health"`
+}
+
+func (g GateOptions) gate() *adminpb.Gate {
+	return &adminpb.Gate{StableMs: g.Stable.Milliseconds(), MaxLag: g.MaxLag, Force: g.Force}
+}
+
 type MemberAddCommand struct {
 	Identity string `long:"identity" description:"the identity its certificate carries, if not in cluster.tls.peers"`
 	NonVoter bool   `long:"non-voter" description:"add it as a non-voter"`
-	Args     struct {
+	GateOptions
+	Args struct {
 		ID      string `positional-arg-name:"ID"`
 		Address string `positional-arg-name:"ADDRESS"`
 	} `positional-args:"yes" required:"yes"`
@@ -79,7 +91,54 @@ type MemberAddCommand struct {
 
 func (c *MemberAddCommand) Execute([]string) error {
 	return call(func(ctx context.Context, cl *admin.Client) error {
-		_, err := cl.MemberAdd(ctx, &adminpb.MemberAddRequest{Id: c.Args.ID, Address: c.Args.Address, Identity: c.Identity, NonVoter: c.NonVoter})
+		_, err := cl.MemberAdd(ctx, &adminpb.MemberAddRequest{Id: c.Args.ID, Address: c.Args.Address, Identity: c.Identity, NonVoter: c.NonVoter, Gate: c.gate()})
+		return err
+	})
+}
+
+type MemberShowCommand struct {
+	MaxLag uint64 `long:"max-lag" default:"256" description:"the most entries a healthy member may be behind the leader's commit index"`
+}
+
+func (c *MemberShowCommand) Execute([]string) error {
+	return call(func(ctx context.Context, cl *admin.Client) error {
+		r, err := cl.MemberShow(ctx, &adminpb.MemberShowRequest{MaxLag: c.MaxLag})
+		if err != nil {
+			return err
+		}
+		return output(r, func(w *tabwriter.Writer) {
+			_, _ = fmt.Fprintln(w, "ID\tADDRESS\tSUFFRAGE\tLEADER\tHEALTHY\tLAG\tLAST CONTACT\tREASON")
+			for _, m := range r.GetMembers() {
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n", m.GetId(), m.GetAddress(), m.GetSuffrage(),
+					yes(m.GetLeader()), yes(m.GetHealthy()), m.GetLag(), m.GetLastContact(), m.GetReason())
+			}
+		})
+	})
+}
+
+type MemberPromoteCommand struct {
+	GateOptions
+	Args struct {
+		ID string `positional-arg-name:"ID"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+func (c *MemberPromoteCommand) Execute([]string) error {
+	return call(func(ctx context.Context, cl *admin.Client) error {
+		_, err := cl.MemberPromote(ctx, &adminpb.MemberPromoteRequest{Id: c.Args.ID, Gate: c.gate()})
+		return err
+	})
+}
+
+type MemberDemoteCommand struct {
+	Args struct {
+		ID string `positional-arg-name:"ID"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+func (c *MemberDemoteCommand) Execute([]string) error {
+	return call(func(ctx context.Context, cl *admin.Client) error {
+		_, err := cl.MemberDemote(ctx, &adminpb.MemberDemoteRequest{Id: c.Args.ID})
 		return err
 	})
 }

@@ -115,7 +115,7 @@ func Start(cfg *config.Config, o Options) (_ *Daemon, err error) {
 
 	d.Admin = admin.New(admin.Options{
 		Node: d.Node, NodeID: cfg.Node.ID, Cluster: cfg.Cluster.Name, FSM: d.FSM, Store: d.Store,
-		Supervisor: d.Supervisor, Specs: specs, Validation: d.Invalid, Logger: logger,
+		Supervisor: d.Supervisor, Specs: specs, Validation: d.Invalid, HeartbeatTimeout: cfg.Raft.HeartbeatTimeout, Logger: logger,
 	})
 	cleanup = append(cleanup, func() error { d.Admin.Stop(context.Background()); return nil })
 	if err := d.serveAdmin(); err != nil {

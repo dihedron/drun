@@ -27,8 +27,11 @@ type Command struct {
 		Show ClusterShowCommand `command:"show" description:"members, suffrage, leader, term, commit index, last contact"`
 	} `command:"cluster" description:"the cluster"`
 	Member struct {
-		Add    MemberAddCommand    `command:"add" description:"add a member (FR-2)"`
-		Remove MemberRemoveCommand `command:"remove" description:"remove a member; removing the leader hands leadership over first"`
+		Show    MemberShowCommand    `command:"show" description:"every member's health, as the leader judges it (FR-17)"`
+		Add     MemberAddCommand     `command:"add" description:"add a member (FR-2); a voter joins as a non-voter and is promoted once healthy"`
+		Promote MemberPromoteCommand `command:"promote" description:"make a non-voter a voter once it is healthy (FR-17)"`
+		Demote  MemberDemoteCommand  `command:"demote" description:"make a voter a non-voter; demoting the leader hands leadership over first"`
+		Remove  MemberRemoveCommand  `command:"remove" description:"remove a member; removing the leader hands leadership over first"`
 	} `command:"member" description:"the cluster's members"`
 	Leader struct {
 		Show     LeaderShowCommand     `command:"show" description:"the leader and its term"`
