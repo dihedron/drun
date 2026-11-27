@@ -29,6 +29,9 @@ type Runnable interface {
   killed.
 - A nil return completes a task; for a service, any return is a failure,
   restarted after a back-off. Return `ErrFenced` when the host says so.
+- A runnable that also writes to a PostgreSQL database of its own fences
+  those writes with `pkg/runnable/fence/postgres` (see *Fencing external
+  state*), and returns `ErrFenced` when the helper does.
 
 ## The host
 

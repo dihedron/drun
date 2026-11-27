@@ -142,12 +142,13 @@ package-check: ## check the packages in dist/ (after make snapshot): static bina
 POSTGRES_IMAGE := docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
 
 .PHONY: test-postgres
-test-postgres: ## run the fenced-counter's PostgreSQL tests against a throwaway PostgreSQL container
+test-postgres: ## run the fence helper's and the fenced-counter's PostgreSQL tests against a throwaway PostgreSQL container
 	@name=drun-test-postgres-$$$$; \
 	$(CONTAINER) run -d --rm --name $$name -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test -p 127.0.0.1::5432 $(POSTGRES_IMAGE) >/dev/null || exit 1; \
 	trap '$(CONTAINER) stop '$$name' >/dev/null' EXIT; \
 	port=$$($(CONTAINER) port $$name 5432/tcp | head -1 | sed 's/.*://'); \
 	for i in $$(seq 1 60); do $(CONTAINER) exec $$name pg_isready -U postgres -d test -h 127.0.0.1 >/dev/null 2>&1 && break; sleep 1; done; \
 	DRUN_TEST_POSTGRES="postgres://postgres:test@127.0.0.1:$$port/test?sslmode=disable" \
-		go test -race -count=1 -v -run 'TestConformance|TestFencing|TestCheckerFindsViolations' ./cmd/drun-runnable-fenced-counter/
+		go test -race -count=1 -v -run 'TestConformance|TestFencing|TestCheckerFindsViolations' ./cmd/drun-runnable-fenced-counter/ \
+		&& DRUN_TEST_POSTGRES="postgres://postgres:test@127.0.0.1:$$port/test?sslmode=disable" go test -race -count=1 -v ./pkg/runnable/fence/...
 

@@ -30,6 +30,7 @@ require (
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/oklog/run v1.1.0 // indirect
@@ -39,6 +40,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1 // indirect
 )

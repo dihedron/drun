@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `drun`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.4.2` (2026-11-27): the PostgreSQL fence helper (FW-10, §8.5, T-16, R-8), OI-12 revisited; `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-wal` (v0.5.x, the default log store) and `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -475,11 +475,59 @@ COMMIT;
 
 The claim's row lock waits for the predecessor's open transactions, and
 after the claim every predecessor transaction fails its check, so the
-store serialises the two incarnations whatever their timing. A helper in
-the SDK is future work (FW-10, OI-12). Side
+store serialises the two incarnations whatever their timing. Side
 effects in systems that cannot check an epoch (an e-mail, a call to an
 external API) may happen twice during an overlap; runnables that need
 them exactly once must make them idempotent at the receiver.
+
+**The PostgreSQL helper (FW-10).** `pkg/runnable/fence/postgres` packages
+the pattern above, on `pgx/v5` (already the example's driver):
+
+```go
+const Schema = `CREATE TABLE IF NOT EXISTS drun_fence (
+  cluster text NOT NULL, runnable text NOT NULL, epoch bigint NOT NULL,
+  PRIMARY KEY (cluster, runnable))`
+
+// DB is a *pgx.Conn, a *pgxpool.Pool or a pgx.Tx.
+type DB interface {
+  Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+  Begin(ctx context.Context) (pgx.Tx, error)
+}
+
+// Claim creates the table if needed and claims the fence for inc's
+// epoch; ErrFenced if a newer epoch holds it.
+func Claim(ctx context.Context, db DB, inc runnable.Incarnation) (*Fence, error)
+// Check, inside the caller's transaction: ErrFenced unless the fence
+// still holds this epoch; it takes the row FOR SHARE.
+func (f *Fence) Check(ctx context.Context, tx pgx.Tx) error
+// Tx runs fn in a transaction that passed Check, and commits it.
+func (f *Fence) Tx(ctx context.Context, db DB, fn func(pgx.Tx) error) error
+```
+
+- **Key:** the row is keyed by cluster *and* runnable, so two drun
+  clusters sharing a database do not fence each other.
+- **Re-claim:** the claim succeeds when the fence holds an epoch lower
+  than *or equal to* the incarnation's (§8.5's example uses `<`), so an
+  incarnation that reconnects can claim again; only one incarnation ever
+  has a given epoch.
+- **Errors:** `ErrFenced` is `runnable.ErrFenced`, returned unwrapped by
+  `Claim`, `Check` and `Tx` (and from `fn`, if it returns it); every
+  other error is wrapped. `Tx` rolls back on any error. An epoch above
+  `math.MaxInt64` is an error (the column is `bigint`).
+- **Isolation:** `Tx` uses the database's default (`READ COMMITTED`):
+  `FOR SHARE` waits for a concurrent claim and then reads its epoch.
+  Under `REPEATABLE READ` or `SERIALIZABLE` (the caller's own
+  transaction and `Check`) a concurrent claim makes the check fail with
+  a serialisation error instead: safe, and the caller retries or ends.
+- **Table creation:** `Claim` runs `Schema` first; two first-ever claims
+  racing on `CREATE TABLE IF NOT EXISTS` can fail with a unique
+  violation, which `Claim` retries once. A role without `CREATE` can use
+  a table an administrator created from `Schema`.
+- **Out of scope:** other databases (the same pattern applies: a
+  conditional claim and a locked check in every writing transaction),
+  and writes that do not go through `Check`: the helper cannot see them.
+
+The fenced-counter example uses the helper.
 
 ### 8.6 Timings
 
@@ -814,6 +862,7 @@ assumptions (§12.1).
 | T-13 | (D) A partitioned node with a stale log disrupts the cluster | Raft pre-vote (EXT-4) | — |
 | T-14 | (S, E) A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
 | T-15 | (I) A host that reaches `metrics.listen` reads the peers' IDs and Raft's replication timings | metrics off by default; bind to loopback or a monitoring network; no secrets, addresses or payloads in any series | — |
+| T-16 | (T) A stale incarnation writes to the runnable's external PostgreSQL after a newer one started | the fence helper (§8.5): claim, and a locked check in every writing transaction | R-4, R-8 |
 
 ### 11.3 Accepted residual risks
 
@@ -833,6 +882,12 @@ assumptions (§12.1).
   `admin.remote.allowed_identities` or its certificate expires: short-lived
   certificates, and an endpoint bound to an operators' network only, are
   recommended. There are no per-method roles in v1.
+- **R-8** The fence is only as good as the database's history: restoring
+  a backup of the external database can put back an older epoch, and an
+  older incarnation that is still running and holds exactly that epoch
+  could then write again until the current one claims. After a restore,
+  restart the runnable (`runnable restart`) so a new epoch claims the
+  fence.
 
 ## 12. Decisions
 
@@ -957,7 +1012,9 @@ against a pinned PostgreSQL container (`make test-postgres`).
 - **OI-12 SDK scope.** *Decided* (2026-11-26): no fence helper for
   external databases in v1; §8.5 stays the documented pattern for a
   runnable that also writes to a database of its own, and the helper is
-  FW-10. The SDK stays in this module (`pkg/runnable`) until v1.0.0.
+  FW-10. *Revisited* (2026-11-27): the PostgreSQL helper is in
+  (`pkg/runnable/fence/postgres`, §8.5); other databases stay the
+  documented pattern. The SDK stays in this module (`pkg/runnable`) until v1.0.0.
 
 ## 16. Implementation plan
 
