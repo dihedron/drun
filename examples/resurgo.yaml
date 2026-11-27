@@ -1,5 +1,5 @@
 # resurgo node configuration (.specs/resurgo_specification.md §10.1).
-# Illustrative until the configuration is implemented (chunk C2).
+# Every key is described in the Setup Guide, chapter "Configuration".
 node:
   id: node-a                       # the Raft server ID; unique, stable
   data_dir: /var/lib/resurgo
@@ -24,6 +24,10 @@ lease: {}
 admin:
   socket: /run/resurgo/admin.sock
   allowed_groups: [resurgo-admin]  # SEC-6
+  # remote:                        # SEC-11: opt-in admin over mutual TLS
+  #   listen: 10.0.1.11:7351
+  #   tls: { cert: /etc/resurgo/tls/admin.crt, key: /etc/resurgo/tls/admin.key, ca: /etc/resurgo/tls/admin-ca.crt }
+  #   allowed_identities: ["spiffe://example.org/ops/alice"]
 metrics:
   listen: 127.0.0.1:9350
 runnables:

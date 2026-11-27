@@ -13,7 +13,7 @@ GOLANGCI_LINT_VERSION := 2.14
 .PHONY: lint
 lint: ## check that the code is clean (gofmt, go vet, golangci-lint); every build runs it first
 	@echo "Checking the code..."
-	@unformatted="$$(gofmt -l cmd internal pkg)"; \
+	@unformatted="$$(gofmt -l cmd internal pkg test)"; \
 		if [ -n "$$unformatted" ]; then echo "not formatted with gofmt (run gofmt -w):" >&2; echo "$$unformatted" >&2; exit 1; fi
 	@go vet ./...
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint is not installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION).0" >&2; exit 1; }
@@ -83,7 +83,7 @@ secrets: scanners ## scan the history and the working tree for secrets with gitl
 	@echo "gitleaks: working tree..."
 	@$(CONTAINER) run --rm -v "$(CURDIR)":/repo:ro $(GITLEAKS_IMAGE) dir /repo --config /repo/.gitleaks.toml --no-banner --redact
 	@echo "TruffleHog: history..."
-	@$(CONTAINER) run --rm -v "$(CURDIR)":/repo:ro $(TRUFFLEHOG_IMAGE) git file:///repo --exclude-paths=/repo/.trufflehog-history-exclude --results=verified,unknown --fail --no-update
+	@$(CONTAINER) run --rm -v "$(CURDIR)":/repo:ro $(TRUFFLEHOG_IMAGE) git file:///repo --results=verified,unknown --fail --no-update
 	@echo "TruffleHog: working tree..."
 	@$(CONTAINER) run --rm -v "$(CURDIR)":/repo:ro $(TRUFFLEHOG_IMAGE) filesystem /repo --exclude-paths=/repo/.trufflehog-exclude --results=verified,unknown --fail --no-update
 
@@ -99,3 +99,48 @@ vuln: ## check go.mod and the code for known vulnerabilities with govulncheck (r
 	go run golang.org/x/vuln/cmd/govulncheck@latest -C cmd/resurgo -scan module || rc=1; \
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./... || rc=1; \
 	exit $$rc
+
+# SPIKE_REPEAT is how many times make spike repeats the randomised spike tests
+SPIKE_REPEAT ?= 100
+
+.PHONY: spike
+spike: ## re-check the external assumptions (EXT-nn, EXT-S-nn) in depth: run on every bump of raft, go-plugin or go-sqlite3
+	@go test -race -count=1 -v ./test/spike/... -args -spike.repeat=$(SPIKE_REPEAT)
+	@go test -count=1 -run '^$$' -bench . -benchtime 3s ./test/spike/...
+
+.PHONY: proto
+proto: ## regenerate the Go code of the protobuf definitions in proto/ (needs protoc and protoc-gen-go)
+	@protoc --go_out=. --go_opt=module=github.com/dihedron/resurgo \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/dihedron/resurgo \
+		$$(find proto -name '*.proto')
+
+# STRESS_DURATION and SOAK_DURATION are how long the supervisor runs under
+# random faults; a soak takes hours: run it overnight (AGENTS.md rules 14, 15)
+STRESS_DURATION ?= 2m
+SOAK_DURATION ?= 8h
+
+.PHONY: stress
+stress: ## run an in-process cluster under random faults for STRESS_DURATION (default 2m), with the race detector
+	@RESURGO_STRESS=$(STRESS_DURATION) go test -race -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
+
+.PHONY: soak
+soak: ## the same for SOAK_DURATION (default 8h): an overnight run
+	@RESURGO_STRESS=$(SOAK_DURATION) go test -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
+
+.PHONY: package-check
+package-check: ## check the packages in dist/ (after make snapshot): static binaries, paths, owners, modes
+	@test/packaging/check.sh
+
+# POSTGRES_IMAGE is the PostgreSQL of make test-postgres, pinned
+POSTGRES_IMAGE := docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+
+.PHONY: test-postgres
+test-postgres: ## run the fenced-counter's PostgreSQL tests against a throwaway PostgreSQL container
+	@name=resurgo-test-postgres-$$$$; \
+	$(CONTAINER) run -d --rm --name $$name -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test -p 127.0.0.1::5432 $(POSTGRES_IMAGE) >/dev/null || exit 1; \
+	trap '$(CONTAINER) stop '$$name' >/dev/null' EXIT; \
+	port=$$($(CONTAINER) port $$name 5432/tcp | head -1 | sed 's/.*://'); \
+	for i in $$(seq 1 60); do $(CONTAINER) exec $$name pg_isready -U postgres -d test -h 127.0.0.1 >/dev/null 2>&1 && break; sleep 1; done; \
+	RESURGO_TEST_POSTGRES="postgres://postgres:test@127.0.0.1:$$port/test?sslmode=disable" \
+		go test -race -count=1 -v -run 'TestConformance|TestFencing|TestCheckerFindsViolations' ./cmd/resurgo-runnable-fenced-counter/
+

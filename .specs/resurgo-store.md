@@ -1,7 +1,7 @@
 # resurgo: the replicated SQL store of a runnable
 
-- **Document Version:** `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
-- **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
+- **Document Version:** `0.2.3` (2026-11-27): STO-16, STO-17 as built, static release build (§4.1); `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
+- **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
 
@@ -97,7 +97,14 @@ type Host interface {
   `CURRENT_TIME`, `CURRENT_DATE`, `CURRENT_TIMESTAMP`), `ATTACH`,
   `DETACH`, `VACUUM`, `TEMP` objects, `load_extension`, and every `PRAGMA`
   except reading the schema and setting `user_version`. Enforcement uses
-  SQLite's authorizer (EXT-S-1), not text matching.
+  SQLite's authorizer (EXT-S-1), not text matching. The authorizer sees a
+  function's name, not its arguments, so the date and time functions are
+  overridden on every connection of the FSM (EXT-S-6, OI-S-4): `date`,
+  `time`, `datetime`, `julianday`, `unixepoch`, `strftime` and `timediff`
+  refuse `'now'`, a missing time value and the `localtime` and `utc`
+  modifiers (which depend on the node's time zone), and otherwise return
+  what the built-in returns; `current_time`, `current_date` and
+  `current_timestamp` are refused by the authorizer.
 - **STO-5 (time)** The leader stamps every batch with its time; the FSM
   exposes it as `resurgo_now()` (Unix ms) and `resurgo_epoch()`, the only
   clock and identity a statement may use.
@@ -184,6 +191,13 @@ type Host interface {
   schema migrations are ordinary batches: they MUST keep the runnable's
   `_schema` version consistent, or the runnable refuses to start
   (STO-13).
+  As built (C5): the leader holds the runnable (a planned stop, released)
+  rather than fencing it mid-run, so that it cannot incarnate between the
+  operator's `Incarnate` and batch; `Incarnate.operator` records the
+  caller and is allowed while the runnable is disabled or completed;
+  `Release` follows the batch, so the runnable restarts without a
+  takeover delay. Statements are split with `sqlite3_complete`. The dry
+  run uses a `VACUUM INTO` copy. `store reset` is `Reset{store}`.
 
 ## 4. Engine
 
@@ -216,6 +230,13 @@ The node stays a single static binary (parent NFR-6):
   "not a dynamic executable", checked by a packaging test.
 - goreleaser gets one build per architecture with its `CC`; CI installs
   the toolchain; the race detector needs cgo anyway.
+- Checked in C2b (2026-11-26) with zig 0.17.1: the store's tests built
+  with `CC="zig cc -target x86_64-linux-musl"` and the flags above are
+  statically linked and pass; the `aarch64-linux-musl` build links
+  statically too. Since C5 (2026-11-27) the release build uses it:
+  goreleaser sets `CC` per architecture (`ZIG` names another zig), CI
+  installs zig 0.17.1 pinned by its SHA-256; all four builds are
+  statically linked and stripped (`-extldflags "-static -s"`).
 - Only the node links SQLite: runnables reach the store through the
   plugin protocol, so they and the SDK stay `CGO_ENABLED=0`.
 - `govulncheck` does not see the C code: the SQLite version bundled by the
@@ -253,13 +274,14 @@ The node stays a single static binary (parent NFR-6):
 
 ## 7. External assumptions (spike, parent chunk C0)
 
-| ID | Assumption |
-| :--- | :--- |
-| EXT-S-1 | `mattn/go-sqlite3` exposes an authorizer (`RegisterAuthorizer`) that sees every function call and pragma |
-| EXT-S-2 | A progress handler can be installed on the driver's connections (the driver, or a small cgo shim on the same bundled SQLite); the number of callbacks for a statement on the same data is the same on every node. If neither works, the fallback is S-1's alternative |
-| EXT-S-3 | A WAL read transaction gives a consistent copy (backup API or `VACUUM INTO`) while another connection commits |
-| EXT-S-4 | hashicorp/raft applies entries after the restored snapshot again on restart (the reason for STO-3), and offers no hook that makes STO-3 unnecessary |
-| EXT-S-5 | Throughput on the lab: batches of 10 small rows, 3 nodes, LAN: at least 500 batches/s; on the WAN profile (parent §8.7), at least 25 sequential and 300 concurrent batches/s |
+| ID | Assumption | Result (`test/spike`) |
+| :--- | :--- | :--- |
+| EXT-S-1 | `mattn/go-sqlite3` exposes an authorizer (`RegisterAuthorizer`) that sees every function call and pragma | Verified (2026-11-26): the authorizer sees `random`, `randomblob`, every date and time function, `current_timestamp`, every `PRAGMA`, `ATTACH`, temp objects; `VACUUM` arrives as an `ATTACH` with an empty name; a denial fails the statement. **Gap:** a function's arguments are not passed, so `date('now')` cannot be told from `date('2026-01-01')` (OI-S-4, decided: STO-4 overrides the functions, EXT-S-6) |
+| EXT-S-2 | A progress handler can be installed on the driver's connections (the driver, or a small cgo shim on the same bundled SQLite); the number of callbacks for a statement on the same data is the same on every node. If neither works, the fallback is S-1's alternative | Verified (2026-11-26) with the cgo shim: the driver has no progress-handler API, so `test/spike/progress.go` reads its unexported `SQLiteConn.db` (reflection, checked against the pinned layout) and calls the bundled `sqlite3_progress_handler`. Counts identical across journal, cache and mmap settings; a runaway CTE stops at the budget with `SQLITE_INTERRUPT` |
+| EXT-S-3 | A WAL read transaction gives a consistent copy (backup API or `VACUUM INTO`) while another connection commits | Verified (2026-11-26): `VACUUM INTO` and the backup API, under a committing writer, give consistent copies |
+| EXT-S-4 | hashicorp/raft applies entries after the restored snapshot again on restart (the reason for STO-3), and offers no hook that makes STO-3 unnecessary | Verified (2026-11-26) on raft-boltdb/v2 (bbolt v1.5.0) and file snapshots: after a restart the snapshot is restored and every later entry applied again |
+| EXT-S-5 | Throughput on the lab: batches of 10 small rows, 3 nodes, LAN: at least 500 batches/s; on the WAN profile (parent §8.7), at least 25 sequential and 300 concurrent batches/s | Local part only (2026-11-26): in-memory transport and log, SQLite in WAL: about 13 000 sequential and 19 000 concurrent batches/s, so the apply path is not the limit; the thresholds are measured in the lab (C7, AC-16) |
+| EXT-S-6 | `RegisterFunc` overrides SQLite's built-in date and time functions on the connection it is called on, in queries, defaults and triggers alike | Verified (2026-11-26): `'now'` (any case and spacing), missing time values, `localtime` and `utc` refused there; the deterministic forms return the built-ins' results; a connection without the overrides is unaffected, so the FSM registers them on every connection |
 
 ## 8. Acceptance scenarios
 
@@ -284,3 +306,8 @@ The node stays a single static binary (parent NFR-6):
   database, 1 MiB batches, 50 M VM steps, 30 s queries.
 - **OI-S-3** *Decided* (2026-11-25): operators can inspect and modify the
   store through the log and the FSM (STO-16, STO-17).
+- **OI-S-4** *Decided* (2026-11-26): the FSM overrides the date and time
+  functions on every connection (STO-4); the overrides refuse what
+  depends on the node and delegate the rest to the built-ins on a private
+  connection without overrides (EXT-S-6). Not chosen: refusing the date
+  and time functions altogether.

@@ -1,0 +1,189 @@
+// The protocol between a resurgo node and a runnable's plugin process
+// (resurgo_specification.md §8.2), over hashicorp/go-plugin with gRPC.
+syntax = "proto3";
+
+package resurgo.runnable.v1;
+
+option go_package = "github.com/dihedron/resurgo/pkg/runnable/runnablepb";
+
+service Runnable {
+  rpc Describe(DescribeRequest) returns (Description);
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+  // One bidirectional stream per incarnation: the host sends Start, then
+  // heartbeats and the results of the runnable's requests; the runnable
+  // sends requests, each with an id, and finally its Exit.
+  rpc Run(stream HostMessage) returns (stream RunnableMessage);
+}
+
+message DescribeRequest {}
+
+enum Kind {
+  KIND_SERVICE = 0;
+  KIND_TASK = 1;
+}
+
+message Description {
+  string name = 1;
+  string version = 2;
+  Kind kind = 3;
+  bool stateful = 4;
+  bytes config_schema = 5;
+}
+
+message ValidateRequest {
+  bytes config = 1;
+}
+
+message ValidateResponse {
+  // error is empty when the configuration is valid
+  string error = 1;
+}
+
+message HostMessage {
+  oneof msg {
+    Start start = 1;
+    Heartbeat heartbeat = 2;
+    Stop stop = 3;
+    CheckpointResult checkpoint_result = 4;
+    StatusResult status_result = 5;
+    ExecResult exec_result = 6;
+    QueryResult query_result = 7;
+  }
+}
+
+// Start is the first message of a stream; it carries the first lease.
+message Start {
+  Incarnation incarnation = 1;
+  int64 valid_until_boottime_ns = 2;
+}
+
+message Incarnation {
+  string runnable = 1;
+  uint64 epoch = 2;
+  uint64 term = 3;
+  string node = 4;
+  string cluster = 5;
+  bytes config = 6;
+  Checkpoint checkpoint = 7;
+}
+
+message Checkpoint {
+  uint64 seq = 1;
+  uint64 epoch = 2;
+  bytes data = 3;
+  int64 committed_at_unix_ms = 4;
+}
+
+// Heartbeat renews the lease (§8.3): the runnable's context is cancelled
+// once CLOCK_BOOTTIME passes the latest valid_until it received.
+message Heartbeat {
+  int64 valid_until_boottime_ns = 1;
+}
+
+// Stop asks the runnable to stop: its context is cancelled.
+message Stop {
+  string reason = 1;
+}
+
+message RunnableMessage {
+  oneof msg {
+    CheckpointRequest checkpoint = 1;
+    StatusReport status = 2;
+    StoreExec exec = 3;
+    StoreQuery query = 4;
+    Exit exit = 5;
+  }
+}
+
+message CheckpointRequest {
+  uint64 id = 1;
+  bytes data = 2;
+}
+
+message CheckpointResult {
+  uint64 id = 1;
+  uint64 seq = 2;
+  Error error = 3;
+}
+
+message StatusReport {
+  uint64 id = 1;
+  bool healthy = 2;
+  string detail = 3;
+}
+
+message StatusResult {
+  uint64 id = 1;
+  Error error = 2;
+}
+
+message StoreExec {
+  uint64 id = 1;
+  repeated Statement statements = 2;
+}
+
+message Statement {
+  string sql = 1;
+  repeated Value args = 2;
+  optional int64 rows_affected = 3;
+  optional int64 min_rows_affected = 4;
+}
+
+message ExecResult {
+  uint64 id = 1;
+  repeated StatementResult results = 2;
+  Error error = 3;
+}
+
+message StatementResult {
+  int64 rows_affected = 1;
+  int64 last_insert_id = 2;
+  repeated Row rows = 3;
+}
+
+message StoreQuery {
+  uint64 id = 1;
+  string sql = 2;
+  repeated Value args = 3;
+}
+
+message QueryResult {
+  uint64 id = 1;
+  repeated string columns = 2;
+  repeated Row rows = 3;
+  Error error = 4;
+}
+
+message Row {
+  repeated Value values = 1;
+}
+
+message Value {
+  oneof value {
+    int64 integer = 1;
+    double real = 2;
+    string text = 3;
+    bytes blob = 4;
+    bool boolean = 5;
+    bool null = 6;
+  }
+}
+
+// Error is a failed request: fenced, a batch rolled back, or another error.
+message Error {
+  bool fenced = 1;
+  // for a batch rolled back
+  int32 statement = 2;
+  int32 code = 3;
+  string message = 4;
+  bool batch = 5;
+}
+
+// Exit is the runnable's last message.
+message Exit {
+  oneof outcome {
+    bool completed = 1;
+    bool fenced = 2;
+    string error = 3;
+  }
+}

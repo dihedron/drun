@@ -1,8 +1,8 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
-- **Status:** Draft, for review; not yet approved for implementation (`AGENTS.md`, rule 1)
-- **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (bbolt), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
+- **Document Version:** `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
+- **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
 
 ---
@@ -106,9 +106,18 @@ only the epochs and the current incarnations.
   voters (ID and address). A node with no Raft state MUST bootstrap the
   cluster with exactly that list; all initial voters MUST list the same
   voters (EXT-2). A node with existing state ignores the list.
+  As built (2026-11-27): before bootstrapping, a node with no state asks
+  the other configured voters over the cluster port (a `P` probe stream)
+  whether they have state; if any has, it does not bootstrap and waits for
+  the leader, so that a rebuilt node never writes a first entry that
+  differs from the cluster's. A majority of nodes without state, the
+  others unreachable, cannot tell a lost cluster from a new one and
+  bootstraps: never wipe a majority while the others are down.
 - **FR-2 (membership)** Voters and non-voters MUST be addable and removable
   at runtime (`resurgo member add|remove`); the change is executed by the
-  leader. Removing the current leader MUST first transfer leadership.
+  leader. `member add` takes the member's certificate identity
+  (`--identity`), recorded through the log so that every node accepts the
+  member without a restart (§10.1). Removing the current leader MUST first transfer leadership.
 - **FR-3 (leadership transfer)** An operator MUST be able to move
   leadership to a named node or to any other voter (`resurgo leader
   transfer [--to ID]`); this is a planned handover (FR-12).
@@ -389,7 +398,12 @@ message RunnableMessage {
 ```
 
 Requests on the stream carry an ID; the host answers each with a result of
-the same ID. The stream ending without `Exit` is a crash. The plugin's
+the same ID. The stream ending without `Exit` is a crash. As built (C3,
+`proto/runnable/v1`): `Start` also carries the first lease
+(`valid_until_boottime_ns`), so that `Run` never runs unleased; results
+are `CheckpointResult`, `StatusResult`, `ExecResult` and `QueryResult`
+(the query's rows in one message, bounded by `store.max_result`); errors
+say whether they are a fencing or a rolled-back batch. The plugin's
 stderr is captured into the node's log with `runnable` and `epoch`.
 
 ### 8.3 Leadership confirmation and the runnable lease
@@ -461,8 +475,8 @@ COMMIT;
 
 The claim's row lock waits for the predecessor's open transactions, and
 after the claim every predecessor transaction fails its check, so the
-store serialises the two incarnations whatever their timing. The SDK
-SHOULD ship this as a helper (`pkg/runnable/fence/postgres`, OI-12). Side
+store serialises the two incarnations whatever their timing. A helper in
+the SDK is future work (FW-10, OI-12). Side
 effects in systems that cannot check an epoch (an e-mail, a call to an
 external API) may happen twice during an overlap; runnables that need
 them exactly once must make them idempotent at the receiver.
@@ -555,6 +569,20 @@ reads a clock.
 | `SetDisabled{runnable, bool}` | admin | — |
 | `Reset{runnable, checkpoint?, completion?, failures?}` | admin: clears the chosen parts | — |
 | `Forget{runnable}` | admin: removes a runnable no longer configured | runnable is running |
+| `SetPeer{id, identity}` | records the identity a member's certificate carries (SEC-2) | empty id, invalid identity, identity already another node's |
+| `RemovePeer{id}` | forgets a recorded identity | unknown id |
+
+Details settled in C1 (2026-11-26):
+- `StoreBatch`, like `Checkpoint`, is refused once the incarnation is
+  released.
+- `Reset` of the checkpoint removes it: the next checkpoint has sequence
+  number 1.
+- `SetDisabled` on a runnable without state creates it, so that a runnable
+  can be disabled before it first runs.
+- A refused command changes nothing. A store failure that is not
+  deterministic (an I/O error, not a SQL error) also leaves the state
+  unchanged, and the node MUST then stop (C2b): carrying on would leave its
+  replica behind the others'.
 
 ### 9.3 Snapshots and log size
 
@@ -597,6 +625,10 @@ lease: {}
 admin:
   socket: /run/resurgo/admin.sock
   allowed_groups: [resurgo-admin]  # SEC-6
+  remote:                          # SEC-11: opt-in; absent, local only
+    listen: 10.0.1.11:7351
+    tls: { cert: /etc/resurgo/tls/admin.crt, key: /etc/resurgo/tls/admin.key, ca: /etc/resurgo/tls/admin-ca.crt }
+    allowed_identities: ["spiffe://example.org/ops/alice"]
 metrics:
   listen: 127.0.0.1:9350
 runnables:
@@ -614,6 +646,15 @@ runnables:
     health: { timeout: 30s }
 ```
 
+`cluster.tls.peers` holds the identities of the initial voters and of the
+nodes this node must trust before it has the log (for a joining node:
+the current members). The identity of a member added later is recorded
+through the log (`member add ID ADDRESS --identity I` commits `SetPeer`
+before the configuration change), so no node needs a new configuration
+or a restart; removing the member removes its recorded identity. A
+configured identity wins over a recorded one for the same ID (decided
+2026-11-26).
+
 ### 10.2 Command line
 
 `github.com/jessevdk/go-flags`, `resurgo <object> <verb>`; `show` is the
@@ -624,7 +665,7 @@ one verb that displays objects. All but `serve`, `version` and
 | :--- | :--- |
 | `resurgo serve` | run a node |
 | `resurgo cluster show` | members, suffrage, leader, term, commit index, last contact |
-| `resurgo member add ID ADDRESS [--non-voter]` / `member remove ID` | FR-2 |
+| `resurgo member add ID ADDRESS [--identity I] [--non-voter]` / `member remove ID` | FR-2 |
 | `resurgo leader show` / `leader transfer [--to ID]` | FR-3 |
 | `resurgo runnable show [NAME]` | incarnation, epoch, digests, health, checkpoint metadata, failures |
 | `resurgo runnable enable\|disable\|restart NAME` | FR-14 |
@@ -632,6 +673,21 @@ one verb that displays objects. All but `serve`, `version` and
 | `resurgo store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16) |
 | `resurgo checkpoint show NAME [--data]` | metadata; `--data` writes the bytes to stdout |
 | `resurgo version [--verbose]`, `resurgo completion bash\|zsh` | as in the other projects |
+
+As built (C5): the admin API is one gRPC service on pluggable endpoints,
+each authenticating its callers in its handshake: the local socket
+(SEC-6) and the opt-in remote endpoint (SEC-11). The CLI picks one with
+`--admin unix:///path` (the default, `/run/resurgo/admin.sock`) or
+`--admin tls://host:port` with `--cert`, `--key`, `--ca` and optionally
+`--server-identity`; `--json` prints the replies as JSON. `cluster
+show`, `leader show`, `runnable show` and `checkpoint show` answer from
+the called node's replicated state (`runnable show` adds the leader's
+views of its runnables, and the called node's digests, drift and
+validation error); the other commands are executed by the leader, a
+follower forwarding them over the cluster port with the caller's
+identity. A forwarded call that reaches a node no longer leader fails
+(`Unavailable`, retry) rather than hopping again. `leader transfer` and
+removing the leader are planned handovers (FR-12).
 
 ### 10.3 Metrics
 
@@ -645,6 +701,13 @@ one verb that displays objects. All but `serve`, `version` and
 `resurgo_lease_renew_failures_total`, `resurgo_config_drift{runnable}`;
 plus Raft's own metrics (FW-3).
 
+As built (C5): served on `metrics.listen` (off unless set) in the
+Prometheus text format, written without a client library;
+`resurgo_failover_seconds` and `resurgo_takeover_wait_seconds` are gauges
+of the last first incarnation of a leadership (a restart on the same
+leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
+`unhealthy`, `fenced`, `lost` and `stopped`.
+
 ## 11. Security and threat model
 
 ### 11.1 Requirements
@@ -655,6 +718,14 @@ plus Raft's own metrics (FW-3).
   it claims (`cluster.tls.peers`), as a SPIFFE ID URI SAN or a DNS SAN, so
   that one valid certificate cannot impersonate another node. Raft requests
   whose source ID does not match the connection's identity are dropped.
+  As built (C2): a certificate must carry exactly one configured identity;
+  each Raft request's header (server ID and, if set, address) is decoded
+  and checked before raft reads the request, and a mismatch closes the
+  connection; a dialling node checks that the server presents the identity
+  of the ID configured at that address. Identities come from
+  `cluster.tls.peers` and from `SetPeer` entries in the log, the configured
+  one winning; an administrator who can add a member can thus admit an
+  identity, as they can admit the member itself.
 - **SEC-3** Certificates MAY come from files (reloaded on change) or from
   the SPIFFE Workload API (OI-4).
 - **SEC-4** Only runnable binaries whose SHA-256 matches the configured
@@ -680,6 +751,12 @@ plus Raft's own metrics (FW-3).
   cgroup.
 - **SEC-10** The plugin process MUST die with the node: `Pdeathsig=SIGKILL`
   on the child, and `KillMode=control-group` in the unit (INV-5, EXT-5).
+- **SEC-11** The admin API MAY also be served on a TCP endpoint
+  (`admin.remote`, off unless configured): TLS 1.3 with mutual
+  authentication, no plaintext mode; the client's certificate MUST chain
+  to `admin.remote.tls.ca` and carry one of `admin.remote.allowed_identities`
+  (SPIFFE ID URI SAN or DNS SAN), which is the caller recorded in the audit
+  log. Any allowed identity may call every admin method.
 
 ### 11.2 Threats (STRIDE)
 
@@ -698,6 +775,7 @@ plus Raft's own metrics (FW-3).
 | T-11 | (T) A tampered package is installed | signed packages and checksums (as in the other projects) | — |
 | T-12 | (I) The plugin's stderr leaks secrets into the node's logs | runnables' responsibility; the conformance kit greps for a canary secret | R-6 |
 | T-13 | (D) A partitioned node with a stale log disrupts the cluster | Raft pre-vote (EXT-4) | — |
+| T-14 | (S, E) A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
 
 ### 11.3 Accepted residual risks
 
@@ -712,14 +790,19 @@ plus Raft's own metrics (FW-3).
   (§8.5).
 - **R-5** The audit trail is the local journal of each node.
 - **R-6** A runnable can log what it wants.
+- **R-7** A stolen admin client key gives full admin access through the
+  remote endpoint until its identity is removed from
+  `admin.remote.allowed_identities` or its certificate expires: short-lived
+  certificates, and an endpoint bound to an operators' network only, are
+  recommended. There are no per-method roles in v1.
 
 ## 12. Decisions
 
 | ADR | Decision | Rationale | Alternatives |
 |-----|----------|-----------|--------------|
-| 1 | `hashicorp/raft` with `raft-boltdb/v2` and file snapshots | Given; pure Go, mature, used by Consul, Nomad, Vault | `raft-wal` log store (newer, faster; FW-2); etcd/raft (lower level) |
+| 1 | `hashicorp/raft` with `raft-boltdb/v2` and file snapshots; bbolt (`go.etcd.io/bbolt`, the etcd fork raft-boltdb/v2 uses) required at its latest release rather than the older one raft-boltdb/v2 asks for | Given; mature, used by Consul, Nomad, Vault; reviewed (2026-11-26) against a log store on SQLite: no gain worth a store of our own | `raft-wal` log store (newer, faster; FW-2); etcd/raft (lower level) |
 | 2 | Leader-only placement; every runnable on the leader | The leader is the one place a quorum agrees on; no second election per runnable | Per-runnable leases in the FSM, spread over nodes (FW-1) |
-| 3 | One TCP port, mTLS, multiplexed by a first byte (Raft RPC, forwarded admin) | One port to open; one identity check | Separate ports; admin over HTTP |
+| 3 | One TCP port, mTLS, multiplexed by a first byte (Raft RPC, forwarded admin, bootstrap probe) | One port to open; one identity check | Separate ports; admin over HTTP |
 | 4 | go-plugin over gRPC, one fresh process per incarnation | The stop is enforceable (kill), no state leaks between incarnations, any language with gRPC can implement a runnable | One long-lived process (faster restart, but a stuck runnable cannot be stopped); in-process Go plugins (no isolation) |
 | 5 | The epoch: an FSM counter incremented by `Incarnate`, not the Raft term | Unique per incarnation (a restart on the same leader keeps the term), dense, persisted, usable by external stores; `Incarnate` after `Barrier` also proves the leader has committed in its term | The term (not unique per restart) |
 | 6 | Runnable configuration is node-local, only its digest is replicated | Secrets never enter the Raft log; configuration management already owns `/etc` | Configuration replicated through Raft (one source of truth, but secrets in the log) (OI-3) |
@@ -732,17 +815,17 @@ plus Raft's own metrics (FW-3).
 
 ### 12.1 External assumptions (verified by the spike, chunk C0)
 
-| ID | Assumption | Test |
-| :--- | :--- | :--- |
-| EXT-1 | `ApplyFuture.Error()` returns nil only after the entry is committed and applied on the leader; on leadership loss it returns an error, and the entry may or may not commit later | spike test with partitions on `InmemTransport` |
-| EXT-2 | Calling `BootstrapCluster` with identical configurations on all initial voters is safe | 3 and 5 nodes started in random order, repeated |
-| EXT-3 | A leader that cannot reach a quorum steps down within about `LeaderLeaseTimeout` and reports it on `LeaderCh` / an observation | measured bound, under partition |
-| EXT-4 | Pre-vote (raft ≥ 1.7) keeps a rejoining partitioned node from causing an election | partition, heal, no term change |
-| EXT-5 | A go-plugin child does not reliably exit when the host dies; `Pdeathsig` and the cgroup kill it | `kill -9` of the node, child observed |
-| EXT-6 | `CLOCK_BOOTTIME` is the same clock for two processes on a host, keeps running while a process is stopped, and moves forward across an LXD VM pause | `SIGSTOP`, `lxc pause` in the lab |
-| EXT-7 | `raft.Log` passed to `FSM.Apply` carries `Term` and `Index` | unit test |
-| EXT-8 | `VerifyLeader` fails once a newer leader exists or no quorum answers | spike test |
-| EXT-9 | A follower that heard from the leader within `HeartbeatTimeout` refuses to vote for another candidate, except for a leadership transfer started by that leader | spike test with a forced candidate |
+| ID | Assumption | Test | Result (`test/spike`) |
+| :--- | :--- | :--- | :--- |
+| EXT-1 | `ApplyFuture.Error()` returns nil only after the entry is committed and applied on the leader; on leadership loss it returns an error, and the entry may or may not commit later | spike test with partitions on `InmemTransport` | Verified (2026-11-26): over 40 partitions around a write, every nil error was applied on the leader and survived; errors were seen both for entries later committed and lost |
+| EXT-2 | Calling `BootstrapCluster` with identical configurations on all initial voters is safe | 3 and 5 nodes started in random order, repeated | Verified (2026-11-26): 3 and 5 nodes, random order and delays |
+| EXT-3 | A leader that cannot reach a quorum steps down within about `LeaderLeaseTimeout` and reports it on `LeaderCh` / an observation | measured bound, under partition | Verified (2026-11-26): worst step-down about 1.05 × `LeaderLeaseTimeout` (105 ms for 100 ms) |
+| EXT-4 | Pre-vote (raft ≥ 1.7) keeps a rejoining partitioned node from causing an election | partition, heal, no term change | Verified (2026-11-26), with a control: without pre-vote the same rejoin changes the term |
+| EXT-5 | A go-plugin child does not reliably exit when the host dies; `Pdeathsig` and the cgroup kill it | `kill -9` of the node, child observed | Verified locally (2026-11-26): without `Pdeathsig` the plugin outlives a `kill -9` of its host; with it, it is gone at once. `Pdeathsig` fires when the *thread* that started the child exits, so the supervisor starts each plugin from a goroutine locked to its OS thread for the plugin's life. Cgroup kill: lab (C7) |
+| EXT-6 | `CLOCK_BOOTTIME` is the same clock for two processes on a host, keeps running while a process is stopped, and moves forward across an LXD VM pause | `SIGSTOP`, `lxc pause` in the lab | Verified locally (2026-11-26): one clock for parent and child, advances across `SIGSTOP`. `lxc pause`: lab (C7) |
+| EXT-7 | `raft.Log` passed to `FSM.Apply` carries `Term` and `Index` | unit test | Verified (2026-11-26) |
+| EXT-8 | `VerifyLeader` fails once a newer leader exists or no quorum answers | spike test | Verified (2026-11-26): fails on an isolated leader at once, and on a deposed one |
+| EXT-9 | A follower that heard from the leader within `HeartbeatTimeout` refuses to vote for another candidate, except for a leadership transfer started by that leader | spike test with a forced candidate | Verified (2026-11-26), with a narrower mechanism: hashicorp/raft refuses a vote while it knows *any* leader other than the candidate (not a `HeartbeatTimeout` window), and grants it with `LeadershipTransfer` set |
 
 ## 13. System invariants
 
@@ -772,6 +855,14 @@ example runnables: `resurgo-runnable-ticker` (stateless, checkpoints a
 counter) and `resurgo-runnable-fenced-counter` (stateful, appends
 `(epoch, seq)` rows to PostgreSQL through the fence of §8.5, plus a
 checker).
+
+As built (C6): the examples are `cmd/resurgo-runnable-ticker` and
+`cmd/resurgo-runnable-fenced-counter`, shipped in the package
+`resurgo-runnable-examples`. The fenced counter's rows carry an id in
+commit order; its checker (`resurgo-runnable-fenced-counter check`) fails
+when a row of an epoch follows a row of a newer one, and reports rows
+written again after a failover as repeats (at least once). Its tests run
+against a pinned PostgreSQL container (`make test-postgres`).
 
 | ID | Scenario | Pass when |
 | :--- | :--- | :--- |
@@ -825,9 +916,10 @@ checker).
   validation (FR-16) refuse leadership, i.e. transfer it away when elected,
   so that a misconfigured node never ends up running nothing? Proposed:
   yes, through the same mechanism as FR-8.
-- **OI-12 SDK scope.** Ship the PostgreSQL fence helper of §8.5 in v1?
-  Keep the SDK in this module (`pkg/runnable`) until v1.0.0, then a
-  separate module?
+- **OI-12 SDK scope.** *Decided* (2026-11-26): no fence helper for
+  external databases in v1; §8.5 stays the documented pattern for a
+  runnable that also writes to a database of its own, and the helper is
+  FW-10. The SDK stays in this module (`pkg/runnable`) until v1.0.0.
 
 ## 16. Implementation plan
 
@@ -839,11 +931,11 @@ secrets`, and the documents updated (rules 11 to 13).
 | C0 | Spike: EXT-1 to EXT-9 and EXT-S-1 to EXT-S-5 as regression tests (`test/spike`), re-run on every bump of raft or go-plugin |
 | C1 | `internal/fsm`: state, commands (protobuf), snapshot/restore; unit, property and fuzz tests (INV-1, INV-3, INV-7) |
 | C2 | `internal/raftnode`: stores, mTLS muxed stream layer with identity binding, bootstrap, membership; `internal/config` with the checks of §8.6 |
-| C2b | The store: `mattn/go-sqlite3` (static musl build, `resurgo-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`) |
+| C2b | The store: `mattn/go-sqlite3` (static musl build, `resurgo-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`). Done 2026-11-26: `fsm.Store.Exec` takes the runnable's replicated limits and `Forget` the entry index; the release build turns static when `serve` links the store (C5) |
 | C3 | `pkg/runnable`: interface, protocol, go-plugin server and loader, lease in the SDK, in-process loader, conformance kit |
 | C4 | `internal/supervisor`: incarnation controller, takeover delay, release, restart and handover; in-process cluster tests; `make stress` / `make soak` |
-| C5 | `internal/admin` and the CLI (§10.2); metrics |
-| C6 | Example runnables, packaging, the three guides (rule 12) |
+| C5 | `internal/admin` and the CLI (§10.2); metrics. C5a (2026-11-27): the admin API on pluggable endpoints (socket, opt-in remote TLS: SEC-11), forwarding, `serve` (`internal/daemon`), FR-15 drift and FR-16 validation; C5b (2026-11-27): store commands (STO-15 to STO-17), metrics, static musl release build with zig; FR-13 fixed: a command during the takeover wait no longer cuts it short |
+| C6 | Example runnables, packaging, the three guides (rule 12). Done 2026-11-27: the admin socket's directory and socket go to the first of `admin.allowed_groups` (`resurgo-admin`, created by the package); `make package-check` checks the packages |
 | C7 | The LXD lab, AC-1 to AC-15, the overnight soak (rules 14 and 15) |
 
 ## 17. Specifications

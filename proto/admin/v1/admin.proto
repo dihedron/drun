@@ -1,0 +1,204 @@
+// The admin API of a node (resurgo_specification.md §10.2): served on the
+// local unix socket (SEC-6), optionally on a remote mutual-TLS endpoint
+// (SEC-11), and between nodes over the cluster port's admin stream, which
+// carries the calls a follower forwards to the leader (ADR-3).
+syntax = "proto3";
+
+package resurgo.admin.v1;
+
+import "proto/fsm/v1/fsm.proto";
+
+option go_package = "github.com/dihedron/resurgo/internal/admin/adminpb";
+
+service Admin {
+  // answered by the node called
+  rpc ClusterShow(Empty) returns (ClusterShowReply);
+  rpc RunnableShow(RunnableShowRequest) returns (RunnableShowReply);
+  rpc CheckpointShow(CheckpointShowRequest) returns (CheckpointShowReply);
+
+  // executed by the leader, forwarded there by a follower
+  rpc MemberAdd(MemberAddRequest) returns (Empty);
+  rpc MemberRemove(MemberRemoveRequest) returns (Empty);
+  rpc LeaderTransfer(LeaderTransferRequest) returns (Empty);
+  rpc RunnableSet(RunnableSetRequest) returns (Empty);
+  rpc RunnableRestart(RunnableRequest) returns (Empty);
+  rpc RunnableReset(RunnableResetRequest) returns (Empty);
+  // the leader supervisor's views of its runnables
+  rpc Views(Empty) returns (ViewsReply);
+
+  // the runnables' stores (STO-15, STO-16, STO-17)
+  rpc StoreShow(StoreShowRequest) returns (StoreShowReply);
+  // on the leader after VerifyLeader, or with local on the node called
+  rpc StoreQuery(StoreQueryRequest) returns (StoreQueryReply);
+  rpc StoreExec(StoreExecRequest) returns (StoreExecReply);
+  rpc StoreReset(RunnableRequest) returns (Empty);
+  // a consistent copy of the database on the node called
+  rpc StoreBackup(RunnableRequest) returns (stream Chunk);
+  // this node's digest of a database, for StoreShow
+  rpc StoreDigest(RunnableRequest) returns (Digest);
+}
+
+message Empty {}
+
+message ClusterShowReply {
+  string node = 1;
+  string cluster = 2;
+  string state = 3; // this node's raft state
+  string leader_id = 4;
+  string leader_address = 5;
+  uint64 term = 6;
+  uint64 commit_index = 7;
+  uint64 applied_index = 8;
+  string last_contact = 9; // as raft reports it
+  repeated Member members = 10;
+}
+
+message Member {
+  string id = 1;
+  string address = 2;
+  string suffrage = 3;
+  string identity = 4;
+  bool leader = 5;
+}
+
+message MemberAddRequest {
+  string id = 1;
+  string address = 2;
+  string identity = 3;
+  bool non_voter = 4;
+}
+
+message MemberRemoveRequest {
+  string id = 1;
+}
+
+message LeaderTransferRequest {
+  string to = 1; // empty: any other voter
+}
+
+message RunnableRequest {
+  string name = 1;
+}
+
+message RunnableSetRequest {
+  string name = 1;
+  bool disabled = 2;
+}
+
+message RunnableResetRequest {
+  string name = 1;
+  bool checkpoint = 2;
+  bool completion = 3;
+  bool failures = 4;
+}
+
+message RunnableShowRequest {
+  string name = 1; // empty: every runnable
+}
+
+message RunnableShowReply {
+  repeated RunnableInfo runnables = 1;
+  // the node that answered, and whether the views come from the leader
+  string node = 2;
+  string views_error = 3;
+}
+
+message RunnableInfo {
+  string name = 1;
+  // the replicated state, as applied on the node that answered
+  resurgo.fsm.v1.Runnable state = 2;
+  // the leader supervisor's view
+  View view = 3;
+  // FR-16: why this node cannot run the runnable, if it cannot
+  string validation_error = 4;
+  // FR-15: this node's digests, and whether they differ from the current
+  // incarnation's
+  bytes binary_sha256 = 5;
+  bytes config_sha256 = 6;
+  bool drift = 7;
+  bool configured = 8; // on the node that answered
+}
+
+message View {
+  string runnable = 1;
+  string state = 2;
+  uint64 epoch = 3;
+  bool healthy = 4;
+  string detail = 5;
+  int64 since = 6; // Unix milliseconds
+  string node = 7;
+}
+
+message ViewsReply {
+  repeated View views = 1;
+}
+
+message CheckpointShowRequest {
+  string name = 1;
+  bool data = 2;
+}
+
+message CheckpointShowReply {
+  bool found = 1;
+  resurgo.fsm.v1.CheckpointMeta meta = 2;
+  bytes data = 3;
+}
+
+message StoreShowRequest {
+  string name = 1; // empty: every runnable
+}
+
+message StoreShowReply {
+  repeated StoreInfo stores = 1;
+}
+
+message StoreInfo {
+  string name = 1;
+  bool exists = 2;
+  int64 size = 3; // bytes, on the node called
+  repeated string tables = 4;
+  uint64 last_index = 5;
+  repeated Digest digests = 6; // one per member
+  // digests at the same index differ (INV-S-1)
+  bool mismatch = 7;
+}
+
+message Digest {
+  string node = 1;
+  string digest = 2;
+  uint64 index = 3;
+  string error = 4;
+}
+
+message StoreQueryRequest {
+  string name = 1;
+  string sql = 2;
+  bool local = 3;
+}
+
+message StoreQueryReply {
+  repeated string columns = 1;
+  repeated resurgo.fsm.v1.Row rows = 2;
+  string node = 3;
+  // answered by a follower: possibly behind the leader
+  bool stale = 4;
+}
+
+message StoreExecRequest {
+  string name = 1;
+  // one or more statements, split where each ends
+  string sql = 2;
+  // disable the runnable first, and leave it disabled
+  bool disable = 3;
+  // run in a rolled-back transaction on a copy of the leader's database
+  bool dry_run = 4;
+}
+
+message StoreExecReply {
+  resurgo.fsm.v1.BatchResult result = 1;
+  uint64 epoch = 2; // the operator's incarnation; 0 for a dry run
+}
+
+message Chunk {
+  bytes data = 1;
+}

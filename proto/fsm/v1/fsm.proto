@@ -1,0 +1,229 @@
+// The replicated state machine of resurgo: the commands in the Raft log and
+// the state in its snapshots (resurgo_specification.md §9).
+//
+// Every timestamp is set by the leader, in Unix milliseconds: the FSM never
+// reads a clock. The messages hold no maps, so that their encoding, and so
+// every snapshot, is the same on every node (INV-7).
+syntax = "proto3";
+
+package resurgo.fsm.v1;
+
+option go_package = "github.com/dihedron/resurgo/internal/fsm/fsmpb";
+
+// Command is one Raft log entry.
+message Command {
+  // format_version is the version of the command formats; a node refuses
+  // a newer one (OI-10).
+  uint32 format_version = 1;
+  oneof command {
+    StoreBatch store_batch = 2;
+    Incarnate incarnate = 3;
+    Checkpoint checkpoint = 4;
+    Release release = 5;
+    Complete complete = 6;
+    Fail fail = 7;
+    SetDisabled set_disabled = 8;
+    Reset reset_runnable = 9;
+    Forget forget = 10;
+    SetPeer set_peer = 11;
+    RemovePeer remove_peer = 12;
+  }
+}
+
+// StoreBatch is applied to the runnable's database in one transaction
+// (resurgo-store.md STO-1, STO-2).
+message StoreBatch {
+  string runnable = 1;
+  uint64 epoch = 2;
+  repeated Statement statements = 3;
+  int64 at = 4;
+}
+
+message Statement {
+  string sql = 1;
+  repeated Value args = 2;
+  Expectation expect = 3;
+}
+
+// Value is one SQL value.
+message Value {
+  oneof value {
+    int64 integer = 1;
+    double real = 2;
+    string text = 3;
+    bytes blob = 4;
+    bool boolean = 5;
+    bool null = 6;
+  }
+}
+
+// Expectation makes a statement fail its batch unless it holds (STO-6).
+message Expectation {
+  optional int64 rows_affected = 1;
+  optional int64 min_rows_affected = 2;
+}
+
+// BatchResult is what a batch returned: the results of all its
+// statements, or the error that rolled it back on every node.
+message BatchResult {
+  repeated StatementResult results = 1;
+  BatchError error = 2;
+}
+
+message StatementResult {
+  int64 rows_affected = 1;
+  int64 last_insert_id = 2;
+  repeated Row rows = 3;
+}
+
+message Row {
+  repeated Value values = 1;
+}
+
+message BatchError {
+  int32 statement = 1;
+  int32 code = 2;
+  string message = 3;
+}
+
+// Incarnate starts a new incarnation of the runnable on node, with the
+// next epoch.
+message Incarnate {
+  string runnable = 1;
+  string node = 2;
+  bytes binary_sha256 = 3;
+  bytes config_sha256 = 4;
+  StoreLimits store_limits = 5;
+  int64 at = 6;
+  // operator, if set, makes this an operator's incarnation (STO-17): the
+  // caller, as "uid=1000@node-a"; allowed while the runnable is disabled
+  // or completed, it has no digests
+  string operator = 7;
+}
+
+// StoreLimits are replicated, so that every node applies the same ones
+// (STO-7, STO-8, STO-9).
+message StoreLimits {
+  uint64 max_batch = 1;
+  uint64 max_steps = 2;
+  uint64 max_size = 3;
+  uint64 max_result = 4;
+}
+
+message Checkpoint {
+  string runnable = 1;
+  uint64 epoch = 2;
+  bytes data = 3;
+  int64 at = 4;
+}
+
+message Release {
+  string runnable = 1;
+  uint64 epoch = 2;
+  int64 at = 3;
+}
+
+message Complete {
+  string runnable = 1;
+  uint64 epoch = 2;
+  int64 at = 3;
+}
+
+message Fail {
+  string runnable = 1;
+  uint64 epoch = 2;
+  string node = 3;
+  string reason = 4;
+  int64 at = 5;
+}
+
+message SetDisabled {
+  string runnable = 1;
+  bool disabled = 2;
+}
+
+// Reset clears the chosen parts of a runnable's state.
+message Reset {
+  string runnable = 1;
+  bool checkpoint = 2;
+  bool completion = 3;
+  bool failures = 4;
+  // store drops the runnable's database (STO-16), refused while it runs
+  bool store = 5;
+}
+
+// Forget removes a runnable no longer configured.
+message Forget {
+  string runnable = 1;
+}
+
+// SetPeer records the identity a member's certificate carries (SEC-2), so
+// that every node accepts it without a change of its configuration.
+message SetPeer {
+  string id = 1;
+  string identity = 2;
+}
+
+// RemovePeer forgets a recorded identity.
+message RemovePeer {
+  string id = 1;
+}
+
+// State is the FSM's state, as saved in a snapshot (§9.1).
+message State {
+  uint32 format_version = 1;
+  uint64 epoch_counter = 2;
+  // runnables, sorted by name
+  repeated Runnable runnables = 3;
+  // peer identities recorded by SetPeer, sorted by id
+  repeated Peer peers = 4;
+}
+
+message Peer {
+  string id = 1;
+  string identity = 2;
+}
+
+message Runnable {
+  string name = 1;
+  Incarnation current = 2;
+  bool released = 3;
+  CheckpointMeta checkpoint = 4;
+  StoreLimits store_limits = 5;
+  Completion completed = 6;
+  bool disabled = 7;
+  // failures, sorted by node
+  repeated FailureRecord failures = 8;
+}
+
+message Incarnation {
+  uint64 epoch = 1;
+  uint64 term = 2;
+  string node = 3;
+  int64 started_at = 4;
+  bytes binary_sha256 = 5;
+  bytes config_sha256 = 6;
+  // the operator, for an operator's incarnation (STO-17)
+  string operator = 7;
+}
+
+// CheckpointMeta describes the latest checkpoint; its data is in the
+// runnable's store (STO-12).
+message CheckpointMeta {
+  uint64 seq = 1;
+  uint64 epoch = 2;
+  int64 committed_at = 3;
+  uint64 size = 4;
+}
+
+message Completion {
+  uint64 epoch = 1;
+  int64 at = 2;
+}
+
+message FailureRecord {
+  string node = 1;
+  uint64 consecutive = 2;
+  int64 last_at = 3;
+  string last_reason = 4;
+}

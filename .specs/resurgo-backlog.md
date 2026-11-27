@@ -17,3 +17,4 @@ is part of v1.
 | FW-S-2 | Group commit of concurrent batches into one Raft entry |
 | FW-S-3 | Stale reads from followers for administrators and reporting |
 | FW-9 | Preferred-leader policy (e.g. the region closest to the runnable's external systems), by leadership transfer after an election |
+| FW-10 | A fence helper in the SDK for runnables that also write to an external database (§8.5), e.g. `pkg/runnable/fence/postgres` |

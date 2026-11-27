@@ -11,7 +11,9 @@ version: 2
 project_name: resurgo
 
 env:
-  - CGO_ENABLED=0
+  # the node links SQLite (cgo), statically against musl through zig cc
+  # (resurgo-store.md §4.1); ZIG names another zig than the one on PATH
+  - CGO_ENABLED=1
 #  - _GO_MK_VARS_NAME={{ .Env._GO_MK_VARS_NAME}}
 #  - _GO_MK_VARS_METADATA_PACKAGE={{ .Env._GO_MK_VARS_METADATA_PACKAGE }}
 before:
@@ -26,7 +28,7 @@ builds:
   - id: resurgo
     main: ./cmd/resurgo
     binary: resurgo
-    # Linux only, static, no cgo (NFR-6)
+    # Linux only, statically linked against musl (NFR-6, resurgo-store.md §4.1)
     goos:
       - linux
     goarch:
@@ -37,14 +39,33 @@ builds:
       - v1
       - v2
       - v3
+    overrides:
+      - goos: linux
+        goarch: amd64
+        goamd64: v1
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target x86_64-linux-musl']
+      - goos: linux
+        goarch: amd64
+        goamd64: v2
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target x86_64-linux-musl']
+      - goos: linux
+        goarch: amd64
+        goamd64: v3
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target x86_64-linux-musl']
+      - goos: linux
+        goarch: arm64
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target aarch64-linux-musl']
     tags:
       - osusergo
       - netgo
       - static_build
+      - sqlite_omit_load_extension
     flags:
       - -trimpath  
     ldflags:
       - -s -w 
+      - -linkmode external
+      - -extldflags "-static -s"
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Name={{.ArtifactName}}' 
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Description={{.Env._GO_MK_VARS_DESCRIPTION}}' 
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Copyright={{.Env._GO_MK_VARS_COPYRIGHT}}' 
@@ -66,6 +87,30 @@ builds:
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.GoReleaserVersion={{.Env._GORELEASER_VERSION}}'
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+  # the example runnables: the SDK only, no cgo (resurgo-store.md §4.1)
+  - id: ticker
+    main: ./cmd/resurgo-runnable-ticker
+    binary: resurgo-runnable-ticker
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: fenced-counter
+    main: ./cmd/resurgo-runnable-fenced-counter
+    binary: resurgo-runnable-fenced-counter
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
 archives:
   - id: resurgo
     ids:
@@ -84,6 +129,15 @@ archives:
     files:
       - src: build/completions/*
         dst: completions/
+
+  - id: examples
+    ids: [ticker, fenced-counter]
+    formats: [tar.gz]
+    name_template: >-
+      resurgo-runnable-examples_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
 
 upx:
   - enabled: false
@@ -161,6 +215,34 @@ nfpms:
       preinstall: ./packaging/preinstall.sh
       postinstall: ./packaging/postinstall.sh
 
+  - id: examples
+    package_name: resurgo-runnable-examples
+    ids: [ticker, fenced-counter]
+    description: |
+      The example runnables of resurgo: resurgo-runnable-ticker (stateless,
+      checkpoints a counter) and resurgo-runnable-fenced-counter (stateful,
+      appends rows to PostgreSQL fenced by its epoch, with a checker).
+    homepage: "https://github.com/dihedron/resurgo"
+    maintainer: "Andrea Funtò <dihedron.dev@gmail.com>"
+    vendor: "Andrea Funtò"
+    license: "MIT"
+    formats: [rpm, deb, apk]
+    epoch: "1"
+    release: "1"
+    section: default
+    priority: "optional"
+    # root's, writable by root only (SEC-4)
+    bindir: /usr/libexec/resurgo/runnables
+    rpm:
+      signature:
+        key_file: '{{ if index .Env "GPG_KEY_FILE" }}{{ .Env.GPG_KEY_FILE }}{{ end }}'
+    deb:
+      signature:
+        key_file: '{{ if index .Env "GPG_KEY_FILE" }}{{ .Env.GPG_KEY_FILE }}{{ end }}'
+        type: origin
+    scripts:
+      postinstall: ./packaging/examples-postinstall.sh
+
 source:
   enabled: true
   # the archive extension is appended by goreleaser
@@ -207,6 +289,9 @@ signs:
       - "${artifact}"
 
 release:
+  # a tag with a pre-release suffix (v0.1.0-rc.1) is published as a
+  # GitHub pre-release
+  prerelease: auto
   # the release documents (make docs, before make release): see
   # .specs/resurgo_specification.md (rule 12)
   extra_files:
