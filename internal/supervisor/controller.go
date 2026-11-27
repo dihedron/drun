@@ -26,6 +26,9 @@ const (
 	StateHeld      = "held" // stopped for a handover
 )
 
+// States are every state a View shows.
+var States = []string{StateIdle, StateDisabled, StateCompleted, StateWaiting, StateRunning, StateStopping, StateHeld}
+
 // View is what this node knows of a runnable, for "runnable show".
 type View struct {
 	Runnable string
@@ -76,6 +79,25 @@ type controller struct {
 	// own are the epochs this controller started: a restart after one of
 	// them needs no takeover delay
 	own map[uint64]bool
+	// started reports the incarnation's start to the events
+	started func()
+}
+
+// outcome names how an incarnation ended, for the metrics
+func outcome(exit runnable.Exit, how stopKind) string {
+	switch how {
+	case stopLost:
+		return "lost"
+	case stopFenced:
+		return "fenced"
+	case stopPlanned:
+		return "stopped"
+	case stopUnhealthy:
+		return "unhealthy"
+	case stopFailedRun:
+		return "failed"
+	}
+	return exit.Outcome.String()
 }
 
 func newController(s *Supervisor, l *leadership, spec Spec) *controller {
@@ -153,17 +175,32 @@ func (c *controller) run() {
 			continue
 		}
 		// FR-13: a predecessor that may still act is given time to stop
-		if c.needsDelay(r) {
+		delayed, waitStart := c.needsDelay(r), time.Now()
+		if delayed {
 			c.state(StateWaiting, epoch)
-			if until := time.Until(c.l.since.Add(c.spec.TakeoverDelay)); until > 0 {
+			deadline := c.l.since.Add(c.spec.TakeoverDelay)
+			if until := time.Until(deadline); until > 0 {
 				c.log().Info("waiting for the takeover delay", "epoch", epoch, "delay", until)
+			}
+			// a command (restart, hold) does not cut the wait short
+			for until := time.Until(deadline); until > 0 && !c.hold; until = time.Until(deadline) {
 				if !c.wait(until) {
 					return
 				}
 			}
+			if c.hold {
+				continue
+			}
 		}
+		var waited time.Duration
+		if delayed {
+			waited = time.Since(waitStart)
+		}
+		first := len(c.own) == 0
 		c.own[epoch] = true
+		c.started = func() { c.s.o.Events.Started(c.spec.Name, first, !delayed, time.Since(c.l.since), waited) }
 		exit, how := c.incarnation(epoch)
+		c.s.o.Events.Ended(c.spec.Name, outcome(exit, how))
 		backoff = c.after(epoch, exit, how)
 	}
 }
@@ -235,6 +272,7 @@ func (c *controller) incarnation(epoch uint64) (runnable.Exit, stopKind) {
 	c.state(StateRunning, epoch)
 	c.s.setView(c.spec.Name, func(v *View) { v.Healthy, v.Detail = true, "" })
 	c.log().Info("incarnation started", "epoch", epoch)
+	c.started()
 
 	tick := time.NewTicker(c.s.o.RenewInterval)
 	defer tick.Stop()
@@ -260,10 +298,13 @@ func (c *controller) incarnation(epoch uint64) (runnable.Exit, stopKind) {
 		// reading taken before the confirmation
 		t0 := runnable.Boottime()
 		if err := c.s.o.Raft.VerifyLeader().Error(); err != nil {
+			c.s.o.Events.LeaseRenewFailed(c.spec.Name)
 			c.log().Warn("leadership not confirmed: stopping", "epoch", epoch, "error", err)
 			return c.stop(sess, inst, c.spec.StopGrace, "leadership not confirmed"), stopLost
 		}
-		_ = sess.Renew(t0 + int64(c.s.o.Lease))
+		if err := sess.Renew(t0 + int64(c.s.o.Lease)); err != nil {
+			c.s.o.Events.LeaseRenewFailed(c.spec.Name)
+		}
 
 		r, known := c.s.o.FSM.Runnable(c.spec.Name)
 		switch {

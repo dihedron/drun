@@ -125,8 +125,12 @@ func (s *Store) get(name string, create bool) (*database, error) {
 	return d, nil
 }
 
-func (s *Store) open(name string) (*database, error) {
-	d := &database{name: name, path: s.path(name)}
+func (s *Store) open(name string) (*database, error) { return s.openPath(name, s.path(name)) }
+
+// openPath opens a database at path as the runnable's: the store's rules
+// and schema
+func (s *Store) openPath(name, path string) (*database, error) {
+	d := &database{name: name, path: path}
 	db, err := sql.Open("sqlite3", "file:"+d.path+"?_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000&_txlock=immediate&_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("store %s: %w", name, err)

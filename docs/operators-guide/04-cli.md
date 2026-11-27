@@ -28,6 +28,35 @@ Each option can also come from the environment: `RESURGO_ADMIN`,
 | `runnable restart NAME` | Stops the incarnation, releases it, starts a new one |
 | `runnable reset NAME [--checkpoint] [--completion] [--failures]` | Clears the chosen parts; `--completion` lets a finished task run again |
 | `checkpoint show NAME [--data]` | The checkpoint's sequence, epoch, size and age; `--data` writes its bytes to stdout |
+| `store show [NAME]` | Size, tables and last index of the runnable's database on the node called, and every member's digest |
+| `store query NAME SQL [--local]` | A read-only statement, on the leader; `--local` on the node called, flagged as possibly behind |
+| `store exec NAME [SQL…] [--file F] [--disable] [--dry-run]` | An operator's batch, see below |
+| `store backup NAME FILE` | A consistent copy of the database on the node called, written to FILE (`0600`) |
+| `store reset NAME` | Drops the database, on every node; refused while the runnable runs |
+
+## Operator writes
+
+`store exec` changes a runnable's database the way the runnable does:
+through the log, under the same rules (no clock, no randomness, the same
+limits), all statements or none. Statements are given as arguments or in
+a file (`--file -` for stdin), separated by `;`. The leader:
+
+1. stops the runnable and records that it stopped (as for a restart);
+2. with `--disable`, disables it;
+3. commits an incarnation of the operator's own (a new epoch, recorded
+   with your identity), then the batch, then releases it;
+4. starts the runnable again, at a newer epoch, seeing your changes
+   (unless disabled: repair, then `runnable enable`).
+
+`--dry-run` runs the batch on a copy of the leader's database in a
+transaction that is rolled back, and shows the results; nothing is
+committed. A schema change must keep the runnable's `_schema` version
+consistent, or the runnable refuses to start.
+
+`store show` lists a digest of the database's content per member. Two
+members at the same index must have the same digest; a difference is
+flagged `MISMATCH` and means a replica diverged: restore that node from a
+snapshot (remove its `data_dir`, add it again).
 
 ## Where a command runs
 
@@ -52,4 +81,5 @@ leadership away if it is leader.
 Every command that changes something is logged by the leader at `info`,
 with the caller (`uid=N` on the socket, the certificate identity on the
 remote endpoint), the node it came from and the runnable, and whether it
-was refused. Results are never logged.
+was refused. Queries and batches are logged with their SQL; results are
+never logged.

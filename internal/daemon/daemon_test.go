@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -60,8 +62,8 @@ type tcluster struct {
 	dirs  map[string]string
 	socks map[string]string
 	nodes map[string]*Daemon
-	// extra is appended to a node's configuration
-	extra map[string]string
+	// extra is appended to a node's admin configuration, top at the top level
+	extra, top map[string]string
 	// runnableConfig is each node's configuration of the runnable
 	runnableConfig map[string]string
 	// invalid makes a node's loader fail
@@ -94,7 +96,7 @@ func newTCluster(t *testing.T, n int) *tcluster {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
 	c := &tcluster{t: t, ca: tlstest.NewCA(t), addrs: map[string]string{}, dirs: map[string]string{}, socks: map[string]string{},
-		nodes: map[string]*Daemon{}, extra: map[string]string{}, runnableConfig: map[string]string{}, invalid: map[string]error{}, group: g.Name}
+		nodes: map[string]*Daemon{}, extra: map[string]string{}, top: map[string]string{}, runnableConfig: map[string]string{}, invalid: map[string]error{}, group: g.Name}
 	for i := range n {
 		id := fmt.Sprintf("node-%d", i)
 		c.ids = append(c.ids, id)
@@ -129,6 +131,7 @@ func (c *tcluster) config(id string) *config.Config {
 	b.WriteString("raft: { heartbeat_timeout: 300ms, election_timeout: 300ms, leader_lease_timeout: 150ms }\n")
 	b.WriteString("lease: { duration: 200ms, renew_interval: 60ms }\n")
 	fmt.Fprintf(&b, "admin:\n  socket: %s\n  allowed_groups: [%q]\n%s", c.socks[id], c.group, c.extra[id])
+	b.WriteString(c.top[id])
 	rc := c.runnableConfig[id]
 	if rc == "" {
 		rc = "{ n: 1 }"
@@ -486,4 +489,112 @@ func TestDriftAndValidation(t *testing.T) {
 	if v := c.view("node-0"); v.GetDrift() || v.GetValidationError() != "" {
 		t.Fatalf("on a matching node: %+v", v)
 	}
+}
+
+// STO-15 to STO-17 through a follower
+func TestStoreCommands(t *testing.T) {
+	c := newTCluster(t, 3)
+	c.startAll()
+	l := c.leader()
+	f := c.follower(l)
+	cl := c.client(f)
+	eventually(t, 5*time.Second, "running", func() bool { return c.view(f).GetView().GetState() == supervisor.StateRunning })
+	first := c.view(f).GetView().GetEpoch()
+
+	ex, err := cl.StoreExec(ctx(t), &adminpb.StoreExecRequest{Name: "ticker", Sql: "CREATE TABLE t (x);\nINSERT INTO t VALUES (1), (2);"})
+	if err != nil || ex.GetResult().GetError() != nil || ex.GetEpoch() <= first {
+		t.Fatalf("store exec: %v %+v", err, ex)
+	}
+	// the runnable starts again after the operator's incarnation
+	eventually(t, 5*time.Second, "running after the batch", func() bool {
+		v := c.view(f).GetView()
+		return v.GetState() == supervisor.StateRunning && v.GetEpoch() > ex.GetEpoch()
+	})
+
+	q, err := cl.StoreQuery(ctx(t), &adminpb.StoreQueryRequest{Name: "ticker", Sql: "SELECT count(*) FROM t"})
+	if err != nil || q.GetNode() != l || q.GetStale() || q.GetRows()[0].GetValues()[0].GetInteger() != 2 {
+		t.Fatalf("store query: %v %+v", err, q)
+	}
+	eventually(t, 5*time.Second, "a local query", func() bool {
+		q, err := cl.StoreQuery(ctx(t), &adminpb.StoreQueryRequest{Name: "ticker", Sql: "SELECT count(*) FROM t", Local: true})
+		return err == nil && q.GetNode() == f && q.GetStale() && q.GetRows()[0].GetValues()[0].GetInteger() == 2
+	})
+	if _, err := cl.StoreQuery(ctx(t), &adminpb.StoreQueryRequest{Name: "ticker", Sql: "DELETE FROM t"}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("a write through query: %v", err)
+	}
+
+	dry, err := cl.StoreExec(ctx(t), &adminpb.StoreExecRequest{Name: "ticker", Sql: "INSERT INTO t VALUES (3); SELECT count(*) FROM t", DryRun: true})
+	if err != nil || dry.GetEpoch() != 0 || dry.GetResult().GetResults()[1].GetRows()[0].GetValues()[0].GetInteger() != 3 {
+		t.Fatalf("dry run: %v %+v", err, dry)
+	}
+
+	show, err := cl.StoreShow(ctx(t), &adminpb.StoreShowRequest{Name: "ticker"})
+	if err != nil {
+		t.Fatalf("store show: %v", err)
+	}
+	si := show.GetStores()[0]
+	if !si.GetExists() || si.GetSize() == 0 || len(si.GetTables()) != 1 || si.GetTables()[0] != "t" || len(si.GetDigests()) != 3 || si.GetMismatch() {
+		t.Fatalf("store show: %+v", si)
+	}
+	for _, d := range si.GetDigests() {
+		if d.GetError() != "" || d.GetDigest() == "" {
+			t.Fatalf("digest %+v", d)
+		}
+	}
+
+	stream, err := cl.StoreBackup(ctx(t), &adminpb.RunnableRequest{Name: "ticker"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var backup []byte
+	for {
+		ch, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("backup: %v", err)
+		}
+		backup = append(backup, ch.GetData()...)
+	}
+	if !bytes.HasPrefix(backup, []byte("SQLite format 3\x00")) {
+		t.Fatalf("backup of %d bytes is not a database", len(backup))
+	}
+
+	if _, err := cl.StoreReset(ctx(t), &adminpb.RunnableRequest{Name: "ticker"}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("reset while running: %v", err)
+	}
+	ex, err = cl.StoreExec(ctx(t), &adminpb.StoreExecRequest{Name: "ticker", Sql: "DELETE FROM t", Disable: true})
+	if err != nil || ex.GetResult().GetResults()[0].GetRowsAffected() != 2 {
+		t.Fatalf("store exec --disable: %v %+v", err, ex)
+	}
+	eventually(t, 5*time.Second, "disabled", func() bool { return c.view(f).GetView().GetState() == supervisor.StateDisabled })
+	if _, err := cl.StoreReset(ctx(t), &adminpb.RunnableRequest{Name: "ticker"}); err != nil {
+		t.Fatalf("store reset: %v", err)
+	}
+	if info, err := c.nodes[l].Store.Info("ticker"); err != nil || info.Exists {
+		t.Fatalf("after the reset: %+v %v", info, err)
+	}
+}
+
+// §10.3 on metrics.listen
+func TestMetricsEndpoint(t *testing.T) {
+	c := newTCluster(t, 1)
+	addr := freePort(t)
+	c.top["node-0"] = "metrics: { listen: " + addr + " }\n"
+	c.start("node-0")
+	c.leader()
+	eventually(t, 5*time.Second, "a checkpoint counted", func() bool {
+		resp, err := http.Get("http://" + addr + "/metrics") //nolint:noctx // test
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close() //nolint:errcheck // test
+		body, _ := io.ReadAll(resp.Body)
+		out := string(body)
+		return strings.Contains(out, "resurgo_is_leader 1") &&
+			strings.Contains(out, `resurgo_incarnation_state{runnable="ticker",state="running"} 1`) &&
+			strings.Contains(out, `resurgo_failover_seconds{kind="planned",runnable="ticker"}`) &&
+			strings.Contains(out, `resurgo_checkpoint_commit_seconds_count{runnable="ticker"}`)
+	})
 }

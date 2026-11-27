@@ -22,16 +22,28 @@ const callerKey = "resurgo-caller"
 // electionWait is how long a call waits for a leader to be known
 const electionWait = 5 * time.Second
 
-// leaderOnly are the methods the leader executes; mutating ones are
-// audited (SEC-6)
-var leaderOnly = map[string]bool{
-	adminpb.Admin_MemberAdd_FullMethodName:       true,
-	adminpb.Admin_MemberRemove_FullMethodName:    true,
-	adminpb.Admin_LeaderTransfer_FullMethodName:  true,
-	adminpb.Admin_RunnableSet_FullMethodName:     true,
-	adminpb.Admin_RunnableRestart_FullMethodName: true,
-	adminpb.Admin_RunnableReset_FullMethodName:   true,
-	adminpb.Admin_Views_FullMethodName:           false,
+// route is how a method runs: on the leader (reply is the type of its
+// reply, for forwarding), and whether it is audited (SEC-6, STO-16)
+type route struct {
+	leader  bool
+	audited bool
+	reply   func() any
+}
+
+func empty() any { return &adminpb.Empty{} }
+
+var routes = map[string]route{
+	adminpb.Admin_MemberAdd_FullMethodName:       {leader: true, audited: true, reply: empty},
+	adminpb.Admin_MemberRemove_FullMethodName:    {leader: true, audited: true, reply: empty},
+	adminpb.Admin_LeaderTransfer_FullMethodName:  {leader: true, audited: true, reply: empty},
+	adminpb.Admin_RunnableSet_FullMethodName:     {leader: true, audited: true, reply: empty},
+	adminpb.Admin_RunnableRestart_FullMethodName: {leader: true, audited: true, reply: empty},
+	adminpb.Admin_RunnableReset_FullMethodName:   {leader: true, audited: true, reply: empty},
+	adminpb.Admin_Views_FullMethodName:           {leader: true, reply: func() any { return &adminpb.ViewsReply{} }},
+	adminpb.Admin_StoreQuery_FullMethodName:      {leader: true, audited: true, reply: func() any { return &adminpb.StoreQueryReply{} }},
+	adminpb.Admin_StoreExec_FullMethodName:       {leader: true, audited: true, reply: func() any { return &adminpb.StoreExecReply{} }},
+	adminpb.Admin_StoreReset_FullMethodName:      {leader: true, audited: true, reply: empty},
+	adminpb.Admin_StoreBackup_FullMethodName:     {audited: true},
 }
 
 type callerCtx struct{}
@@ -50,30 +62,64 @@ func (s *Server) intercept(ctx context.Context, req any, info *grpc.UnaryServerI
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 	ctx = context.WithValue(ctx, callerCtx{}, who)
-	mutation, ok := leaderOnly[info.FullMethod]
+	r := routes[info.FullMethod]
+	if q, ok := req.(*adminpb.StoreQueryRequest); ok && q.GetLocal() {
+		r.leader = false
+	}
 	var reply any
 	switch {
-	case ok && s.raft.State() != raft.Leader && forwarded:
+	case r.leader && s.raft.State() != raft.Leader && forwarded:
 		// no second hop: leadership moved while the call travelled
 		err = status.Error(codes.Unavailable, "the call reached a node that is no longer the leader: retry")
-	case ok && s.raft.State() != raft.Leader:
-		reply, err = s.forwardCall(ctx, info.FullMethod, req)
-		mutation = false // the leader audits it
+	case r.leader && s.raft.State() != raft.Leader:
+		reply = r.reply()
+		err = s.forward(ctx, info.FullMethod, req, reply)
+		r.audited = false // the leader audits it
 	default:
 		reply, err = handler(ctx, req)
 	}
-	if mutation {
-		args := []any{"method", info.FullMethod[strings.LastIndexByte(info.FullMethod, '/')+1:], "caller", who.Name, "from", who.Node}
-		if n, ok := req.(interface{ GetName() string }); ok {
-			args = append(args, "runnable", n.GetName())
-		}
-		if err != nil {
-			s.o.Logger.Info("admin call refused", append(args, "error", err)...)
-		} else {
-			s.o.Logger.Info("admin call", args...)
-		}
+	if r.audited {
+		s.audit(info.FullMethod, who, req, err)
 	}
 	return reply, err
+}
+
+// interceptStream authorizes and audits a streaming call; none is
+// forwarded
+func (s *Server) interceptStream(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	who, _, err := s.authenticate(ss.Context())
+	if err != nil {
+		return status.Error(codes.PermissionDenied, err.Error())
+	}
+	err = handler(srv, &callerStream{ServerStream: ss, ctx: context.WithValue(ss.Context(), callerCtx{}, who)})
+	if routes[info.FullMethod].audited {
+		s.audit(info.FullMethod, who, nil, err)
+	}
+	return err
+}
+
+type callerStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (c *callerStream) Context() context.Context { return c.ctx }
+
+// audit logs a call with its caller, never its results; a query or a
+// batch is logged with its SQL
+func (s *Server) audit(method string, who Caller, req any, err error) {
+	args := []any{"method", method[strings.LastIndexByte(method, '/')+1:], "caller", who.Name, "from", who.Node}
+	if n, ok := req.(interface{ GetName() string }); ok {
+		args = append(args, "runnable", n.GetName())
+	}
+	if q, ok := req.(interface{ GetSql() string }); ok {
+		args = append(args, "sql", q.GetSql())
+	}
+	if err != nil {
+		s.o.Logger.Info("admin call refused", append(args, "error", err)...)
+	} else {
+		s.o.Logger.Info("admin call", args...)
+	}
 }
 
 // authenticate returns the caller of a call, and whether another node
@@ -99,18 +145,6 @@ func (s *Server) authenticate(ctx context.Context) (Caller, bool, error) {
 	return Caller{}, false, status.Error(codes.PermissionDenied, "unknown endpoint")
 }
 
-// forwardCall re-invokes a leader's call on the leader
-func (s *Server) forwardCall(ctx context.Context, method string, req any) (any, error) {
-	var reply any
-	switch method {
-	case adminpb.Admin_Views_FullMethodName:
-		reply = &adminpb.ViewsReply{}
-	default:
-		reply = &adminpb.Empty{}
-	}
-	return reply, s.forward(ctx, method, req, reply)
-}
-
 // forward invokes method on the leader over the cluster port's admin
 // stream, on behalf of the call's caller
 func (s *Server) forward(ctx context.Context, method string, req, reply any) error {
@@ -118,8 +152,14 @@ func (s *Server) forward(ctx context.Context, method string, req, reply any) err
 	if err != nil {
 		return err
 	}
-	// shortcut: one connection per forwarded call; admin calls are rare,
-	// keep a connection per leader if that changes
+	return s.invokeOn(ctx, id, addr, method, req, reply)
+}
+
+// invokeOn invokes method on another member over the cluster port's admin
+// stream, on behalf of the call's caller
+func (s *Server) invokeOn(ctx context.Context, id raft.ServerID, addr raft.ServerAddress, method string, req, reply any) error {
+	// shortcut: one connection per call; admin calls are rare, keep a
+	// connection per member if that changes
 	conn, err := grpc.NewClient("passthrough:///"+string(id),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // the stream is mutual TLS already
 		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {

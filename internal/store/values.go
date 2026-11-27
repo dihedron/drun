@@ -7,8 +7,8 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// toValue converts a Go value from the driver into a fsmpb.Value
-func toValue(v any) *fsmpb.Value {
+// ToValue converts a Go value from the driver into a fsmpb.Value
+func ToValue(v any) *fsmpb.Value {
 	switch x := v.(type) {
 	case nil:
 		return &fsmpb.Value{Value: &fsmpb.Value_Null{Null: true}}

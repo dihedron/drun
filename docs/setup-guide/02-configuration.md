@@ -85,3 +85,9 @@ admin:
 Every allowed identity may call every command, so bind the endpoint to an
 operators' network and prefer short-lived client certificates. The
 certificate files are reloaded when they change.
+
+## Metrics
+
+`metrics.listen` (off by default), e.g. `127.0.0.1:9350`, serves
+Prometheus metrics on `/metrics`, without authentication: bind it to an
+address only the monitoring system reaches.

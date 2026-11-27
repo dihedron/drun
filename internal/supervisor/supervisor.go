@@ -4,6 +4,7 @@
 package supervisor
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -51,9 +52,33 @@ type Options struct {
 	Lease, RenewInterval time.Duration
 	Runnables            []Spec
 	// Load starts a fresh instance of a runnable for one incarnation.
-	Load   func(ctx context.Context, spec Spec) (runnable.Instance, error)
+	Load func(ctx context.Context, spec Spec) (runnable.Instance, error)
+	// Events receives what the metrics count (§10.3); nil: nothing.
+	Events Events
 	Logger *slog.Logger
 }
+
+// Events are the supervisor's events that metrics count.
+type Events interface {
+	// Started: an incarnation started; for the first of a leadership,
+	// failover is the time since the node became leader, planned whether
+	// its predecessor was released, and wait the takeover delay it waited.
+	Started(runnable string, first, planned bool, failover, wait time.Duration)
+	// Ended: an incarnation ended, how (outcome).
+	Ended(runnable, outcome string)
+	// CheckpointCommitted: a checkpoint was committed after took.
+	CheckpointCommitted(runnable string, took time.Duration)
+	// LeaseRenewFailed: leadership was not confirmed, or the lease not
+	// renewed.
+	LeaseRenewFailed(runnable string)
+}
+
+type noEvents struct{}
+
+func (noEvents) Started(string, bool, bool, time.Duration, time.Duration) {}
+func (noEvents) Ended(string, string)                                     {}
+func (noEvents) CheckpointCommitted(string, time.Duration)                {}
+func (noEvents) LeaseRenewFailed(string)                                  {}
 
 // Specs builds the runnables' specs from the node's configuration.
 func Specs(cfg *config.Config) ([]Spec, error) {
@@ -71,6 +96,16 @@ func Specs(cfg *config.Config) ([]Spec, error) {
 		specs = append(specs, Spec{Runnable: r, TakeoverDelay: cfg.TakeoverDelay(r), ConfigJSON: configJSON, BinarySHA256: bin, ConfigSHA256: sum[:]})
 	}
 	return specs, nil
+}
+
+// Drift reports whether this node's digests of a runnable differ from
+// those its current incarnation recorded (FR-15).
+func Drift(state *fsmpb.Runnable, sp Spec) bool {
+	cur := state.GetCurrent()
+	if cur == nil || cur.GetOperator() != "" {
+		return false // no incarnation, or an operator's (STO-17)
+	}
+	return !bytes.Equal(cur.GetBinarySha256(), sp.BinarySHA256) || !bytes.Equal(cur.GetConfigSha256(), sp.ConfigSHA256)
 }
 
 // Supervisor watches leadership and runs the controllers.
@@ -94,6 +129,9 @@ type leadership struct {
 
 // New returns a supervisor; Run starts it.
 func New(o Options) *Supervisor {
+	if o.Events == nil {
+		o.Events = noEvents{}
+	}
 	s := &Supervisor{o: o, views: map[string]*View{}}
 	for _, spec := range o.Runnables {
 		s.views[spec.Name] = &View{Runnable: spec.Name, State: StateIdle}
@@ -226,15 +264,28 @@ func contains(names []string, name string) bool {
 	return false
 }
 
-// resume lets held controllers start incarnations again
-func (s *Supervisor) resume() {
+// Hold stops and releases the named runnables' incarnations, as a planned
+// stop, and keeps them stopped until Resume or a change of leader.
+func (s *Supervisor) Hold(ctx context.Context, names ...string) error {
+	return s.planned(ctx, true, names...)
+}
+
+// Resume lets the named held runnables start again.
+func (s *Supervisor) Resume(names ...string) { s.resume(names...) }
+
+// resume lets held controllers start incarnations again: the named ones,
+// or all
+func (s *Supervisor) resume(names ...string) {
 	s.mu.Lock()
 	l := s.leading
 	s.mu.Unlock()
 	if l == nil {
 		return
 	}
-	for _, c := range l.ctrls {
+	for name, c := range l.ctrls {
+		if len(names) > 0 && !contains(names, name) {
+			continue
+		}
 		select {
 		case c.cmds <- &command{resume: true, done: make(chan struct{})}:
 		case <-l.ctx.Done():

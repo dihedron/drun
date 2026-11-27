@@ -395,3 +395,45 @@ func TestPeers(t *testing.T) {
 		t.Fatalf("restored peers %v", got)
 	}
 }
+
+// STO-17: an operator's incarnation fences the running one, also while the
+// runnable is disabled or completed, and records the operator
+func TestOperatorIncarnation(t *testing.T) {
+	h := newHarness(t)
+	e := h.incarnate("svc", "n1")
+	h.apply(setDisabled("svc", true))
+	op := incarnate("svc", "n1")
+	op.GetIncarnate().Operator = "uid=0@n1"
+	op.GetIncarnate().BinarySha256 = nil
+	res := h.apply(op)
+	if res.Err != nil || res.Epoch != e+1 {
+		t.Fatalf("operator incarnation: %+v", res)
+	}
+	r := h.runnable("svc")
+	if r.GetCurrent().GetOperator() != "uid=0@n1" || !r.GetDisabled() {
+		t.Fatalf("state %+v", r)
+	}
+	wantErr(t, h.apply(checkpoint("svc", e, []byte("x"))), ErrFenced)
+	if res := h.apply(batch("svc", e+1)); res.Err != nil {
+		t.Fatalf("the operator's batch: %v", res.Err)
+	}
+	// still disabled: the runnable itself may not incarnate
+	wantErr(t, h.apply(incarnate("svc", "n1")), ErrDisabled)
+}
+
+// STO-16: resetting the store drops the database, not while running
+func TestResetStore(t *testing.T) {
+	h := newHarness(t)
+	e := h.incarnate("svc", "n1")
+	h.apply(checkpoint("svc", e, []byte("x")))
+	cmd := reset("svc", false, false, false)
+	cmd.GetResetRunnable().Store = true
+	wantErr(t, h.apply(cmd), ErrRunning)
+	h.apply(release("svc", e))
+	if res := h.apply(cmd); res.Err != nil {
+		t.Fatalf("reset store: %v", res.Err)
+	}
+	if len(h.store.forgotten) != 1 || h.runnable("svc").GetCheckpoint() != nil {
+		t.Fatalf("store not dropped: %v %+v", h.store.forgotten, h.runnable("svc"))
+	}
+}

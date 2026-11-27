@@ -184,6 +184,8 @@ func (f *FSM) incarnate(l *raft.Log, c *fsmpb.Incarnate) *Result {
 	switch {
 	case !ok:
 		r = &fsmpb.Runnable{Name: c.GetRunnable()}
+	case c.GetOperator() != "":
+		// an operator's batch may repair a disabled or completed runnable
 	case r.GetDisabled():
 		return &Result{Err: ErrDisabled}
 	case r.GetCompleted() != nil:
@@ -197,9 +199,12 @@ func (f *FSM) incarnate(l *raft.Log, c *fsmpb.Incarnate) *Result {
 		StartedAt:    c.GetAt(),
 		BinarySha256: c.GetBinarySha256(),
 		ConfigSha256: c.GetConfigSha256(),
+		Operator:     c.GetOperator(),
 	}
 	r.Released = false
-	r.StoreLimits = c.GetStoreLimits()
+	if c.GetOperator() == "" || r.StoreLimits == nil {
+		r.StoreLimits = c.GetStoreLimits()
+	}
 	f.runnables[r.GetName()] = r
 	return &Result{Epoch: f.epochCounter}
 }
@@ -282,7 +287,16 @@ func (f *FSM) reset(l *raft.Log, c *fsmpb.Reset) *Result {
 	if !ok {
 		return &Result{Err: fmt.Errorf("%w %q", ErrUnknownRunnable, c.GetRunnable())}
 	}
-	if c.GetCheckpoint() {
+	if c.GetStore() {
+		// the database holds the checkpoint too
+		if r.GetCurrent() != nil && !r.GetReleased() {
+			return &Result{Err: fmt.Errorf("%w: epoch %d was not released", ErrRunning, r.GetCurrent().GetEpoch())}
+		}
+		if err := f.store.Forget(l.Index, r.GetName()); err != nil {
+			return &Result{Err: fmt.Errorf("%w: dropping the store: %w", ErrStore, err)}
+		}
+		r.Checkpoint = nil
+	} else if c.GetCheckpoint() {
 		if err := f.store.ClearCheckpoint(l.Index, r.GetName()); err != nil {
 			return &Result{Err: fmt.Errorf("%w: clearing the checkpoint: %w", ErrStore, err)}
 		}

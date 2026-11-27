@@ -44,6 +44,13 @@ type Command struct {
 	Checkpoint struct {
 		Show CheckpointShowCommand `command:"show" description:"a runnable's checkpoint: its metadata, or with --data its bytes"`
 	} `command:"checkpoint" description:"checkpoints"`
+	Store struct {
+		Show   StoreShowCommand   `command:"show" description:"size, tables, last index, and every member's digest"`
+		Query  StoreQueryCommand  `command:"query" description:"a read-only statement, on the leader (or --local)"`
+		Exec   StoreExecCommand   `command:"exec" description:"an operator's batch, through the log: the runnable stops and starts again after it"`
+		Backup StoreBackupCommand `command:"backup" description:"a consistent copy of the database on the node called"`
+		Reset  StoreResetCommand  `command:"reset" description:"drop the database (refused while the runnable runs)"`
+	} `command:"store" description:"the runnables' stores"`
 }
 
 // root holds the global options, for the subcommands

@@ -1,6 +1,6 @@
 # resurgo: the replicated SQL store of a runnable
 
-- **Document Version:** `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
+- **Document Version:** `0.2.3` (2026-11-27): STO-16, STO-17 as built, static release build (§4.1); `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Parent:** `resurgo_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
@@ -191,6 +191,13 @@ type Host interface {
   schema migrations are ordinary batches: they MUST keep the runnable's
   `_schema` version consistent, or the runnable refuses to start
   (STO-13).
+  As built (C5): the leader holds the runnable (a planned stop, released)
+  rather than fencing it mid-run, so that it cannot incarnate between the
+  operator's `Incarnate` and batch; `Incarnate.operator` records the
+  caller and is allowed while the runnable is disabled or completed;
+  `Release` follows the batch, so the runnable restarts without a
+  takeover delay. Statements are split with `sqlite3_complete`. The dry
+  run uses a `VACUUM INTO` copy. `store reset` is `Reset{store}`.
 
 ## 4. Engine
 
@@ -226,8 +233,10 @@ The node stays a single static binary (parent NFR-6):
 - Checked in C2b (2026-11-26) with zig 0.17.1: the store's tests built
   with `CC="zig cc -target x86_64-linux-musl"` and the flags above are
   statically linked and pass; the `aarch64-linux-musl` build links
-  statically too. The release build switches to it when `serve` links the
-  store (C5).
+  statically too. Since C5 (2026-11-27) the release build uses it:
+  goreleaser sets `CC` per architecture (`ZIG` names another zig), CI
+  installs zig 0.17.1 pinned by its SHA-256; all four builds are
+  statically linked and stripped (`-extldflags "-static -s"`).
 - Only the node links SQLite: runnables reach the store through the
   plugin protocol, so they and the SDK stay `CGO_ENABLED=0`.
 - `govulncheck` does not see the C code: the SQLite version bundled by the

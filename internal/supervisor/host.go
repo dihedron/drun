@@ -60,6 +60,7 @@ func (h *host) Checkpoint(ctx context.Context, data []byte) (uint64, error) {
 			return 0, context.Cause(ctx)
 		}
 	}
+	began := time.Now()
 	res, err := h.c.s.apply(&fsmpb.Command{Command: &fsmpb.Command_Checkpoint{Checkpoint: &fsmpb.Checkpoint{
 		Runnable: spec.Name, Epoch: h.epoch, Data: data, At: time.Now().UnixMilli(),
 	}}})
@@ -69,6 +70,7 @@ func (h *host) Checkpoint(ctx context.Context, data []byte) (uint64, error) {
 	if res.Err != nil {
 		return 0, fenced(res.Err)
 	}
+	h.c.s.o.Events.CheckpointCommitted(spec.Name, time.Since(began))
 	h.mu.Lock()
 	h.lastCheckpoint = time.Now()
 	h.mu.Unlock()

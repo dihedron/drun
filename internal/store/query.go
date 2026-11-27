@@ -103,7 +103,7 @@ func (s *Store) Query(ctx context.Context, runnable, query string, args ...any) 
 			return nil, nil, err
 		}
 		for _, v := range vals {
-			used += size(toValue(v))
+			used += size(ToValue(v))
 		}
 		if used > defaultMaxResult {
 			return nil, nil, fmt.Errorf("store %s: the result is larger than %d bytes", runnable, defaultMaxResult)

@@ -187,7 +187,7 @@ func (s *Store) statement(d *database, tx *sql.Tx, i int, st *fsmpb.Statement, b
 			}
 			row := &fsmpb.Row{}
 			for _, v := range vals {
-				pv := toValue(v)
+				pv := ToValue(v)
 				used += uint64(size(pv)) //nolint:gosec // sizes are non-negative
 				row.Values = append(row.Values, pv)
 			}

@@ -11,6 +11,9 @@ typedef struct sqlite3_stmt sqlite3_stmt;
 extern void sqlite3_progress_handler(sqlite3 *, int, int (*)(void *), void *);
 extern int sqlite3_prepare_v2(sqlite3 *, const char *, int, sqlite3_stmt **, const char **);
 extern int sqlite3_finalize(sqlite3_stmt *);
+extern int sqlite3_complete(const char *);
+
+int resurgo_complete(const char *sql) { return sqlite3_complete(sql); }
 
 static int trampoline(void *handle) { return resurgoProgress((uintptr_t)handle); }
 

@@ -39,3 +39,24 @@ store, FSM, Raft node, supervisor, admin endpoints, then the FR-16 check
 of every runnable and a watcher that warns of drift (FR-15). Tests run
 clusters of real nodes in one process, over real TLS on loopback, with
 in-process runnables.
+
+## Operator writes
+
+`store exec` (STO-17) runs on the leader: the supervisor holds the
+runnable (a planned stop, released), so that it cannot incarnate between
+the operator's `Incarnate` and batch; the leader commits `Incarnate` with
+the operator's identity (no digests, allowed while disabled), the batch at
+that epoch, and `Release`; then it resumes the runnable, which starts at a
+newer epoch without a takeover delay. `--dry-run` applies the batch with
+the store's rules to a `VACUUM INTO` copy in a transaction that is rolled
+back; nothing on it can stop the node. Statements are split by SQLite's
+tokenizer (`sqlite3_complete`), which needs no schema.
+
+`store show` asks every member for its digest over the admin stream;
+digests are compared only between members at the same index.
+
+## Metrics
+
+`internal/metrics` writes the Prometheus text format by hand. Gauges are
+read at each scrape (Raft state, the FSM, the supervisor's views, drift);
+counters and the histogram come from the supervisor's `Events`.

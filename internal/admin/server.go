@@ -5,7 +5,6 @@
 package admin
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -70,7 +69,7 @@ func (s *Server) Serve(e Endpoint) error {
 	if err != nil {
 		return err
 	}
-	g := grpc.NewServer(grpc.Creds(e.Credentials()), grpc.UnaryInterceptor(s.intercept))
+	g := grpc.NewServer(grpc.Creds(e.Credentials()), grpc.UnaryInterceptor(s.intercept), grpc.StreamInterceptor(s.interceptStream))
 	adminpb.RegisterAdminServer(g, s)
 	s.mu.Lock()
 	s.servers = append(s.servers, g)
@@ -242,21 +241,11 @@ func (s *Server) RunnableShow(ctx context.Context, r *adminpb.RunnableShowReques
 			if err := s.o.Validation(name); err != nil {
 				info.ValidationError = err.Error()
 			}
-			info.Drift = Drift(info.State, sp)
+			info.Drift = supervisor.Drift(info.State, sp)
 		}
 		out.Runnables = append(out.Runnables, info)
 	}
 	return out, nil
-}
-
-// Drift reports whether this node's digests differ from those of the
-// runnable's current incarnation (FR-15).
-func Drift(state *fsmpb.Runnable, sp supervisor.Spec) bool {
-	cur := state.GetCurrent()
-	if cur == nil || cur.GetBinarySha256() == nil {
-		return false // no incarnation, or an operator's (STO-17)
-	}
-	return !bytes.Equal(cur.GetBinarySha256(), sp.BinarySHA256) || !bytes.Equal(cur.GetConfigSha256(), sp.ConfigSHA256)
 }
 
 func (s *Server) leaderViews(ctx context.Context) (*adminpb.ViewsReply, error) {
@@ -305,18 +294,28 @@ func (s *Server) configured(name string) error {
 
 // apply commits a command on the leader
 func (s *Server) apply(cmd *fsmpb.Command) error {
+	_, err := s.applyResult(cmd)
+	return err
+}
+
+// applyResult commits a command on the leader and returns its result
+func (s *Server) applyResult(cmd *fsmpb.Command) (*fsm.Result, error) {
 	data, err := fsm.Encode(cmd)
 	if err != nil {
-		return toStatus(err)
+		return nil, toStatus(err)
 	}
 	f := s.raft.Apply(data, applyTimeout)
 	if err := f.Error(); err != nil {
-		return toStatus(err)
+		return nil, toStatus(err)
 	}
-	if res, ok := f.Response().(*fsm.Result); ok && res.Err != nil {
-		return toStatus(res.Err)
+	res, ok := f.Response().(*fsm.Result)
+	if !ok {
+		return nil, status.Error(codes.Internal, "no result from the FSM")
 	}
-	return nil
+	if res.Err != nil {
+		return nil, toStatus(res.Err)
+	}
+	return res, nil
 }
 
 // toStatus maps an error to the gRPC code a client can act on

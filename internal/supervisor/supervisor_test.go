@@ -205,3 +205,22 @@ func TestStoreThroughTheHost(t *testing.T) {
 		})
 	}
 }
+
+// FR-13: a command during the takeover wait does not cut it short
+func TestTakeoverDelayHoldsAgainstCommands(t *testing.T) {
+	c := newCluster(t, 3, testSpec(behaviour{}, func(s *Spec) { s.TakeoverDelay = 1500 * time.Millisecond }))
+	old := c.leader(5 * time.Second)
+	eventually(t, 5*time.Second, "running", func() bool { return len(c.tr.acting("ticker")) == 1 })
+	c.isolate(old)
+	nl := c.leader(5*time.Second, c.others(old)...)
+	became := time.Now()
+	eventually(t, 5*time.Second, "waiting", func() bool { return nl.sup.Views()[0].State == StateWaiting })
+	if err := nl.sup.Restart(t.Context(), "ticker"); err != nil {
+		t.Fatalf("restart: %v", err)
+	}
+	eventually(t, 5*time.Second, "a successor", func() bool { return len(c.tr.startsOf("ticker")) == 2 })
+	if waited := c.tr.startsOf("ticker")[1].at.Sub(became); waited < 1200*time.Millisecond {
+		t.Fatalf("the successor started %s after the election, before the takeover delay", waited)
+	}
+	c.heal()
+}

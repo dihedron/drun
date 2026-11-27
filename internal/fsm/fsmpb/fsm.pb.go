@@ -816,13 +816,17 @@ func (x *BatchError) GetMessage() string {
 // Incarnate starts a new incarnation of the runnable on node, with the
 // next epoch.
 type Incarnate struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Runnable      string                 `protobuf:"bytes,1,opt,name=runnable,proto3" json:"runnable,omitempty"`
-	Node          string                 `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
-	BinarySha256  []byte                 `protobuf:"bytes,3,opt,name=binary_sha256,json=binarySha256,proto3" json:"binary_sha256,omitempty"`
-	ConfigSha256  []byte                 `protobuf:"bytes,4,opt,name=config_sha256,json=configSha256,proto3" json:"config_sha256,omitempty"`
-	StoreLimits   *StoreLimits           `protobuf:"bytes,5,opt,name=store_limits,json=storeLimits,proto3" json:"store_limits,omitempty"`
-	At            int64                  `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Runnable     string                 `protobuf:"bytes,1,opt,name=runnable,proto3" json:"runnable,omitempty"`
+	Node         string                 `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
+	BinarySha256 []byte                 `protobuf:"bytes,3,opt,name=binary_sha256,json=binarySha256,proto3" json:"binary_sha256,omitempty"`
+	ConfigSha256 []byte                 `protobuf:"bytes,4,opt,name=config_sha256,json=configSha256,proto3" json:"config_sha256,omitempty"`
+	StoreLimits  *StoreLimits           `protobuf:"bytes,5,opt,name=store_limits,json=storeLimits,proto3" json:"store_limits,omitempty"`
+	At           int64                  `protobuf:"varint,6,opt,name=at,proto3" json:"at,omitempty"`
+	// operator, if set, makes this an operator's incarnation (STO-17): the
+	// caller, as "uid=1000@node-a"; allowed while the runnable is disabled
+	// or completed, it has no digests
+	Operator      string `protobuf:"bytes,7,opt,name=operator,proto3" json:"operator,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -897,6 +901,13 @@ func (x *Incarnate) GetAt() int64 {
 		return x.At
 	}
 	return 0
+}
+
+func (x *Incarnate) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
 }
 
 // StoreLimits are replicated, so that every node applies the same ones
@@ -1287,11 +1298,13 @@ func (x *SetDisabled) GetDisabled() bool {
 
 // Reset clears the chosen parts of a runnable's state.
 type Reset struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Runnable      string                 `protobuf:"bytes,1,opt,name=runnable,proto3" json:"runnable,omitempty"`
-	Checkpoint    bool                   `protobuf:"varint,2,opt,name=checkpoint,proto3" json:"checkpoint,omitempty"`
-	Completion    bool                   `protobuf:"varint,3,opt,name=completion,proto3" json:"completion,omitempty"`
-	Failures      bool                   `protobuf:"varint,4,opt,name=failures,proto3" json:"failures,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Runnable   string                 `protobuf:"bytes,1,opt,name=runnable,proto3" json:"runnable,omitempty"`
+	Checkpoint bool                   `protobuf:"varint,2,opt,name=checkpoint,proto3" json:"checkpoint,omitempty"`
+	Completion bool                   `protobuf:"varint,3,opt,name=completion,proto3" json:"completion,omitempty"`
+	Failures   bool                   `protobuf:"varint,4,opt,name=failures,proto3" json:"failures,omitempty"`
+	// store drops the runnable's database (STO-16), refused while it runs
+	Store         bool `protobuf:"varint,5,opt,name=store,proto3" json:"store,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1350,6 +1363,13 @@ func (x *Reset) GetCompletion() bool {
 func (x *Reset) GetFailures() bool {
 	if x != nil {
 		return x.Failures
+	}
+	return false
+}
+
+func (x *Reset) GetStore() bool {
+	if x != nil {
+		return x.Store
 	}
 	return false
 }
@@ -1723,13 +1743,15 @@ func (x *Runnable) GetFailures() []*FailureRecord {
 }
 
 type Incarnation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Epoch         uint64                 `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
-	Term          uint64                 `protobuf:"varint,2,opt,name=term,proto3" json:"term,omitempty"`
-	Node          string                 `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
-	StartedAt     int64                  `protobuf:"varint,4,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	BinarySha256  []byte                 `protobuf:"bytes,5,opt,name=binary_sha256,json=binarySha256,proto3" json:"binary_sha256,omitempty"`
-	ConfigSha256  []byte                 `protobuf:"bytes,6,opt,name=config_sha256,json=configSha256,proto3" json:"config_sha256,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Epoch        uint64                 `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
+	Term         uint64                 `protobuf:"varint,2,opt,name=term,proto3" json:"term,omitempty"`
+	Node         string                 `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
+	StartedAt    int64                  `protobuf:"varint,4,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	BinarySha256 []byte                 `protobuf:"bytes,5,opt,name=binary_sha256,json=binarySha256,proto3" json:"binary_sha256,omitempty"`
+	ConfigSha256 []byte                 `protobuf:"bytes,6,opt,name=config_sha256,json=configSha256,proto3" json:"config_sha256,omitempty"`
+	// the operator, for an operator's incarnation (STO-17)
+	Operator      string `protobuf:"bytes,7,opt,name=operator,proto3" json:"operator,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1804,6 +1826,13 @@ func (x *Incarnation) GetConfigSha256() []byte {
 		return x.ConfigSha256
 	}
 	return nil
+}
+
+func (x *Incarnation) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
 }
 
 // CheckpointMeta describes the latest checkpoint; its data is in the
@@ -2058,14 +2087,15 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"BatchError\x12\x1c\n" +
 	"\tstatement\x18\x01 \x01(\x05R\tstatement\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\x05R\x04code\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"\xd5\x01\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xf1\x01\n" +
 	"\tIncarnate\x12\x1a\n" +
 	"\brunnable\x18\x01 \x01(\tR\brunnable\x12\x12\n" +
 	"\x04node\x18\x02 \x01(\tR\x04node\x12#\n" +
 	"\rbinary_sha256\x18\x03 \x01(\fR\fbinarySha256\x12#\n" +
 	"\rconfig_sha256\x18\x04 \x01(\fR\fconfigSha256\x12>\n" +
 	"\fstore_limits\x18\x05 \x01(\v2\x1b.resurgo.fsm.v1.StoreLimitsR\vstoreLimits\x12\x0e\n" +
-	"\x02at\x18\x06 \x01(\x03R\x02at\"\x81\x01\n" +
+	"\x02at\x18\x06 \x01(\x03R\x02at\x12\x1a\n" +
+	"\boperator\x18\a \x01(\tR\boperator\"\x81\x01\n" +
 	"\vStoreLimits\x12\x1b\n" +
 	"\tmax_batch\x18\x01 \x01(\x04R\bmaxBatch\x12\x1b\n" +
 	"\tmax_steps\x18\x02 \x01(\x04R\bmaxSteps\x12\x19\n" +
@@ -2094,7 +2124,7 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\x02at\x18\x05 \x01(\x03R\x02at\"E\n" +
 	"\vSetDisabled\x12\x1a\n" +
 	"\brunnable\x18\x01 \x01(\tR\brunnable\x12\x1a\n" +
-	"\bdisabled\x18\x02 \x01(\bR\bdisabled\"\x7f\n" +
+	"\bdisabled\x18\x02 \x01(\bR\bdisabled\"\x95\x01\n" +
 	"\x05Reset\x12\x1a\n" +
 	"\brunnable\x18\x01 \x01(\tR\brunnable\x12\x1e\n" +
 	"\n" +
@@ -2103,7 +2133,8 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\n" +
 	"completion\x18\x03 \x01(\bR\n" +
 	"completion\x12\x1a\n" +
-	"\bfailures\x18\x04 \x01(\bR\bfailures\"$\n" +
+	"\bfailures\x18\x04 \x01(\bR\bfailures\x12\x14\n" +
+	"\x05store\x18\x05 \x01(\bR\x05store\"$\n" +
 	"\x06Forget\x12\x1a\n" +
 	"\brunnable\x18\x01 \x01(\tR\brunnable\"5\n" +
 	"\aSetPeer\x12\x0e\n" +
@@ -2130,7 +2161,7 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\fstore_limits\x18\x05 \x01(\v2\x1b.resurgo.fsm.v1.StoreLimitsR\vstoreLimits\x128\n" +
 	"\tcompleted\x18\x06 \x01(\v2\x1a.resurgo.fsm.v1.CompletionR\tcompleted\x12\x1a\n" +
 	"\bdisabled\x18\a \x01(\bR\bdisabled\x129\n" +
-	"\bfailures\x18\b \x03(\v2\x1d.resurgo.fsm.v1.FailureRecordR\bfailures\"\xb4\x01\n" +
+	"\bfailures\x18\b \x03(\v2\x1d.resurgo.fsm.v1.FailureRecordR\bfailures\"\xd0\x01\n" +
 	"\vIncarnation\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12\x12\n" +
 	"\x04term\x18\x02 \x01(\x04R\x04term\x12\x12\n" +
@@ -2138,7 +2169,8 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\n" +
 	"started_at\x18\x04 \x01(\x03R\tstartedAt\x12#\n" +
 	"\rbinary_sha256\x18\x05 \x01(\fR\fbinarySha256\x12#\n" +
-	"\rconfig_sha256\x18\x06 \x01(\fR\fconfigSha256\"o\n" +
+	"\rconfig_sha256\x18\x06 \x01(\fR\fconfigSha256\x12\x1a\n" +
+	"\boperator\x18\a \x01(\tR\boperator\"o\n" +
 	"\x0eCheckpointMeta\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\x12!\n" +

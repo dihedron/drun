@@ -11,7 +11,9 @@ version: 2
 project_name: resurgo
 
 env:
-  - CGO_ENABLED=0
+  # the node links SQLite (cgo), statically against musl through zig cc
+  # (resurgo-store.md §4.1); ZIG names another zig than the one on PATH
+  - CGO_ENABLED=1
 #  - _GO_MK_VARS_NAME={{ .Env._GO_MK_VARS_NAME}}
 #  - _GO_MK_VARS_METADATA_PACKAGE={{ .Env._GO_MK_VARS_METADATA_PACKAGE }}
 before:
@@ -26,7 +28,7 @@ builds:
   - id: resurgo
     main: ./cmd/resurgo
     binary: resurgo
-    # Linux only, static, no cgo (NFR-6)
+    # Linux only, statically linked against musl (NFR-6, resurgo-store.md §4.1)
     goos:
       - linux
     goarch:
@@ -37,14 +39,33 @@ builds:
       - v1
       - v2
       - v3
+    overrides:
+      - goos: linux
+        goarch: amd64
+        goamd64: v1
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target x86_64-linux-musl']
+      - goos: linux
+        goarch: amd64
+        goamd64: v2
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target x86_64-linux-musl']
+      - goos: linux
+        goarch: amd64
+        goamd64: v3
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target x86_64-linux-musl']
+      - goos: linux
+        goarch: arm64
+        env: ['CC={{ if index .Env "ZIG" }}{{ .Env.ZIG }}{{ else }}zig{{ end }} cc -target aarch64-linux-musl']
     tags:
       - osusergo
       - netgo
       - static_build
+      - sqlite_omit_load_extension
     flags:
       - -trimpath  
     ldflags:
       - -s -w 
+      - -linkmode external
+      - -extldflags "-static -s"
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Name={{.ArtifactName}}' 
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Description={{.Env._GO_MK_VARS_DESCRIPTION}}' 
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Copyright={{.Env._GO_MK_VARS_COPYRIGHT}}' 

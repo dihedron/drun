@@ -54,23 +54,14 @@ func (sn *snapshot) WriteTo(w io.Writer) (int64, error) {
 
 // copyTo writes a consistent copy of the database as a frame
 func (s *Store) copyTo(w io.Writer, name string) (int64, error) {
-	path := s.path(name)
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+	tmp, err := s.vacuumInto(name)
+	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil // forgotten since the snapshot began
 	}
-	tmp := s.tempPath(name)
-	defer os.Remove(tmp) //nolint:errcheck // a temporary file
-	db, err := sql.Open("sqlite3", "file:"+path+"?mode=ro&_busy_timeout=5000")
 	if err != nil {
-		return 0, fmt.Errorf("store %s: copy: %w", name, err)
+		return 0, err
 	}
-	_, err = db.ExecContext(context.Background(), "VACUUM INTO ?", tmp)
-	if cerr := db.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return 0, fmt.Errorf("store %s: copy: %w", name, err)
-	}
+	defer os.Remove(tmp)   //nolint:errcheck // a temporary file
 	f, err := os.Open(tmp) //nolint:gosec // our temporary file
 	if err != nil {
 		return 0, fmt.Errorf("store %s: copy: %w", name, err)
@@ -81,6 +72,30 @@ func (s *Store) copyTo(w io.Writer, name string) (int64, error) {
 		return 0, fmt.Errorf("store %s: copy: %w", name, err)
 	}
 	return writeFrame(w, name, f, fi.Size())
+}
+
+// vacuumInto writes a consistent copy of the database to a temporary file
+// in the store's directory, which the caller removes; os.ErrNotExist if
+// the runnable has no database
+func (s *Store) vacuumInto(name string) (string, error) {
+	path := s.path(name)
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("store %s: %w", name, err)
+	}
+	tmp := s.tempPath(name)
+	db, err := sql.Open("sqlite3", "file:"+path+"?mode=ro&_busy_timeout=5000")
+	if err != nil {
+		return "", fmt.Errorf("store %s: copy: %w", name, err)
+	}
+	_, err = db.ExecContext(context.Background(), "VACUUM INTO ?", tmp)
+	if cerr := db.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("store %s: copy: %w", name, err)
+	}
+	return tmp, nil
 }
 
 func (s *Store) tempPath(name string) string {

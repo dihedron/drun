@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.7` (2026-11-27): admin API as built in C5, opt-in remote admin endpoint (SEC-11, T-14); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -694,6 +694,13 @@ removing the leader are planned handovers (FR-12).
 `resurgo_lease_renew_failures_total`, `resurgo_config_drift{runnable}`;
 plus Raft's own metrics (FW-3).
 
+As built (C5): served on `metrics.listen` (off unless set) in the
+Prometheus text format, written without a client library;
+`resurgo_failover_seconds` and `resurgo_takeover_wait_seconds` are gauges
+of the last first incarnation of a leadership (a restart on the same
+leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
+`unhealthy`, `fenced`, `lost` and `stopped`.
+
 ## 11. Security and threat model
 
 ### 11.1 Requirements
@@ -912,7 +919,7 @@ secrets`, and the documents updated (rules 11 to 13).
 | C2b | The store: `mattn/go-sqlite3` (static musl build, `resurgo-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`). Done 2026-11-26: `fsm.Store.Exec` takes the runnable's replicated limits and `Forget` the entry index; the release build turns static when `serve` links the store (C5) |
 | C3 | `pkg/runnable`: interface, protocol, go-plugin server and loader, lease in the SDK, in-process loader, conformance kit |
 | C4 | `internal/supervisor`: incarnation controller, takeover delay, release, restart and handover; in-process cluster tests; `make stress` / `make soak` |
-| C5 | `internal/admin` and the CLI (§10.2); metrics. C5a (2026-11-27): the admin API on pluggable endpoints (socket, opt-in remote TLS: SEC-11), forwarding, `serve` (`internal/daemon`), FR-15 drift and FR-16 validation; C5b: store commands, metrics, static release build |
+| C5 | `internal/admin` and the CLI (§10.2); metrics. C5a (2026-11-27): the admin API on pluggable endpoints (socket, opt-in remote TLS: SEC-11), forwarding, `serve` (`internal/daemon`), FR-15 drift and FR-16 validation; C5b (2026-11-27): store commands (STO-15 to STO-17), metrics, static musl release build with zig; FR-13 fixed: a command during the takeover wait no longer cuts it short |
 | C6 | Example runnables, packaging, the three guides (rule 12) |
 | C7 | The LXD lab, AC-1 to AC-15, the overnight soak (rules 14 and 15) |
 

@@ -306,6 +306,11 @@ func (c *Config) validateTLS(bad func(string, ...any)) {
 }
 
 func (c *Config) validateAdmin(bad func(string, ...any)) {
+	if l := c.Metrics.Listen; l != "" {
+		if _, _, err := net.SplitHostPort(l); err != nil {
+			bad("metrics.listen %q: %w", l, err)
+		}
+	}
 	if !filepath.IsAbs(c.Admin.Socket) {
 		bad("admin.socket %q is not an absolute path", c.Admin.Socket)
 	}

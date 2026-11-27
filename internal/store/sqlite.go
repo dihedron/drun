@@ -6,6 +6,7 @@ package store
 typedef struct sqlite3 sqlite3;
 void resurgo_set_progress(sqlite3 *db, int every, uintptr_t handle);
 int resurgo_statements(sqlite3 *db, const char *sql);
+int resurgo_complete(const char *sql);
 */
 import "C"
 
@@ -60,6 +61,14 @@ func statements(conn *sqlite3.SQLiteConn, sql string) (int, error) {
 	cs := C.CString(sql)
 	defer C.free(unsafe.Pointer(cs))
 	return int(C.resurgo_statements(db, cs)), nil
+}
+
+// complete reports whether sql ends a complete statement, by SQLite's
+// tokenizer: no schema needed
+func complete(sql string) bool {
+	cs := C.CString(sql)
+	defer C.free(unsafe.Pointer(cs))
+	return C.resurgo_complete(cs) != 0
 }
 
 // rawDB reads the driver's unexported *C.sqlite3: it depends on the layout

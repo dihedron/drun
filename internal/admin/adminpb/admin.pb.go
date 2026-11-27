@@ -1033,6 +1033,551 @@ func (x *CheckpointShowReply) GetData() []byte {
 	return nil
 }
 
+type StoreShowRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // empty: every runnable
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreShowRequest) Reset() {
+	*x = StoreShowRequest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreShowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreShowRequest) ProtoMessage() {}
+
+func (x *StoreShowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreShowRequest.ProtoReflect.Descriptor instead.
+func (*StoreShowRequest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *StoreShowRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type StoreShowReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stores        []*StoreInfo           `protobuf:"bytes,1,rep,name=stores,proto3" json:"stores,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreShowReply) Reset() {
+	*x = StoreShowReply{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreShowReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreShowReply) ProtoMessage() {}
+
+func (x *StoreShowReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreShowReply.ProtoReflect.Descriptor instead.
+func (*StoreShowReply) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *StoreShowReply) GetStores() []*StoreInfo {
+	if x != nil {
+		return x.Stores
+	}
+	return nil
+}
+
+type StoreInfo struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Name      string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Exists    bool                   `protobuf:"varint,2,opt,name=exists,proto3" json:"exists,omitempty"`
+	Size      int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"` // bytes, on the node called
+	Tables    []string               `protobuf:"bytes,4,rep,name=tables,proto3" json:"tables,omitempty"`
+	LastIndex uint64                 `protobuf:"varint,5,opt,name=last_index,json=lastIndex,proto3" json:"last_index,omitempty"`
+	Digests   []*Digest              `protobuf:"bytes,6,rep,name=digests,proto3" json:"digests,omitempty"` // one per member
+	// digests at the same index differ (INV-S-1)
+	Mismatch      bool `protobuf:"varint,7,opt,name=mismatch,proto3" json:"mismatch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreInfo) Reset() {
+	*x = StoreInfo{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreInfo) ProtoMessage() {}
+
+func (x *StoreInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreInfo.ProtoReflect.Descriptor instead.
+func (*StoreInfo) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *StoreInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StoreInfo) GetExists() bool {
+	if x != nil {
+		return x.Exists
+	}
+	return false
+}
+
+func (x *StoreInfo) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *StoreInfo) GetTables() []string {
+	if x != nil {
+		return x.Tables
+	}
+	return nil
+}
+
+func (x *StoreInfo) GetLastIndex() uint64 {
+	if x != nil {
+		return x.LastIndex
+	}
+	return 0
+}
+
+func (x *StoreInfo) GetDigests() []*Digest {
+	if x != nil {
+		return x.Digests
+	}
+	return nil
+}
+
+func (x *StoreInfo) GetMismatch() bool {
+	if x != nil {
+		return x.Mismatch
+	}
+	return false
+}
+
+type Digest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Digest        string                 `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
+	Index         uint64                 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Digest) Reset() {
+	*x = Digest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Digest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Digest) ProtoMessage() {}
+
+func (x *Digest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Digest.ProtoReflect.Descriptor instead.
+func (*Digest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *Digest) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *Digest) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *Digest) GetIndex() uint64 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *Digest) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type StoreQueryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Sql           string                 `protobuf:"bytes,2,opt,name=sql,proto3" json:"sql,omitempty"`
+	Local         bool                   `protobuf:"varint,3,opt,name=local,proto3" json:"local,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreQueryRequest) Reset() {
+	*x = StoreQueryRequest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreQueryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreQueryRequest) ProtoMessage() {}
+
+func (x *StoreQueryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreQueryRequest.ProtoReflect.Descriptor instead.
+func (*StoreQueryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *StoreQueryRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StoreQueryRequest) GetSql() string {
+	if x != nil {
+		return x.Sql
+	}
+	return ""
+}
+
+func (x *StoreQueryRequest) GetLocal() bool {
+	if x != nil {
+		return x.Local
+	}
+	return false
+}
+
+type StoreQueryReply struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Columns []string               `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`
+	Rows    []*fsmpb.Row           `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
+	Node    string                 `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
+	// answered by a follower: possibly behind the leader
+	Stale         bool `protobuf:"varint,4,opt,name=stale,proto3" json:"stale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreQueryReply) Reset() {
+	*x = StoreQueryReply{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreQueryReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreQueryReply) ProtoMessage() {}
+
+func (x *StoreQueryReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreQueryReply.ProtoReflect.Descriptor instead.
+func (*StoreQueryReply) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *StoreQueryReply) GetColumns() []string {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *StoreQueryReply) GetRows() []*fsmpb.Row {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *StoreQueryReply) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *StoreQueryReply) GetStale() bool {
+	if x != nil {
+		return x.Stale
+	}
+	return false
+}
+
+type StoreExecRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// one or more statements, split where each ends
+	Sql string `protobuf:"bytes,2,opt,name=sql,proto3" json:"sql,omitempty"`
+	// disable the runnable first, and leave it disabled
+	Disable bool `protobuf:"varint,3,opt,name=disable,proto3" json:"disable,omitempty"`
+	// run in a rolled-back transaction on a copy of the leader's database
+	DryRun        bool `protobuf:"varint,4,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreExecRequest) Reset() {
+	*x = StoreExecRequest{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreExecRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreExecRequest) ProtoMessage() {}
+
+func (x *StoreExecRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreExecRequest.ProtoReflect.Descriptor instead.
+func (*StoreExecRequest) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *StoreExecRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StoreExecRequest) GetSql() string {
+	if x != nil {
+		return x.Sql
+	}
+	return ""
+}
+
+func (x *StoreExecRequest) GetDisable() bool {
+	if x != nil {
+		return x.Disable
+	}
+	return false
+}
+
+func (x *StoreExecRequest) GetDryRun() bool {
+	if x != nil {
+		return x.DryRun
+	}
+	return false
+}
+
+type StoreExecReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        *fsmpb.BatchResult     `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
+	Epoch         uint64                 `protobuf:"varint,2,opt,name=epoch,proto3" json:"epoch,omitempty"` // the operator's incarnation; 0 for a dry run
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoreExecReply) Reset() {
+	*x = StoreExecReply{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoreExecReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoreExecReply) ProtoMessage() {}
+
+func (x *StoreExecReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoreExecReply.ProtoReflect.Descriptor instead.
+func (*StoreExecReply) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *StoreExecReply) GetResult() *fsmpb.BatchResult {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+func (x *StoreExecReply) GetEpoch() uint64 {
+	if x != nil {
+		return x.Epoch
+	}
+	return 0
+}
+
+type Chunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Chunk) Reset() {
+	*x = Chunk{}
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Chunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Chunk) ProtoMessage() {}
+
+func (x *Chunk) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_admin_v1_admin_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Chunk.ProtoReflect.Descriptor instead.
+func (*Chunk) Descriptor() ([]byte, []int) {
+	return file_proto_admin_v1_admin_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *Chunk) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_proto_admin_v1_admin_proto protoreflect.FileDescriptor
 
 const file_proto_admin_v1_admin_proto_rawDesc = "" +
@@ -1115,7 +1660,45 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\x13CheckpointShowReply\x12\x14\n" +
 	"\x05found\x18\x01 \x01(\bR\x05found\x122\n" +
 	"\x04meta\x18\x02 \x01(\v2\x1e.resurgo.fsm.v1.CheckpointMetaR\x04meta\x12\x12\n" +
-	"\x04data\x18\x03 \x01(\fR\x04data2\xae\x06\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data\"&\n" +
+	"\x10StoreShowRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"E\n" +
+	"\x0eStoreShowReply\x123\n" +
+	"\x06stores\x18\x01 \x03(\v2\x1b.resurgo.admin.v1.StoreInfoR\x06stores\"\xd2\x01\n" +
+	"\tStoreInfo\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
+	"\x06exists\x18\x02 \x01(\bR\x06exists\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x16\n" +
+	"\x06tables\x18\x04 \x03(\tR\x06tables\x12\x1d\n" +
+	"\n" +
+	"last_index\x18\x05 \x01(\x04R\tlastIndex\x122\n" +
+	"\adigests\x18\x06 \x03(\v2\x18.resurgo.admin.v1.DigestR\adigests\x12\x1a\n" +
+	"\bmismatch\x18\a \x01(\bR\bmismatch\"`\n" +
+	"\x06Digest\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12\x16\n" +
+	"\x06digest\x18\x02 \x01(\tR\x06digest\x12\x14\n" +
+	"\x05index\x18\x03 \x01(\x04R\x05index\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"O\n" +
+	"\x11StoreQueryRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
+	"\x03sql\x18\x02 \x01(\tR\x03sql\x12\x14\n" +
+	"\x05local\x18\x03 \x01(\bR\x05local\"~\n" +
+	"\x0fStoreQueryReply\x12\x18\n" +
+	"\acolumns\x18\x01 \x03(\tR\acolumns\x12'\n" +
+	"\x04rows\x18\x02 \x03(\v2\x13.resurgo.fsm.v1.RowR\x04rows\x12\x12\n" +
+	"\x04node\x18\x03 \x01(\tR\x04node\x12\x14\n" +
+	"\x05stale\x18\x04 \x01(\bR\x05stale\"k\n" +
+	"\x10StoreExecRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
+	"\x03sql\x18\x02 \x01(\tR\x03sql\x12\x18\n" +
+	"\adisable\x18\x03 \x01(\bR\adisable\x12\x17\n" +
+	"\adry_run\x18\x04 \x01(\bR\x06dryRun\"[\n" +
+	"\x0eStoreExecReply\x123\n" +
+	"\x06result\x18\x01 \x01(\v2\x1b.resurgo.fsm.v1.BatchResultR\x06result\x12\x14\n" +
+	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\"\x1b\n" +
+	"\x05Chunk\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data2\x8d\n" +
+	"\n" +
 	"\x05Admin\x12J\n" +
 	"\vClusterShow\x12\x17.resurgo.admin.v1.Empty\x1a\".resurgo.admin.v1.ClusterShowReply\x12Z\n" +
 	"\fRunnableShow\x12%.resurgo.admin.v1.RunnableShowRequest\x1a#.resurgo.admin.v1.RunnableShowReply\x12`\n" +
@@ -1126,7 +1709,15 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\vRunnableSet\x12$.resurgo.admin.v1.RunnableSetRequest\x1a\x17.resurgo.admin.v1.Empty\x12M\n" +
 	"\x0fRunnableRestart\x12!.resurgo.admin.v1.RunnableRequest\x1a\x17.resurgo.admin.v1.Empty\x12P\n" +
 	"\rRunnableReset\x12&.resurgo.admin.v1.RunnableResetRequest\x1a\x17.resurgo.admin.v1.Empty\x12>\n" +
-	"\x05Views\x12\x17.resurgo.admin.v1.Empty\x1a\x1c.resurgo.admin.v1.ViewsReplyB4Z2github.com/dihedron/resurgo/internal/admin/adminpbb\x06proto3"
+	"\x05Views\x12\x17.resurgo.admin.v1.Empty\x1a\x1c.resurgo.admin.v1.ViewsReply\x12Q\n" +
+	"\tStoreShow\x12\".resurgo.admin.v1.StoreShowRequest\x1a .resurgo.admin.v1.StoreShowReply\x12T\n" +
+	"\n" +
+	"StoreQuery\x12#.resurgo.admin.v1.StoreQueryRequest\x1a!.resurgo.admin.v1.StoreQueryReply\x12Q\n" +
+	"\tStoreExec\x12\".resurgo.admin.v1.StoreExecRequest\x1a .resurgo.admin.v1.StoreExecReply\x12H\n" +
+	"\n" +
+	"StoreReset\x12!.resurgo.admin.v1.RunnableRequest\x1a\x17.resurgo.admin.v1.Empty\x12K\n" +
+	"\vStoreBackup\x12!.resurgo.admin.v1.RunnableRequest\x1a\x17.resurgo.admin.v1.Chunk0\x01\x12J\n" +
+	"\vStoreDigest\x12!.resurgo.admin.v1.RunnableRequest\x1a\x18.resurgo.admin.v1.DigestB4Z2github.com/dihedron/resurgo/internal/admin/adminpbb\x06proto3"
 
 var (
 	file_proto_admin_v1_admin_proto_rawDescOnce sync.Once
@@ -1140,7 +1731,7 @@ func file_proto_admin_v1_admin_proto_rawDescGZIP() []byte {
 	return file_proto_admin_v1_admin_proto_rawDescData
 }
 
-var file_proto_admin_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_proto_admin_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_proto_admin_v1_admin_proto_goTypes = []any{
 	(*Empty)(nil),                 // 0: resurgo.admin.v1.Empty
 	(*ClusterShowReply)(nil),      // 1: resurgo.admin.v1.ClusterShowReply
@@ -1158,41 +1749,68 @@ var file_proto_admin_v1_admin_proto_goTypes = []any{
 	(*ViewsReply)(nil),            // 13: resurgo.admin.v1.ViewsReply
 	(*CheckpointShowRequest)(nil), // 14: resurgo.admin.v1.CheckpointShowRequest
 	(*CheckpointShowReply)(nil),   // 15: resurgo.admin.v1.CheckpointShowReply
-	(*fsmpb.Runnable)(nil),        // 16: resurgo.fsm.v1.Runnable
-	(*fsmpb.CheckpointMeta)(nil),  // 17: resurgo.fsm.v1.CheckpointMeta
+	(*StoreShowRequest)(nil),      // 16: resurgo.admin.v1.StoreShowRequest
+	(*StoreShowReply)(nil),        // 17: resurgo.admin.v1.StoreShowReply
+	(*StoreInfo)(nil),             // 18: resurgo.admin.v1.StoreInfo
+	(*Digest)(nil),                // 19: resurgo.admin.v1.Digest
+	(*StoreQueryRequest)(nil),     // 20: resurgo.admin.v1.StoreQueryRequest
+	(*StoreQueryReply)(nil),       // 21: resurgo.admin.v1.StoreQueryReply
+	(*StoreExecRequest)(nil),      // 22: resurgo.admin.v1.StoreExecRequest
+	(*StoreExecReply)(nil),        // 23: resurgo.admin.v1.StoreExecReply
+	(*Chunk)(nil),                 // 24: resurgo.admin.v1.Chunk
+	(*fsmpb.Runnable)(nil),        // 25: resurgo.fsm.v1.Runnable
+	(*fsmpb.CheckpointMeta)(nil),  // 26: resurgo.fsm.v1.CheckpointMeta
+	(*fsmpb.Row)(nil),             // 27: resurgo.fsm.v1.Row
+	(*fsmpb.BatchResult)(nil),     // 28: resurgo.fsm.v1.BatchResult
 }
 var file_proto_admin_v1_admin_proto_depIdxs = []int32{
 	2,  // 0: resurgo.admin.v1.ClusterShowReply.members:type_name -> resurgo.admin.v1.Member
 	11, // 1: resurgo.admin.v1.RunnableShowReply.runnables:type_name -> resurgo.admin.v1.RunnableInfo
-	16, // 2: resurgo.admin.v1.RunnableInfo.state:type_name -> resurgo.fsm.v1.Runnable
+	25, // 2: resurgo.admin.v1.RunnableInfo.state:type_name -> resurgo.fsm.v1.Runnable
 	12, // 3: resurgo.admin.v1.RunnableInfo.view:type_name -> resurgo.admin.v1.View
 	12, // 4: resurgo.admin.v1.ViewsReply.views:type_name -> resurgo.admin.v1.View
-	17, // 5: resurgo.admin.v1.CheckpointShowReply.meta:type_name -> resurgo.fsm.v1.CheckpointMeta
-	0,  // 6: resurgo.admin.v1.Admin.ClusterShow:input_type -> resurgo.admin.v1.Empty
-	9,  // 7: resurgo.admin.v1.Admin.RunnableShow:input_type -> resurgo.admin.v1.RunnableShowRequest
-	14, // 8: resurgo.admin.v1.Admin.CheckpointShow:input_type -> resurgo.admin.v1.CheckpointShowRequest
-	3,  // 9: resurgo.admin.v1.Admin.MemberAdd:input_type -> resurgo.admin.v1.MemberAddRequest
-	4,  // 10: resurgo.admin.v1.Admin.MemberRemove:input_type -> resurgo.admin.v1.MemberRemoveRequest
-	5,  // 11: resurgo.admin.v1.Admin.LeaderTransfer:input_type -> resurgo.admin.v1.LeaderTransferRequest
-	7,  // 12: resurgo.admin.v1.Admin.RunnableSet:input_type -> resurgo.admin.v1.RunnableSetRequest
-	6,  // 13: resurgo.admin.v1.Admin.RunnableRestart:input_type -> resurgo.admin.v1.RunnableRequest
-	8,  // 14: resurgo.admin.v1.Admin.RunnableReset:input_type -> resurgo.admin.v1.RunnableResetRequest
-	0,  // 15: resurgo.admin.v1.Admin.Views:input_type -> resurgo.admin.v1.Empty
-	1,  // 16: resurgo.admin.v1.Admin.ClusterShow:output_type -> resurgo.admin.v1.ClusterShowReply
-	10, // 17: resurgo.admin.v1.Admin.RunnableShow:output_type -> resurgo.admin.v1.RunnableShowReply
-	15, // 18: resurgo.admin.v1.Admin.CheckpointShow:output_type -> resurgo.admin.v1.CheckpointShowReply
-	0,  // 19: resurgo.admin.v1.Admin.MemberAdd:output_type -> resurgo.admin.v1.Empty
-	0,  // 20: resurgo.admin.v1.Admin.MemberRemove:output_type -> resurgo.admin.v1.Empty
-	0,  // 21: resurgo.admin.v1.Admin.LeaderTransfer:output_type -> resurgo.admin.v1.Empty
-	0,  // 22: resurgo.admin.v1.Admin.RunnableSet:output_type -> resurgo.admin.v1.Empty
-	0,  // 23: resurgo.admin.v1.Admin.RunnableRestart:output_type -> resurgo.admin.v1.Empty
-	0,  // 24: resurgo.admin.v1.Admin.RunnableReset:output_type -> resurgo.admin.v1.Empty
-	13, // 25: resurgo.admin.v1.Admin.Views:output_type -> resurgo.admin.v1.ViewsReply
-	16, // [16:26] is the sub-list for method output_type
-	6,  // [6:16] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	26, // 5: resurgo.admin.v1.CheckpointShowReply.meta:type_name -> resurgo.fsm.v1.CheckpointMeta
+	18, // 6: resurgo.admin.v1.StoreShowReply.stores:type_name -> resurgo.admin.v1.StoreInfo
+	19, // 7: resurgo.admin.v1.StoreInfo.digests:type_name -> resurgo.admin.v1.Digest
+	27, // 8: resurgo.admin.v1.StoreQueryReply.rows:type_name -> resurgo.fsm.v1.Row
+	28, // 9: resurgo.admin.v1.StoreExecReply.result:type_name -> resurgo.fsm.v1.BatchResult
+	0,  // 10: resurgo.admin.v1.Admin.ClusterShow:input_type -> resurgo.admin.v1.Empty
+	9,  // 11: resurgo.admin.v1.Admin.RunnableShow:input_type -> resurgo.admin.v1.RunnableShowRequest
+	14, // 12: resurgo.admin.v1.Admin.CheckpointShow:input_type -> resurgo.admin.v1.CheckpointShowRequest
+	3,  // 13: resurgo.admin.v1.Admin.MemberAdd:input_type -> resurgo.admin.v1.MemberAddRequest
+	4,  // 14: resurgo.admin.v1.Admin.MemberRemove:input_type -> resurgo.admin.v1.MemberRemoveRequest
+	5,  // 15: resurgo.admin.v1.Admin.LeaderTransfer:input_type -> resurgo.admin.v1.LeaderTransferRequest
+	7,  // 16: resurgo.admin.v1.Admin.RunnableSet:input_type -> resurgo.admin.v1.RunnableSetRequest
+	6,  // 17: resurgo.admin.v1.Admin.RunnableRestart:input_type -> resurgo.admin.v1.RunnableRequest
+	8,  // 18: resurgo.admin.v1.Admin.RunnableReset:input_type -> resurgo.admin.v1.RunnableResetRequest
+	0,  // 19: resurgo.admin.v1.Admin.Views:input_type -> resurgo.admin.v1.Empty
+	16, // 20: resurgo.admin.v1.Admin.StoreShow:input_type -> resurgo.admin.v1.StoreShowRequest
+	20, // 21: resurgo.admin.v1.Admin.StoreQuery:input_type -> resurgo.admin.v1.StoreQueryRequest
+	22, // 22: resurgo.admin.v1.Admin.StoreExec:input_type -> resurgo.admin.v1.StoreExecRequest
+	6,  // 23: resurgo.admin.v1.Admin.StoreReset:input_type -> resurgo.admin.v1.RunnableRequest
+	6,  // 24: resurgo.admin.v1.Admin.StoreBackup:input_type -> resurgo.admin.v1.RunnableRequest
+	6,  // 25: resurgo.admin.v1.Admin.StoreDigest:input_type -> resurgo.admin.v1.RunnableRequest
+	1,  // 26: resurgo.admin.v1.Admin.ClusterShow:output_type -> resurgo.admin.v1.ClusterShowReply
+	10, // 27: resurgo.admin.v1.Admin.RunnableShow:output_type -> resurgo.admin.v1.RunnableShowReply
+	15, // 28: resurgo.admin.v1.Admin.CheckpointShow:output_type -> resurgo.admin.v1.CheckpointShowReply
+	0,  // 29: resurgo.admin.v1.Admin.MemberAdd:output_type -> resurgo.admin.v1.Empty
+	0,  // 30: resurgo.admin.v1.Admin.MemberRemove:output_type -> resurgo.admin.v1.Empty
+	0,  // 31: resurgo.admin.v1.Admin.LeaderTransfer:output_type -> resurgo.admin.v1.Empty
+	0,  // 32: resurgo.admin.v1.Admin.RunnableSet:output_type -> resurgo.admin.v1.Empty
+	0,  // 33: resurgo.admin.v1.Admin.RunnableRestart:output_type -> resurgo.admin.v1.Empty
+	0,  // 34: resurgo.admin.v1.Admin.RunnableReset:output_type -> resurgo.admin.v1.Empty
+	13, // 35: resurgo.admin.v1.Admin.Views:output_type -> resurgo.admin.v1.ViewsReply
+	17, // 36: resurgo.admin.v1.Admin.StoreShow:output_type -> resurgo.admin.v1.StoreShowReply
+	21, // 37: resurgo.admin.v1.Admin.StoreQuery:output_type -> resurgo.admin.v1.StoreQueryReply
+	23, // 38: resurgo.admin.v1.Admin.StoreExec:output_type -> resurgo.admin.v1.StoreExecReply
+	0,  // 39: resurgo.admin.v1.Admin.StoreReset:output_type -> resurgo.admin.v1.Empty
+	24, // 40: resurgo.admin.v1.Admin.StoreBackup:output_type -> resurgo.admin.v1.Chunk
+	19, // 41: resurgo.admin.v1.Admin.StoreDigest:output_type -> resurgo.admin.v1.Digest
+	26, // [26:42] is the sub-list for method output_type
+	10, // [10:26] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_proto_admin_v1_admin_proto_init() }
@@ -1206,7 +1824,7 @@ func file_proto_admin_v1_admin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_admin_v1_admin_proto_rawDesc), len(file_proto_admin_v1_admin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

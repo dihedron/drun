@@ -40,7 +40,7 @@ func newHarness(t testing.TB) *harness {
 func stmt(sql string, args ...any) *fsmpb.Statement {
 	s := &fsmpb.Statement{Sql: sql}
 	for _, a := range args {
-		s.Args = append(s.Args, toValue(a))
+		s.Args = append(s.Args, ToValue(a))
 	}
 	return s
 }

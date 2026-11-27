@@ -8,17 +8,22 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/dihedron/resurgo/internal/admin"
 	"github.com/dihedron/resurgo/internal/config"
 	"github.com/dihedron/resurgo/internal/fsm"
+	"github.com/dihedron/resurgo/internal/metrics"
 	"github.com/dihedron/resurgo/internal/raftnode"
 	"github.com/dihedron/resurgo/internal/store"
 	"github.com/dihedron/resurgo/internal/supervisor"
 	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/hashicorp/raft"
 )
 
 // validateTimeout bounds the check of one runnable at start (FR-16)
@@ -46,6 +51,8 @@ type Daemon struct {
 	Node       *raftnode.Node
 	Supervisor *supervisor.Supervisor
 	Admin      *admin.Server
+	Metrics    *metrics.Metrics
+	metrics    *http.Server
 
 	mu      sync.Mutex
 	invalid map[string]error // FR-16, by runnable
@@ -81,6 +88,7 @@ func Start(cfg *config.Config, o Options) (_ *Daemon, err error) {
 	}
 	cleanup = append(cleanup, d.Node.Shutdown)
 
+	d.Metrics = metrics.New(source{d}, supervisor.States)
 	d.validate(o.Load)
 	load := func(ctx context.Context, spec supervisor.Spec) (runnable.Instance, error) {
 		inst, err := o.Load(ctx, spec)
@@ -90,7 +98,7 @@ func Start(cfg *config.Config, o Options) (_ *Daemon, err error) {
 	d.Supervisor = supervisor.New(supervisor.Options{
 		Raft: d.Node.Raft(), FSM: d.FSM, Store: d.Store, Node: cfg.Node.ID, Cluster: cfg.Cluster.Name,
 		Lease: cfg.Lease.Duration, RenewInterval: cfg.Lease.RenewInterval, Runnables: specs,
-		Load: load, Logger: logger,
+		Load: load, Events: d.Metrics, Logger: logger,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	d.cancel = cancel
@@ -107,7 +115,56 @@ func Start(cfg *config.Config, o Options) (_ *Daemon, err error) {
 	if err := d.serveAdmin(); err != nil {
 		return nil, err
 	}
+	if err := d.serveMetrics(); err != nil {
+		return nil, err
+	}
 	return d, nil
+}
+
+// serveMetrics serves /metrics on metrics.listen, if set
+func (d *Daemon) serveMetrics() error {
+	if d.cfg.Metrics.Listen == "" {
+		return nil
+	}
+	ln, err := net.Listen("tcp", d.cfg.Metrics.Listen)
+	if err != nil {
+		return fmt.Errorf("metrics: %w", err)
+	}
+	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", d.Metrics)
+	d.metrics = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		if err := d.metrics.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			d.logger.Error("metrics endpoint stopped", "error", err)
+		}
+	}()
+	return nil
+}
+
+// source reads the scrape-time values of the metrics
+type source struct{ d *Daemon }
+
+func (s source) Leader() (bool, uint64) {
+	r := s.d.Node.Raft()
+	term, _ := strconv.ParseUint(r.Stats()["term"], 10, 64)
+	return r.State() == raft.Leader, term
+}
+
+func (s source) Runnables() []metrics.Runnable {
+	views := map[string]string{}
+	for _, v := range s.d.Supervisor.Views() {
+		views[v.Runnable] = v.State
+	}
+	var out []metrics.Runnable
+	for _, spec := range s.d.specs {
+		r, _ := s.d.FSM.Runnable(spec.Name)
+		out = append(out, metrics.Runnable{
+			Name: spec.Name, Epoch: r.GetCurrent().GetEpoch(), State: views[spec.Name],
+			CheckpointSeq: r.GetCheckpoint().GetSeq(), CheckpointBytes: r.GetCheckpoint().GetSize(),
+			Drift: supervisor.Drift(r, spec),
+		})
+	}
+	return out
 }
 
 func (d *Daemon) serveAdmin() error {
@@ -181,7 +238,7 @@ func (d *Daemon) watchDrift(ctx context.Context) {
 	for {
 		for _, spec := range d.specs {
 			r, _ := d.FSM.Runnable(spec.Name)
-			if epoch := r.GetCurrent().GetEpoch(); admin.Drift(r, spec) && warned[spec.Name] != epoch {
+			if epoch := r.GetCurrent().GetEpoch(); supervisor.Drift(r, spec) && warned[spec.Name] != epoch {
 				warned[spec.Name] = epoch
 				d.logger.Warn("configuration drift: this node's runnable differs from the current incarnation's",
 					"runnable", spec.Name, "epoch", epoch, "incarnation_node", r.GetCurrent().GetNode())
@@ -203,6 +260,9 @@ func (d *Daemon) Stop(ctx context.Context) error {
 		errs = append(errs, fmt.Errorf("handing over: %w", err))
 	}
 	d.Admin.Stop(ctx)
+	if d.metrics != nil {
+		_ = d.metrics.Shutdown(ctx)
+	}
 	d.cancel()
 	d.done.Wait()
 	errs = append(errs, d.Node.Shutdown(), d.Store.Close())

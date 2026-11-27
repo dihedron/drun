@@ -34,6 +34,12 @@ const (
 	Admin_RunnableRestart_FullMethodName = "/resurgo.admin.v1.Admin/RunnableRestart"
 	Admin_RunnableReset_FullMethodName   = "/resurgo.admin.v1.Admin/RunnableReset"
 	Admin_Views_FullMethodName           = "/resurgo.admin.v1.Admin/Views"
+	Admin_StoreShow_FullMethodName       = "/resurgo.admin.v1.Admin/StoreShow"
+	Admin_StoreQuery_FullMethodName      = "/resurgo.admin.v1.Admin/StoreQuery"
+	Admin_StoreExec_FullMethodName       = "/resurgo.admin.v1.Admin/StoreExec"
+	Admin_StoreReset_FullMethodName      = "/resurgo.admin.v1.Admin/StoreReset"
+	Admin_StoreBackup_FullMethodName     = "/resurgo.admin.v1.Admin/StoreBackup"
+	Admin_StoreDigest_FullMethodName     = "/resurgo.admin.v1.Admin/StoreDigest"
 )
 
 // AdminClient is the client API for Admin service.
@@ -53,6 +59,16 @@ type AdminClient interface {
 	RunnableReset(ctx context.Context, in *RunnableResetRequest, opts ...grpc.CallOption) (*Empty, error)
 	// the leader supervisor's views of its runnables
 	Views(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ViewsReply, error)
+	// the runnables' stores (STO-15, STO-16, STO-17)
+	StoreShow(ctx context.Context, in *StoreShowRequest, opts ...grpc.CallOption) (*StoreShowReply, error)
+	// on the leader after VerifyLeader, or with local on the node called
+	StoreQuery(ctx context.Context, in *StoreQueryRequest, opts ...grpc.CallOption) (*StoreQueryReply, error)
+	StoreExec(ctx context.Context, in *StoreExecRequest, opts ...grpc.CallOption) (*StoreExecReply, error)
+	StoreReset(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (*Empty, error)
+	// a consistent copy of the database on the node called
+	StoreBackup(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chunk], error)
+	// this node's digest of a database, for StoreShow
+	StoreDigest(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (*Digest, error)
 }
 
 type adminClient struct {
@@ -163,6 +179,75 @@ func (c *adminClient) Views(ctx context.Context, in *Empty, opts ...grpc.CallOpt
 	return out, nil
 }
 
+func (c *adminClient) StoreShow(ctx context.Context, in *StoreShowRequest, opts ...grpc.CallOption) (*StoreShowReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoreShowReply)
+	err := c.cc.Invoke(ctx, Admin_StoreShow_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) StoreQuery(ctx context.Context, in *StoreQueryRequest, opts ...grpc.CallOption) (*StoreQueryReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoreQueryReply)
+	err := c.cc.Invoke(ctx, Admin_StoreQuery_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) StoreExec(ctx context.Context, in *StoreExecRequest, opts ...grpc.CallOption) (*StoreExecReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoreExecReply)
+	err := c.cc.Invoke(ctx, Admin_StoreExec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) StoreReset(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Admin_StoreReset_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminClient) StoreBackup(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Chunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Admin_ServiceDesc.Streams[0], Admin_StoreBackup_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[RunnableRequest, Chunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Admin_StoreBackupClient = grpc.ServerStreamingClient[Chunk]
+
+func (c *adminClient) StoreDigest(ctx context.Context, in *RunnableRequest, opts ...grpc.CallOption) (*Digest, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Digest)
+	err := c.cc.Invoke(ctx, Admin_StoreDigest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServer is the server API for Admin service.
 // All implementations must embed UnimplementedAdminServer
 // for forward compatibility.
@@ -180,6 +265,16 @@ type AdminServer interface {
 	RunnableReset(context.Context, *RunnableResetRequest) (*Empty, error)
 	// the leader supervisor's views of its runnables
 	Views(context.Context, *Empty) (*ViewsReply, error)
+	// the runnables' stores (STO-15, STO-16, STO-17)
+	StoreShow(context.Context, *StoreShowRequest) (*StoreShowReply, error)
+	// on the leader after VerifyLeader, or with local on the node called
+	StoreQuery(context.Context, *StoreQueryRequest) (*StoreQueryReply, error)
+	StoreExec(context.Context, *StoreExecRequest) (*StoreExecReply, error)
+	StoreReset(context.Context, *RunnableRequest) (*Empty, error)
+	// a consistent copy of the database on the node called
+	StoreBackup(*RunnableRequest, grpc.ServerStreamingServer[Chunk]) error
+	// this node's digest of a database, for StoreShow
+	StoreDigest(context.Context, *RunnableRequest) (*Digest, error)
 	mustEmbedUnimplementedAdminServer()
 }
 
@@ -219,6 +314,24 @@ func (UnimplementedAdminServer) RunnableReset(context.Context, *RunnableResetReq
 }
 func (UnimplementedAdminServer) Views(context.Context, *Empty) (*ViewsReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Views not implemented")
+}
+func (UnimplementedAdminServer) StoreShow(context.Context, *StoreShowRequest) (*StoreShowReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreShow not implemented")
+}
+func (UnimplementedAdminServer) StoreQuery(context.Context, *StoreQueryRequest) (*StoreQueryReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreQuery not implemented")
+}
+func (UnimplementedAdminServer) StoreExec(context.Context, *StoreExecRequest) (*StoreExecReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreExec not implemented")
+}
+func (UnimplementedAdminServer) StoreReset(context.Context, *RunnableRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreReset not implemented")
+}
+func (UnimplementedAdminServer) StoreBackup(*RunnableRequest, grpc.ServerStreamingServer[Chunk]) error {
+	return status.Errorf(codes.Unimplemented, "method StoreBackup not implemented")
+}
+func (UnimplementedAdminServer) StoreDigest(context.Context, *RunnableRequest) (*Digest, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreDigest not implemented")
 }
 func (UnimplementedAdminServer) mustEmbedUnimplementedAdminServer() {}
 func (UnimplementedAdminServer) testEmbeddedByValue()               {}
@@ -421,6 +534,107 @@ func _Admin_Views_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Admin_StoreShow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoreShowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).StoreShow(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_StoreShow_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).StoreShow(ctx, req.(*StoreShowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_StoreQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoreQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).StoreQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_StoreQuery_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).StoreQuery(ctx, req.(*StoreQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_StoreExec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoreExecRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).StoreExec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_StoreExec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).StoreExec(ctx, req.(*StoreExecRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_StoreReset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunnableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).StoreReset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_StoreReset_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).StoreReset(ctx, req.(*RunnableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Admin_StoreBackup_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RunnableRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AdminServer).StoreBackup(m, &grpc.GenericServerStream[RunnableRequest, Chunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Admin_StoreBackupServer = grpc.ServerStreamingServer[Chunk]
+
+func _Admin_StoreDigest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunnableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).StoreDigest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_StoreDigest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).StoreDigest(ctx, req.(*RunnableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Admin_ServiceDesc is the grpc.ServiceDesc for Admin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -468,7 +682,33 @@ var Admin_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Views",
 			Handler:    _Admin_Views_Handler,
 		},
+		{
+			MethodName: "StoreShow",
+			Handler:    _Admin_StoreShow_Handler,
+		},
+		{
+			MethodName: "StoreQuery",
+			Handler:    _Admin_StoreQuery_Handler,
+		},
+		{
+			MethodName: "StoreExec",
+			Handler:    _Admin_StoreExec_Handler,
+		},
+		{
+			MethodName: "StoreReset",
+			Handler:    _Admin_StoreReset_Handler,
+		},
+		{
+			MethodName: "StoreDigest",
+			Handler:    _Admin_StoreDigest_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StoreBackup",
+			Handler:       _Admin_StoreBackup_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/admin/v1/admin.proto",
 }

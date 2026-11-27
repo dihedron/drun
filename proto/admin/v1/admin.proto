@@ -25,6 +25,17 @@ service Admin {
   rpc RunnableReset(RunnableResetRequest) returns (Empty);
   // the leader supervisor's views of its runnables
   rpc Views(Empty) returns (ViewsReply);
+
+  // the runnables' stores (STO-15, STO-16, STO-17)
+  rpc StoreShow(StoreShowRequest) returns (StoreShowReply);
+  // on the leader after VerifyLeader, or with local on the node called
+  rpc StoreQuery(StoreQueryRequest) returns (StoreQueryReply);
+  rpc StoreExec(StoreExecRequest) returns (StoreExecReply);
+  rpc StoreReset(RunnableRequest) returns (Empty);
+  // a consistent copy of the database on the node called
+  rpc StoreBackup(RunnableRequest) returns (stream Chunk);
+  // this node's digest of a database, for StoreShow
+  rpc StoreDigest(RunnableRequest) returns (Digest);
 }
 
 message Empty {}
@@ -131,4 +142,63 @@ message CheckpointShowReply {
   bool found = 1;
   resurgo.fsm.v1.CheckpointMeta meta = 2;
   bytes data = 3;
+}
+
+message StoreShowRequest {
+  string name = 1; // empty: every runnable
+}
+
+message StoreShowReply {
+  repeated StoreInfo stores = 1;
+}
+
+message StoreInfo {
+  string name = 1;
+  bool exists = 2;
+  int64 size = 3; // bytes, on the node called
+  repeated string tables = 4;
+  uint64 last_index = 5;
+  repeated Digest digests = 6; // one per member
+  // digests at the same index differ (INV-S-1)
+  bool mismatch = 7;
+}
+
+message Digest {
+  string node = 1;
+  string digest = 2;
+  uint64 index = 3;
+  string error = 4;
+}
+
+message StoreQueryRequest {
+  string name = 1;
+  string sql = 2;
+  bool local = 3;
+}
+
+message StoreQueryReply {
+  repeated string columns = 1;
+  repeated resurgo.fsm.v1.Row rows = 2;
+  string node = 3;
+  // answered by a follower: possibly behind the leader
+  bool stale = 4;
+}
+
+message StoreExecRequest {
+  string name = 1;
+  // one or more statements, split where each ends
+  string sql = 2;
+  // disable the runnable first, and leave it disabled
+  bool disable = 3;
+  // run in a rolled-back transaction on a copy of the leader's database
+  bool dry_run = 4;
+}
+
+message StoreExecReply {
+  resurgo.fsm.v1.BatchResult result = 1;
+  uint64 epoch = 2; // the operator's incarnation; 0 for a dry run
+}
+
+message Chunk {
+  bytes data = 1;
 }

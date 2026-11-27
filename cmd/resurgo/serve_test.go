@@ -87,6 +87,15 @@ admin: { socket: %s, allowed_groups: [%q] }
 	if _, code := cli("runnable", "disable", "nope"); code != 1 {
 		t.Fatalf("disabling an unknown runnable: exit %d", code)
 	}
+	if _, code := cli("store", "show"); code != 0 {
+		t.Fatalf("store show: exit %d", code)
+	}
+	if _, code := cli("store", "query", "nope", "SELECT 1"); code != 1 {
+		t.Fatalf("querying an unknown store: exit %d", code)
+	}
+	if _, code := cli("store", "exec", "nope"); code != 1 {
+		t.Fatalf("store exec without statements: exit %d", code)
+	}
 	if _, code := cli("member", "add", "only-an-id"); code != 1 {
 		t.Fatalf("member add without an address: exit %d", code)
 	}
