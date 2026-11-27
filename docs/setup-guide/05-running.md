@@ -4,7 +4,8 @@
 packaged systemd unit does this). At start the node:
 
 1. joins or creates the cluster;
-2. checks every runnable: the binary matches its `sha256`, it and its
+2. checks every runnable: the binary matches its `sha256`, or the
+   digest of its manifest signed by its `key`, it and its
    directory are root's and writable by root only, it describes itself
    with the configured name and kind, and it accepts its configuration.
    A runnable that fails is reported at `error` level and in `drun

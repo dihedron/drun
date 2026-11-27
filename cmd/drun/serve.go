@@ -12,7 +12,9 @@ import (
 	"github.com/dihedron/drun/internal/config"
 	"github.com/dihedron/drun/internal/daemon"
 	"github.com/dihedron/drun/internal/supervisor"
+	"github.com/dihedron/drun/pkg/metadata"
 	"github.com/dihedron/drun/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable/manifest"
 )
 
 // ServeCommand runs a node until SIGTERM or SIGINT, then hands leadership
@@ -31,11 +33,12 @@ func (c *ServeCommand) Execute([]string) error {
 		// a node logs at info unless told otherwise (journald adds the time)
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
+	unsigned := resolveManifests(cfg, manifest.KeyDir, metadata.Version, true, logger)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
 	d, err := daemon.Start(cfg, daemon.Options{
-		Load: pluginLoader(logger),
+		Load: pluginLoader(logger, unsigned),
 		Fatal: func(err error) {
 			// the store failed where the other nodes did not: carrying on
 			// would diverge from them
@@ -65,11 +68,39 @@ func (c *ServeCommand) Execute([]string) error {
 	return nil
 }
 
+// resolveManifests pins every runnable configured with a key to the
+// SHA-256 of its manifest, verified against the key (§8.8); it returns why
+// each runnable whose manifest failed cannot run, which leaves it unpinned
+func resolveManifests(cfg *config.Config, keyDir, version string, requireRootOwned bool, logger *slog.Logger) map[string]error {
+	failed := map[string]error{}
+	for i := range cfg.Runnables {
+		r := &cfg.Runnables[i]
+		if r.Key == "" {
+			continue
+		}
+		keys, err := manifest.LoadKeys(keyDir, r.Key, requireRootOwned)
+		var m manifest.Manifest
+		if err == nil {
+			m, err = manifest.Verify(r.Binary, r.Name, version, keys, requireRootOwned)
+		}
+		if err != nil {
+			failed[r.Name] = err
+			continue
+		}
+		r.SHA256 = m.SHA256
+		logger.Info("runnable verified by its manifest", "runnable", r.Name, "version", m.Version, "key", r.Key)
+	}
+	return failed
+}
+
 // pluginLoader loads a runnable's pinned binary and checks it as FR-16
 // requires: it describes itself with the configured name and kind and
 // accepts its configuration
-func pluginLoader(logger *slog.Logger) func(context.Context, supervisor.Spec) (runnable.Instance, error) {
+func pluginLoader(logger *slog.Logger, unsigned map[string]error) func(context.Context, supervisor.Spec) (runnable.Instance, error) {
 	return func(ctx context.Context, spec supervisor.Spec) (runnable.Instance, error) {
+		if err := unsigned[spec.Name]; err != nil {
+			return nil, err // FR-16: invalid on this node
+		}
 		inst, err := runnable.Load(ctx, runnable.Plugin{
 			Path: spec.Binary, SHA256: spec.SHA256, CheckOwnership: true,
 			Logger: logger.With("runnable", spec.Name),

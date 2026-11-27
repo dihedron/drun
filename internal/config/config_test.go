@@ -125,6 +125,10 @@ lease: { duration: 2s, renew_interval: 500ms }
 		t.Fatalf("kind %q", cfg.Runnables[0].Kind)
 	}
 	// a long grace makes auto longer, a short one is floored at 0
+	// FW-7: a runnable trusted through its publisher's manifest
+	if cfg := mustLoad(t, strings.Replace(valid, "    sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n", "    key: acme\n", 1)); cfg.Runnables[0].Key != "acme" {
+		t.Fatalf("key: %+v", cfg.Runnables[0])
+	}
 	cfg = mustLoad(t, strings.Replace(valid, "    sha256:", "    stop_grace: 100ms\n    sha256:", 1))
 	if d := cfg.TakeoverDelay(cfg.Runnables[0]); d != 350*time.Millisecond {
 		t.Fatalf("takeover delay %s, want 350ms", d)
@@ -161,6 +165,9 @@ func TestRefused(t *testing.T) {
 		{"remote with a bad identity", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "spiffe://example.org/ops", "http://ops", 1), "allowed_identities"},
 		{"remote with a bad listen", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "0.0.0.0:7351", "7351", 1), "admin.remote.listen"},
 		{"remote with a relative cert", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/drun/admin.crt, key: /etc/drun/admin.key, ca: /etc/drun/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "/etc/drun/admin.crt", "admin.crt", 1), "admin.remote.tls.cert"},
+		{"both sha256 and key", "    sha256:", "    key: acme\n    sha256:", "exactly one"},
+		{"neither sha256 nor key", "    sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n", "", "exactly one"},
+		{"bad key name", "    sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n", "    key: ../acme\n", "key"},
 		{"duplicate runnable", "runnables:\n", "runnables:\n  - { name: svc, binary: /x, sha256: " + strings.Repeat("0", 64) + " }\n", "twice"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

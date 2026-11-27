@@ -33,7 +33,9 @@ metrics:
 runnables:
   - name: invoice-scheduler
     binary: /usr/libexec/drun/runnables/invoice-scheduler
-    sha256: "<the binary's SHA-256>"  # SEC-4: pinned
+    sha256: "<the binary's SHA-256>"  # SEC-4: pinned; or, instead,
+    # key: acme                    # its publisher's signed manifest (§8.8),
+    #                              # /etc/drun/runnable-keys/acme.pub
     config:                        # passed to Validate and Run as JSON
       dsn_file: /etc/drun/invoice-scheduler/dsn
       batch: 100

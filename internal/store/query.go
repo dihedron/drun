@@ -71,18 +71,42 @@ func (s *Store) reader(runnable string) (*reader, error) {
 // the same rules as a batch; ctx bounds its time (STO-11), and its result
 // is bounded by the default store.max_result.
 func (s *Store) Query(ctx context.Context, runnable, query string, args ...any) ([]string, [][]any, error) {
+	cols, rows, _, err := s.QueryAt(ctx, runnable, query, args...)
+	return cols, rows, err
+}
+
+// QueryAt is Query, with the index the database was at: both are read in
+// one read transaction, so the rows are the state at that index (STO-18).
+func (s *Store) QueryAt(ctx context.Context, runnable, query string, args ...any) ([]string, [][]any, uint64, error) {
 	r, err := s.reader(runnable)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	if r == nil {
-		return nil, nil, fmt.Errorf("store %s: no database", runnable)
+		return nil, nil, 0, fmt.Errorf("store %s: no database", runnable)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	tx, err := r.conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("store %s: query: %w", runnable, err)
+	}
+	defer tx.Rollback() //nolint:errcheck // read only
+	var index uint64
+	// before enforcing the rules: the meta table is reserved (INV-S-4)
+	if err := tx.QueryRowContext(ctx, "SELECT last_index FROM _drun_meta").Scan(&index); err != nil {
+		return nil, nil, 0, fmt.Errorf("store %s: query: %w", runnable, err)
+	}
 	r.enforce.Store(true)
 	defer r.enforce.Store(false)
-	rows, err := r.conn.QueryContext(ctx, query, args...)
+	cols, out, err := collect(ctx, tx, runnable, query, args...)
+	return cols, out, index, err
+}
+
+// collect runs query in tx and gathers its rows, bounded by the default
+// store.max_result
+func collect(ctx context.Context, tx *sql.Tx, runnable, query string, args ...any) ([]string, [][]any, error) {
+	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("store %s: query: %w", runnable, err)
 	}

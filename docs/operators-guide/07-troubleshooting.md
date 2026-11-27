@@ -22,7 +22,7 @@
 | `disabled` | An operator disabled it: `drun runnable enable NAME` |
 | `completed` | A task that finished: `drun runnable reset NAME --completion` to run it again |
 | `waiting` | The takeover delay after a failover, or the back-off after a failure |
-| `invalid on NODE` | That node cannot run it: wrong digest, a binary not owned by root, a name or kind that differs, a configuration it refuses. The journal has the error. The node gives leadership away when it is leader |
+| `invalid on NODE` | That node cannot run it: wrong digest, a manifest that fails (the step is in the error: ownership, signature, name, version, protocol), a binary not owned by root, a name or kind that differs, a configuration it refuses. The journal has the error. The node gives leadership away when it is leader |
 | `drift on NODE` | That node's binary or configuration differs from the running incarnation's: align the configurations |
 | failures | It keeps failing: the reasons are in `runnable show NAME`; after `restart.handover_after` failures the leader moves to another node |
 

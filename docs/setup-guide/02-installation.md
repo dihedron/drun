@@ -59,3 +59,28 @@ to 90 s to stop its runnables and hand over; whatever is left of the
 service's processes, the runnables' included, is then killed.
 
 Logs go to the journal: `journalctl -u drun`.
+
+## Encrypting the data directory
+
+`/var/lib/drun` holds the Raft log, the snapshots and each runnable's
+database. All three are in clear, and they contain everything the
+runnables checkpoint and store. drun does not encrypt them itself.
+Encrypt the filesystem under the data directory instead, so that a
+stolen disk, a decommissioned host or a disk image reveals nothing:
+
+- **LUKS (dm-crypt):** put `/var/lib/drun` on an encrypted volume,
+  unlocked at boot by a TPM (`systemd-cryptenroll --tpm2-device=auto`) or
+  by a network key server (Clevis and Tang), so that a node can restart
+  unattended.
+- **ZFS:** a dataset with `encryption=aes-256-gcm` and a key loaded at
+  boot, mounted on `/var/lib/drun`.
+- **fscrypt:** on ext4 or f2fs, an encrypted `/var/lib/drun`, created
+  empty before the first start, with a protector unlocked at boot.
+
+Prepare the volume before the first start: drun creates the data
+directory's content and does not move it. Store backups
+(`drun store backup`) are in clear too: keep them on encrypted storage,
+or encrypt them (for example with `age`) before they leave the node.
+
+Encryption at rest does not protect a running node: root, or the service
+user, reads the data as drun does.

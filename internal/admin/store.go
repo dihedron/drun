@@ -88,18 +88,26 @@ func (s *Server) StoreQuery(ctx context.Context, r *adminpb.StoreQueryRequest) (
 		return nil, err
 	}
 	out := &adminpb.StoreQueryReply{Node: s.o.NodeID}
-	if r.GetLocal() {
+	if r.GetLocal() || r.GetMaxStalenessMs() > 0 {
 		out.Stale = s.raft.State() != raft.Leader
+		lag, known := s.staleness()
+		out.StalenessMs, out.StalenessKnown = lag.Milliseconds(), known
+		if bound := time.Duration(r.GetMaxStalenessMs()) * time.Millisecond; bound > 0 && (!known || lag > bound) {
+			if !known {
+				return nil, status.Errorf(codes.FailedPrecondition, "%s cannot tell how far behind the leader it is", s.o.NodeID)
+			}
+			return nil, status.Errorf(codes.FailedPrecondition, "%s is about %s behind the leader, more than %s", s.o.NodeID, lag, bound)
+		}
 	} else if err := s.raft.VerifyLeader().Error(); err != nil {
 		return nil, toStatus(err)
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.queryTimeout(r.GetName()))
 	defer cancel()
-	cols, rows, err := s.o.Store.Query(ctx, r.GetName(), r.GetSql())
+	cols, rows, index, err := s.o.Store.QueryAt(ctx, r.GetName(), r.GetSql())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	out.Columns = cols
+	out.Columns, out.Index = cols, index
 	for _, row := range rows {
 		pr := &fsmpb.Row{}
 		for _, v := range row {
@@ -108,6 +116,20 @@ func (s *Server) StoreQuery(ctx context.Context, r *adminpb.StoreQueryRequest) (
 		out.Rows = append(out.Rows, pr)
 	}
 	return out, nil
+}
+
+// staleness estimates how far this member is behind the leader (STO-18):
+// 0 on the leader; on a follower, the time since it last heard from the
+// leader, known only once it has applied every entry it knows committed
+func (s *Server) staleness() (time.Duration, bool) {
+	if s.raft.State() == raft.Leader {
+		return 0, true
+	}
+	if s.raft.AppliedIndex() < s.raft.CommitIndex() {
+		return 0, false
+	}
+	d, err := lastContact(s.raft.Stats()["last_contact"])
+	return d, err == nil
 }
 
 func (s *Server) queryTimeout(name string) time.Duration {

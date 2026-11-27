@@ -52,3 +52,17 @@ The conformance kit (`pkg/runnable/conformance`) runs the same checks
 against both kinds of instance: the runnable describes itself, accepts its
 configuration, and returns within its stop grace when stopped, when its
 lease expires and when it is fenced.
+
+## Signed manifests
+
+A runnable is trusted either by a digest in each node's configuration or
+by a manifest its publisher signed (`key`). At start, `serve` verifies
+each manifest (`pkg/runnable/manifest`): ownership, the Ed25519
+signature against the named key file, the name, drun's version against
+the manifest's range (`pkg/semver`, shared with veho), and the protocol.
+It then puts the manifest's digest in place of `sha256`. From there,
+pinning, `Incarnate`'s digests and drift work as for a configured digest.
+A manifest that fails makes the runnable invalid on that node (FR-16),
+with the step that failed. The release signs the examples with drun's
+key, held as a repository secret, in a goreleaser hook
+(`tools/runnable-manifest`).
