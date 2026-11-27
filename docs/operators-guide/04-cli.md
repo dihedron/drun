@@ -21,7 +21,10 @@ Each option can also come from the environment: `DRUN_ADMIN`,
 | `cluster show` | Members, their suffrage and identity, the leader, term, commit and applied index, last contact |
 | `leader show` | The leader and its term |
 | `leader transfer [--to ID]` | A planned handover: the runnables stop and are released, then leadership moves |
-| `member add ID ADDRESS [--identity I] [--non-voter]` | Adds a member; `--identity` records its certificate identity, so no node needs a new configuration |
+| `member show [--max-lag N]` | Every member's suffrage, lag, last contact and health, as the leader judges it, with the reason when unhealthy |
+| `member add ID ADDRESS [--identity I] [--non-voter] [--stable D] [--max-lag N] [--force]` | Adds a member; `--identity` records its certificate identity, so no node needs a new configuration. A voter joins as a non-voter and is promoted once healthy (see *Promotion*) |
+| `member promote ID [--stable D] [--max-lag N] [--force]` | Makes a non-voter a voter once it is healthy |
+| `member demote ID` | Makes a voter a non-voter; demoting the leader hands leadership over first; the last voter cannot be demoted |
 | `member remove ID` | Removes a member; removing the leader hands leadership over first |
 | `runnable show [NAME]` | State, incarnation, epoch, health, checkpoint, failures; with a name, also the digests and this node's drift and validation |
 | `runnable enable\|disable NAME` | Disabling stops the runnable and stays recorded across leader changes |
@@ -33,6 +36,30 @@ Each option can also come from the environment: `DRUN_ADMIN`,
 | `store exec NAME [SQL…] [--file F] [--disable] [--dry-run]` | An operator's batch, see below |
 | `store backup NAME FILE` | A consistent copy of the database on the node called, written to FILE (`0600`) |
 | `store reset NAME` | Drops the database, on every node; refused while the runnable runs |
+
+## Promotion
+
+A voter counts in the commit quorum from the moment it is one. A member
+still catching up would slow every commit, or stop them if the cluster is
+small. `member promote`, and `member add` of a voter, therefore promote
+a member only once the leader finds it healthy. A member is healthy when
+all four of these hold:
+
+- it answers the leader over the cluster port;
+- it follows this leader, in this term;
+- it heard from the leader within `raft.heartbeat_timeout`;
+- it is at most `--max-lag` entries (256) behind the leader's commit
+  index.
+
+The member must stay healthy, check after check (one a second), for
+`--stable` (10 s). An unhealthy check starts the count again. If
+`--timeout` (90 s) runs out first, the command fails with the last
+reason, and the member stays a non-voter. `--force` promotes without
+checking. `member show` gives the same judgement for every member.
+
+After a promotion or a demotion, update `cluster.voters` in the nodes'
+configuration. It is only read when a node has no data, but a later
+rebuild should probe the right voters.
 
 ## Operator writes
 

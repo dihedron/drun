@@ -60,8 +60,12 @@ func TestEXT8VerifyLeaderFails(t *testing.T) {
 		t.Fatalf("VerifyLeader on a healthy leader: %v", err)
 	}
 
-	// no quorum answers: checked at once, before the lease makes it step down
+	// no quorum answers: checked at once, before the lease makes it step down.
+	// A heartbeat already in flight when the leader is cut off may still
+	// answer a verification started just after: let those drain first, well
+	// within the lease (100 ms)
 	c.isolate(l)
+	time.Sleep(leaderLeaseTimeout / 5)
 	if err := l.raft.VerifyLeader().Error(); err == nil {
 		t.Fatal("VerifyLeader succeeded on an isolated leader")
 	}

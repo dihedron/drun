@@ -14,12 +14,13 @@ import (
 
 	"github.com/dihedron/drun/pkg/metadata"
 	"github.com/dihedron/drun/pkg/runnable"
+	fence "github.com/dihedron/drun/pkg/runnable/fence/postgres"
 	"github.com/jackc/pgx/v5"
 )
 
-// schema is created by the first incarnation; the fence is §8.5's
+// schema is created by the first incarnation; the fence's table is the
+// helper's (§8.5)
 const schema = `
-CREATE TABLE IF NOT EXISTS drun_fence (runnable text PRIMARY KEY, epoch bigint NOT NULL);
 CREATE TABLE IF NOT EXISTS counter_rows (
 	id bigserial PRIMARY KEY,
 	runnable text NOT NULL,
@@ -107,7 +108,8 @@ func (counter) Run(ctx context.Context, inc runnable.Incarnation, host runnable.
 	if _, err := conn.Exec(ctx, schema); err != nil {
 		return stopped(ctx, fmt.Errorf("schema: %w", err))
 	}
-	if err := claim(ctx, conn, inc.Runnable, inc.Epoch); err != nil {
+	f, err := fence.Claim(ctx, conn, inc)
+	if err != nil {
 		return stopped(ctx, err)
 	}
 
@@ -124,7 +126,7 @@ func (counter) Run(ctx context.Context, inc runnable.Incarnation, host runnable.
 		case <-t.C:
 		}
 		seq++
-		if err := write(ctx, conn, inc.Runnable, inc.Epoch, seq); err != nil {
+		if err := write(ctx, f, conn, inc.Runnable, inc.Epoch, seq); err != nil {
 			return stopped(ctx, err)
 		}
 		if _, err := host.Checkpoint(ctx, binary.BigEndian.AppendUint64(nil, seq)); err != nil {
@@ -144,41 +146,10 @@ func stopped(ctx context.Context, err error) error {
 	return err
 }
 
-// claim takes the fence for epoch; a newer epoch holding it means this
-// incarnation is stale (§8.5). The row lock waits for the predecessor's
-// open transactions.
-func claim(ctx context.Context, conn *pgx.Conn, name string, epoch uint64) error {
-	tag, err := conn.Exec(ctx, `INSERT INTO drun_fence VALUES ($1, $2)
-		ON CONFLICT (runnable) DO UPDATE SET epoch = EXCLUDED.epoch
-		WHERE drun_fence.epoch < EXCLUDED.epoch`, name, int64(epoch)) //nolint:gosec // epochs fit
-	if err != nil {
-		return fmt.Errorf("claiming the fence: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return runnable.ErrFenced
-	}
-	return nil
-}
-
-// write appends a row in a transaction that holds the fence at epoch
-func write(ctx context.Context, conn *pgx.Conn, name string, epoch, seq uint64) error {
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer tx.Rollback(context.Background()) //nolint:errcheck // a no-op after the commit
-	var fence int64
-	if err := tx.QueryRow(ctx, `SELECT epoch FROM drun_fence WHERE runnable = $1 FOR SHARE`, name).Scan(&fence); err != nil {
-		return fmt.Errorf("reading the fence: %w", err)
-	}
-	if fence != int64(epoch) { //nolint:gosec // epochs fit
-		return runnable.ErrFenced
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO counter_rows (runnable, epoch, seq) VALUES ($1, $2, $3)`, name, int64(epoch), int64(seq)); err != nil { //nolint:gosec // they fit
-		return fmt.Errorf("insert: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-	return nil
+// write appends a row in a transaction fenced at epoch
+func write(ctx context.Context, f *fence.Fence, conn *pgx.Conn, name string, epoch, seq uint64) error {
+	return f.Tx(ctx, conn, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO counter_rows (runnable, epoch, seq) VALUES ($1, $2, $3)`, name, int64(epoch), int64(seq)) //nolint:gosec // they fit
+		return err
+	})
 }

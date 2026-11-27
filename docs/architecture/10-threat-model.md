@@ -34,6 +34,9 @@
 | T-12 | A runnable's standard error leaks secrets into the journal | the runnable's responsibility | R-6 |
 | T-13 | A partitioned node with a stale log disrupts the cluster | Raft pre-vote | — |
 | T-14 | A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
+| T-15 | A host that reaches the metrics endpoint reads the peers' IDs and Raft's timings | metrics off by default; bind to loopback or a monitoring network; no secrets in any series | — |
+| T-16 | A stale incarnation writes to the runnable's external PostgreSQL after a newer one started | the fence helper: a claim, and a locked check in every writing transaction | R-4, R-8 |
+| T-17 | An operator promotes a member still catching up, and commits stall | promotion only after a stable run of healthy checks; `--force` is explicit | — |
 
 
 ## Accepted risks
@@ -49,3 +52,5 @@
 - **R-7** A stolen admin client key gives full admin access through the
   remote endpoint until its identity is removed or its certificate
   expires; there are no per-command roles.
+- **R-8** Restoring a backup of a runnable's external database can put
+  back an older fence epoch: restart the runnable afterwards.

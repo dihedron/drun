@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `drun`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.4.3` (2026-11-27): member health and gated promotion (FR-17, FW-8); `0.4.2` (2026-11-27): the PostgreSQL fence helper (FW-10, §8.5, T-16, R-8), OI-12 revisited; `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-wal` (v0.5.x, the default log store) and `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -188,6 +188,12 @@ only the epochs and the current incarnations.
   and `Validate` accepts the configuration. A node with an invalid runnable
   MUST still join the cluster and MUST report the error at `error` level
   and in `runnable show`; whether it also gives leadership away is OI-11.
+- **FR-17 (member health and promotion)** The leader MUST report each
+  member's health (`drun member show`), and promote a non-voter to voter
+  only once it is healthy (`drun member promote ID`, and `member add`
+  of a voter), so that a member still catching up never joins the commit
+  quorum (FW-8). `member demote ID` makes a voter a non-voter. Details in
+  §10.2.
 
 ## 6. Non-functional requirements
 
@@ -475,11 +481,59 @@ COMMIT;
 
 The claim's row lock waits for the predecessor's open transactions, and
 after the claim every predecessor transaction fails its check, so the
-store serialises the two incarnations whatever their timing. A helper in
-the SDK is future work (FW-10, OI-12). Side
+store serialises the two incarnations whatever their timing. Side
 effects in systems that cannot check an epoch (an e-mail, a call to an
 external API) may happen twice during an overlap; runnables that need
 them exactly once must make them idempotent at the receiver.
+
+**The PostgreSQL helper (FW-10).** `pkg/runnable/fence/postgres` packages
+the pattern above, on `pgx/v5` (already the example's driver):
+
+```go
+const Schema = `CREATE TABLE IF NOT EXISTS drun_fence (
+  cluster text NOT NULL, runnable text NOT NULL, epoch bigint NOT NULL,
+  PRIMARY KEY (cluster, runnable))`
+
+// DB is a *pgx.Conn, a *pgxpool.Pool or a pgx.Tx.
+type DB interface {
+  Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+  Begin(ctx context.Context) (pgx.Tx, error)
+}
+
+// Claim creates the table if needed and claims the fence for inc's
+// epoch; ErrFenced if a newer epoch holds it.
+func Claim(ctx context.Context, db DB, inc runnable.Incarnation) (*Fence, error)
+// Check, inside the caller's transaction: ErrFenced unless the fence
+// still holds this epoch; it takes the row FOR SHARE.
+func (f *Fence) Check(ctx context.Context, tx pgx.Tx) error
+// Tx runs fn in a transaction that passed Check, and commits it.
+func (f *Fence) Tx(ctx context.Context, db DB, fn func(pgx.Tx) error) error
+```
+
+- **Key:** the row is keyed by cluster *and* runnable, so two drun
+  clusters sharing a database do not fence each other.
+- **Re-claim:** the claim succeeds when the fence holds an epoch lower
+  than *or equal to* the incarnation's (§8.5's example uses `<`), so an
+  incarnation that reconnects can claim again; only one incarnation ever
+  has a given epoch.
+- **Errors:** `ErrFenced` is `runnable.ErrFenced`, returned unwrapped by
+  `Claim`, `Check` and `Tx` (and from `fn`, if it returns it); every
+  other error is wrapped. `Tx` rolls back on any error. An epoch above
+  `math.MaxInt64` is an error (the column is `bigint`).
+- **Isolation:** `Tx` uses the database's default (`READ COMMITTED`):
+  `FOR SHARE` waits for a concurrent claim and then reads its epoch.
+  Under `REPEATABLE READ` or `SERIALIZABLE` (the caller's own
+  transaction and `Check`) a concurrent claim makes the check fail with
+  a serialisation error instead: safe, and the caller retries or ends.
+- **Table creation:** `Claim` runs `Schema` first; two first-ever claims
+  racing on `CREATE TABLE IF NOT EXISTS` can fail with a unique
+  violation, which `Claim` retries once. A role without `CREATE` can use
+  a table an administrator created from `Schema`.
+- **Out of scope:** other databases (the same pattern applies: a
+  conditional claim and a locked check in every writing transaction),
+  and writes that do not go through `Check`: the helper cannot see them.
+
+The fenced-counter example uses the helper.
 
 ### 8.6 Timings
 
@@ -523,8 +577,9 @@ Consequences, measured in the lab (AC-16):
   about 25 batches/s, so the SDK issues batches concurrently where order
   allows (Raft pipelines them), and reads stay local;
 - placement: 3 voters, one per region (a region loss leaves a quorum), or
-  5 as 2 + 2 + 1. Which region leads is not controlled; a preferred-leader
-  policy is FW-9.
+  5 as 2 + 2 + 1. Which region leads is not controlled automatically: an
+  operator moves leadership with `leader transfer --to ID` (FR-3; an
+  automatic preferred-leader policy, FW-9, was dropped).
 
 The profile is a starting point; the lab's measurements decide its final
 values.
@@ -665,7 +720,8 @@ one verb that displays objects. All but `serve`, `version` and
 | :--- | :--- |
 | `drun serve` | run a node |
 | `drun cluster show` | members, suffrage, leader, term, commit index, last contact |
-| `drun member add ID ADDRESS [--identity I] [--non-voter]` / `member remove ID` | FR-2 |
+| `drun member add ID ADDRESS [--identity I] [--non-voter] [--stable D] [--max-lag N] [--force]` / `member remove ID` | FR-2, FR-17 |
+| `drun member show [--max-lag N]` / `member promote ID [--stable D] [--max-lag N] [--force]` / `member demote ID` | FR-17 |
 | `drun leader show` / `leader transfer [--to ID]` | FR-3 |
 | `drun runnable show [NAME]` | incarnation, epoch, digests, health, checkpoint metadata, failures |
 | `drun runnable enable\|disable\|restart NAME` | FR-14 |
@@ -689,6 +745,42 @@ identity. A forwarded call that reaches a node no longer leader fails
 (`Unavailable`, retry) rather than hopping again. `leader transfer` and
 removing the leader are planned handovers (FR-12).
 
+Member health and promotion (FR-17, FW-8). The leader asks every other
+member for its own view (the `ClusterShow` it would answer, over the
+cluster port's admin stream) and judges it against its own:
+
+- **Reachable:** the member answered within the call's deadline.
+- **Same leader:** it follows this leader, in this term.
+- **Contact:** its time since last contact with the leader is below
+  `raft.heartbeat_timeout` (so the WAN profile's longer timeouts apply).
+- **Lag:** the leader's commit index minus the member's applied index,
+  at most `--max-lag` entries (default 256).
+
+`member show` lists every member with its suffrage, lag, last contact and
+health (the leader itself is healthy by definition), and the reason when
+a member is not healthy. `member promote ID` checks a non-voter once a
+second and promotes it (`AddVoter` on the existing member) once it has
+been healthy, check after check, for `--stable` (default 10 s; 0
+promotes at the first healthy check); an unhealthy check starts the
+count again. If the call's deadline (`--timeout`) comes first, it fails
+with the last reason and leaves the member a non-voter. `--force` skips
+the checks. Promoting a voter, or a member not in the configuration, is
+an error. `member add` of a voter goes through the same gate, with the
+same flags: a new member is added as a non-voter first and promoted once
+healthy, and an existing non-voter is promoted as by `member promote`;
+if the gate fails, the member stays a non-voter. `member add` of an
+existing voter (a new address) and `--non-voter` are as before.
+`member demote ID` runs
+`DemoteVoter`; demoting the leader is a planned handover first, as for
+`member remove`, and demoting the last voter is refused. All three are
+executed by the leader. `cluster.voters` in the nodes' configuration is
+only read at bootstrap (FR-1): after a promotion or demotion, update it
+on the nodes so that a later rebuild probes the right voters.
+
+Out of scope: automatic promotion (an autopilot that promotes on its
+own) and automatic removal of dead members; `member show` gives an
+operator, or a script, what to decide them on.
+
 ### 10.3 Metrics
 
 `drun_is_leader`, `drun_raft_term`, `drun_epoch{runnable}`,
@@ -707,6 +799,43 @@ Prometheus text format, written without a client library;
 of the last first incarnation of a leadership (a restart on the same
 leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
 `unhealthy`, `fenced`, `lost` and `stopped`.
+
+Raft's own metrics (FW-3). `hashicorp/raft`, `raft-boltdb/v2` and
+`raft-wal` report through the process-wide `hashicorp/go-metrics`
+instance. When `metrics.listen` is set, the node installs a sink of its
+own as that instance before it opens the Raft stores (raft-wal binds its
+collector at open), and `/metrics` renders it after the families above;
+when it is not set, go-metrics keeps its default sink and nothing is
+collected. The sink, written without a client library:
+
+- **Names:** `drun_` and the key's segments in snake case, joined by
+  `_` (`raft.rpc.appendEntries` is `drun_raft_rpc_append_entries`);
+  characters outside `[a-zA-Z0-9_]` become `_`.
+- **Types:** a counter is a `counter` named `…_total`, cumulative from
+  start; a gauge (and a precision gauge) is a `gauge`, the last value;
+  a sample (and a timer) is a `histogram` (`_bucket`, `_sum`, `_count`),
+  so quantiles aggregate across nodes. Units are go-metrics' and the
+  libraries' own: timers in milliseconds, as HashiCorp documents them;
+  the buckets, one set for every sample, are 0.1, 0.25, 0.5, 1, 2.5, 5,
+  10, 25, 50, 100, 250, 500, 1000, 2500, 5000 and 10000 (they also fit
+  the samples that are counts, such as `raft.fsm.applyBatchNum`).
+- **Labels:** the ones the library gives (`peer_id`), escaped; no host
+  name, no service name, no runtime metrics (the go-metrics defaults
+  for those are off).
+- **Cardinality:** hashicorp/raft also reports four per-peer keys with
+  the peer ID in the name (`raft.replication.appendEntries.rpc.<id>`,
+  `….appendEntries.logs.<id>`, `….heartbeat.<id>`,
+  `….installSnapshot.<id>`); they are blocked (go-metrics
+  `BlockedPrefixes`) because each has a twin with a `peer_id` label.
+  Series are bounded by the keys the libraries emit times the cluster's
+  peers; a removed peer's series stay until the node restarts.
+- **Clashes:** a name first seen with one type keeps it; an observation
+  of the same name with another type is dropped.
+
+The set of keys is the libraries' own and changes with them: the
+Operator's Guide lists the ones worth watching, as seen on the pinned
+versions, and they are rechecked on every version bump with the EXT
+assumptions (§12.1).
 
 ## 11. Security and threat model
 
@@ -776,6 +905,9 @@ leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
 | T-12 | (I) The plugin's stderr leaks secrets into the node's logs | runnables' responsibility; the conformance kit greps for a canary secret | R-6 |
 | T-13 | (D) A partitioned node with a stale log disrupts the cluster | Raft pre-vote (EXT-4) | — |
 | T-14 | (S, E) A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
+| T-15 | (I) A host that reaches `metrics.listen` reads the peers' IDs and Raft's replication timings | metrics off by default; bind to loopback or a monitoring network; no secrets, addresses or payloads in any series | — |
+| T-16 | (T) A stale incarnation writes to the runnable's external PostgreSQL after a newer one started | the fence helper (§8.5): claim, and a locked check in every writing transaction | R-4, R-8 |
+| T-17 | (D) An operator promotes a member that is still catching up, and commits stall until it does | FR-17: promotion only after `--stable` of healthy checks; `--force` is explicit | — |
 
 ### 11.3 Accepted residual risks
 
@@ -795,6 +927,12 @@ leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
   `admin.remote.allowed_identities` or its certificate expires: short-lived
   certificates, and an endpoint bound to an operators' network only, are
   recommended. There are no per-method roles in v1.
+- **R-8** The fence is only as good as the database's history: restoring
+  a backup of the external database can put back an older epoch, and an
+  older incarnation that is still running and holds exactly that epoch
+  could then write again until the current one claims. After a restore,
+  restart the runnable (`runnable restart`) so a new epoch claims the
+  fence.
 
 ## 12. Decisions
 
@@ -919,7 +1057,9 @@ against a pinned PostgreSQL container (`make test-postgres`).
 - **OI-12 SDK scope.** *Decided* (2026-11-26): no fence helper for
   external databases in v1; §8.5 stays the documented pattern for a
   runnable that also writes to a database of its own, and the helper is
-  FW-10. The SDK stays in this module (`pkg/runnable`) until v1.0.0.
+  FW-10. *Revisited* (2026-11-27): the PostgreSQL helper is in
+  (`pkg/runnable/fence/postgres`, §8.5); other databases stay the
+  documented pattern. The SDK stays in this module (`pkg/runnable`) until v1.0.0.
 
 ## 16. Implementation plan
 

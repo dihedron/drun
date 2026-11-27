@@ -26,8 +26,15 @@ cluster never drops below its size:
 
 ```
 drun member add node-d 10.0.1.14:7350 --identity spiffe://example.org/drun/node-d
+drun member show
 drun member remove node-a
 ```
+
+`member add` returns once node-d is a healthy voter: it joins as a
+non-voter, catches up, and is promoted after 10 s of healthy checks. If
+it fails, node-d stays a non-voter: `member show` says why. Fix the
+cause, then run `drun member promote node-d`. Remove node-a only after
+node-d is a voter.
 
 The new node's configuration lists the current members in
 `cluster.tls.peers`. Before it creates a cluster, a node with no data asks

@@ -76,6 +76,10 @@ func TestRebuildAVoter(t *testing.T) {
 				}
 			}
 			c.caughtUp(d)
+			// re-added through the promotion gate (FR-17): a voter again
+			if h := health(t, c, l)[victim]; h.GetSuffrage() != "Voter" {
+				t.Fatalf("the rebuilt member: %+v", h)
+			}
 		})
 	}
 }

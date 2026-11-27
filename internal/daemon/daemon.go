@@ -83,12 +83,18 @@ func Start(cfg *config.Config, o Options) (_ *Daemon, err error) {
 	}
 	cleanup = append(cleanup, d.Store.Close)
 	d.FSM = fsm.New(d.Store, logger)
+	d.Metrics = metrics.New(source{d}, supervisor.States)
+	if cfg.Metrics.Listen != "" {
+		// before the Raft stores open: raft-wal binds the go-metrics instance then
+		if d.Metrics.Raft, err = metrics.InstallRaft(); err != nil {
+			return nil, err
+		}
+	}
 	if d.Node, err = raftnode.New(cfg, d.FSM, d.FSM.Peers, o.Logger); err != nil { // it adds node_id
 		return nil, err
 	}
 	cleanup = append(cleanup, d.Node.Shutdown)
 
-	d.Metrics = metrics.New(source{d}, supervisor.States)
 	d.validate(o.Load)
 	load := func(ctx context.Context, spec supervisor.Spec) (runnable.Instance, error) {
 		inst, err := o.Load(ctx, spec)
@@ -109,7 +115,7 @@ func Start(cfg *config.Config, o Options) (_ *Daemon, err error) {
 
 	d.Admin = admin.New(admin.Options{
 		Node: d.Node, NodeID: cfg.Node.ID, Cluster: cfg.Cluster.Name, FSM: d.FSM, Store: d.Store,
-		Supervisor: d.Supervisor, Specs: specs, Validation: d.Invalid, Logger: logger,
+		Supervisor: d.Supervisor, Specs: specs, Validation: d.Invalid, HeartbeatTimeout: cfg.Raft.HeartbeatTimeout, Logger: logger,
 	})
 	cleanup = append(cleanup, func() error { d.Admin.Stop(context.Background()); return nil })
 	if err := d.serveAdmin(); err != nil {

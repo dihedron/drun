@@ -42,7 +42,10 @@ type Options struct {
 	Specs []supervisor.Spec
 	// Validation returns why this node cannot run a runnable (FR-16), or nil.
 	Validation func(name string) error
-	Logger     *slog.Logger
+	// HeartbeatTimeout is raft.heartbeat_timeout: a member's longest
+	// healthy time without contact (FR-17).
+	HeartbeatTimeout time.Duration
+	Logger           *slog.Logger
 }
 
 // Server is the admin API of a node.
@@ -128,19 +131,6 @@ func (s *Server) ClusterShow(context.Context, *adminpb.Empty) (*adminpb.ClusterS
 func parseUint(s string) uint64 {
 	n, _ := strconv.ParseUint(s, 10, 64)
 	return n
-}
-
-func (s *Server) MemberAdd(_ context.Context, r *adminpb.MemberAddRequest) (*adminpb.Empty, error) {
-	if r.GetId() == "" || r.GetAddress() == "" {
-		return nil, status.Error(codes.InvalidArgument, "a member needs an ID and an address")
-	}
-	var err error
-	if r.GetNonVoter() {
-		err = s.o.Node.AddNonvoter(r.GetId(), r.GetAddress(), r.GetIdentity())
-	} else {
-		err = s.o.Node.AddVoter(r.GetId(), r.GetAddress(), r.GetIdentity())
-	}
-	return &adminpb.Empty{}, toStatus(err)
 }
 
 // MemberRemove removes a member; removing the leader is a planned

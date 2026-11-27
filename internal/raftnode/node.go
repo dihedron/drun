@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 	wal "github.com/hashicorp/raft-wal"
+	walmetrics "github.com/hashicorp/raft-wal/metrics"
 )
 
 const (
@@ -202,7 +203,8 @@ func openLogStore(kind, dir string, logger *slog.Logger) (logStore, error) {
 		if err := os.MkdirAll(walDir, 0o700); err != nil {
 			return nil, fmt.Errorf("raft store: %w", err)
 		}
-		w, err := wal.Open(walDir, wal.WithLogger(newHclog(logger, "raft-wal")))
+		w, err := wal.Open(walDir, wal.WithLogger(newHclog(logger, "raft-wal")),
+			wal.WithMetricsCollector(walmetrics.NewGoMetricsCollector([]string{"raft", "wal"}, nil, nil)))
 		if err != nil {
 			return nil, fmt.Errorf("raft store (wal): %w", err)
 		}
@@ -354,6 +356,18 @@ func (n *Node) AddVoter(id, address, identity string) error {
 // AddNonvoter adds a non-voter (FR-2), as AddVoter.
 func (n *Node) AddNonvoter(id, address, identity string) error {
 	return n.add(id, address, identity, false)
+}
+
+// Demote makes a voter a non-voter (FR-17).
+func (n *Node) Demote(id string) error {
+	if err := n.leaderOnly(); err != nil {
+		return err
+	}
+	if err := n.raft.DemoteVoter(raft.ServerID(id), 0, changeTimeout).Error(); err != nil {
+		return fmt.Errorf("demoting %s: %w", id, err)
+	}
+	n.logger.Info("member demoted", "member", id)
+	return nil
 }
 
 func (n *Node) add(id, address, identity string, voter bool) error {

@@ -633,8 +633,12 @@ func testStoreCommands(t *testing.T, logStore string) {
 }
 
 // §10.3 on metrics.listen
-func TestMetricsEndpoint(t *testing.T) {
+func TestMetricsEndpoint(t *testing.T) { forEachLogStore(t, testMetricsEndpoint) }
+
+func testMetricsEndpoint(t *testing.T, logStore string) {
 	c := newTCluster(t, 1)
+	c.logStore = logStore
+	storeMetric := map[string]string{config.LogStoreBolt: "drun_raft_boltdb_store_logs_count ", config.LogStoreWAL: "drun_raft_wal_log_appends_total "}[logStore]
 	addr := freePort(t)
 	c.top["node-0"] = "metrics: { listen: " + addr + " }\n"
 	c.start("node-0")
@@ -650,6 +654,10 @@ func TestMetricsEndpoint(t *testing.T) {
 		return strings.Contains(out, "drun_is_leader 1") &&
 			strings.Contains(out, `drun_incarnation_state{runnable="ticker",state="running"} 1`) &&
 			strings.Contains(out, `drun_failover_seconds{kind="planned",runnable="ticker"}`) &&
-			strings.Contains(out, `drun_checkpoint_commit_seconds_count{runnable="ticker"}`)
+			strings.Contains(out, `drun_checkpoint_commit_seconds_count{runnable="ticker"}`) &&
+			// Raft's own (FW-3): hashicorp/raft's and the log store's
+			strings.Contains(out, "drun_raft_state_leader_total 1") &&
+			strings.Contains(out, "drun_raft_commit_time_count ") &&
+			strings.Contains(out, storeMetric)
 	})
 }

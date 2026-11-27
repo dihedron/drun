@@ -12,6 +12,7 @@ import (
 
 	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/dihedron/drun/pkg/runnable/conformance"
+	fence "github.com/dihedron/drun/pkg/runnable/fence/postgres"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -55,7 +56,7 @@ func postgres(t *testing.T) (string, *pgx.Conn) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close(context.Background()) })
-	if _, err := conn.Exec(t.Context(), schema+"TRUNCATE drun_fence, counter_rows;"); err != nil {
+	if _, err := conn.Exec(t.Context(), fence.Schema+";"+schema+"TRUNCATE drun_fence, counter_rows;"); err != nil {
 		t.Fatal(err)
 	}
 	return dsn, conn

@@ -55,8 +55,29 @@ tokenizer (`sqlite3_complete`), which needs no schema.
 `store show` asks every member for its digest over the admin stream;
 digests are compared only between members at the same index.
 
+`member show` and the promotion gate work the same way. The leader asks
+every member for its `ClusterShow` over the admin stream, and compares
+that member's view with its own: same leader and term, last contact
+within `raft.heartbeat_timeout`, applied index close to the leader's
+commit index. hashicorp/raft does not expose a follower's match index,
+so the member's own applied index stands in for it. A promotion is
+`AddVoter` on the existing non-voter. A gated `member add` of a new voter
+is `AddNonvoter` first, then the same gate.
+
 ## Metrics
 
 `internal/metrics` writes the Prometheus text format by hand. Gauges are
 read at each scrape (Raft state, the FSM, the supervisor's views, drift);
 counters and the histogram come from the supervisor's `Events`.
+
+Raft's own metrics (FW-3) come from `hashicorp/go-metrics`, the
+process-wide instance that `hashicorp/raft`, `raft-boltdb` and `raft-wal`
+report to. With `metrics.listen` set, the daemon installs a `RaftSink` as
+that instance before it opens the Raft stores, because raft-wal binds the
+instance when it opens. The sink keeps counters cumulative, gauges at
+their last value and samples as histograms in milliseconds, all under
+one mutex, and `/metrics` renders it after drun's own families. The four
+keys that hashicorp/raft names after a peer are blocked through
+`BlockedPrefixes`, since each has a twin with a `peer_id` label. Because
+the instance is per process, nodes that share a process (as in the
+tests) share their Raft series.

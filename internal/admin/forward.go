@@ -35,6 +35,9 @@ func empty() any { return &adminpb.Empty{} }
 var routes = map[string]route{
 	adminpb.Admin_MemberAdd_FullMethodName:       {leader: true, audited: true, reply: empty},
 	adminpb.Admin_MemberRemove_FullMethodName:    {leader: true, audited: true, reply: empty},
+	adminpb.Admin_MemberShow_FullMethodName:      {leader: true, reply: func() any { return &adminpb.MemberShowReply{} }},
+	adminpb.Admin_MemberPromote_FullMethodName:   {leader: true, audited: true, reply: empty},
+	adminpb.Admin_MemberDemote_FullMethodName:    {leader: true, audited: true, reply: empty},
 	adminpb.Admin_LeaderTransfer_FullMethodName:  {leader: true, audited: true, reply: empty},
 	adminpb.Admin_RunnableSet_FullMethodName:     {leader: true, audited: true, reply: empty},
 	adminpb.Admin_RunnableRestart_FullMethodName: {leader: true, audited: true, reply: empty},
