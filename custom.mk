@@ -29,7 +29,9 @@ snapshot: signing-check lint go-snapshot ## build a snapshot version for the sup
 .PHONY: release
 release: signing-check lint ## build a release version (requires a valid tag and the packaging key), documents included
 	@test -n "$(GPG_FINGERPRINT)" || { echo "a release must be signed: set GPG_FINGERPRINT and GPG_KEY_FILE" >&2; exit 1; }
-	@DOCS_VERSION="$$(git describe --tags --exact-match)" docs/build.sh
+	@# GORELEASER_CURRENT_TAG is the tag being released, which also names the
+	@# packages; git describe picks any of several tags on the commit
+	@DOCS_VERSION="$${GORELEASER_CURRENT_TAG:-$$(git describe --tags --exact-match)}" docs/build.sh
 	@$(MAKE) --no-print-directory go-release
 
 .PHONY: docs

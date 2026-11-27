@@ -82,6 +82,9 @@ jobs:
           GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
           GPG_KEY_FILE: ${{ runner.temp }}/packaging-key.asc
           NFPM_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          # the pushed tag: with several tags on one commit (a release
+          # candidate, then the release) goreleaser would pick another
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
 
       - name: Remove the packaging key
         if: always()
