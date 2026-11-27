@@ -1637,12 +1637,15 @@ func (x *Digest) GetError() string {
 }
 
 type StoreQueryRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Sql           string                 `protobuf:"bytes,2,opt,name=sql,proto3" json:"sql,omitempty"`
-	Local         bool                   `protobuf:"varint,3,opt,name=local,proto3" json:"local,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Sql   string                 `protobuf:"bytes,2,opt,name=sql,proto3" json:"sql,omitempty"`
+	Local bool                   `protobuf:"varint,3,opt,name=local,proto3" json:"local,omitempty"`
+	// refuse the read unless this member is known to be at most this far
+	// behind the leader; implies local (STO-18). 0: no bound.
+	MaxStalenessMs int64 `protobuf:"varint,4,opt,name=max_staleness_ms,json=maxStalenessMs,proto3" json:"max_staleness_ms,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *StoreQueryRequest) Reset() {
@@ -1696,15 +1699,27 @@ func (x *StoreQueryRequest) GetLocal() bool {
 	return false
 }
 
+func (x *StoreQueryRequest) GetMaxStalenessMs() int64 {
+	if x != nil {
+		return x.MaxStalenessMs
+	}
+	return 0
+}
+
 type StoreQueryReply struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Columns []string               `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`
 	Rows    []*fsmpb.Row           `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
 	Node    string                 `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
 	// answered by a follower: possibly behind the leader
-	Stale         bool `protobuf:"varint,4,opt,name=stale,proto3" json:"stale,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Stale bool `protobuf:"varint,4,opt,name=stale,proto3" json:"stale,omitempty"`
+	// the database's index, read with the rows (STO-18)
+	Index uint64 `protobuf:"varint,5,opt,name=index,proto3" json:"index,omitempty"`
+	// how far behind the leader the member is, if staleness_known
+	StalenessMs    int64 `protobuf:"varint,6,opt,name=staleness_ms,json=stalenessMs,proto3" json:"staleness_ms,omitempty"`
+	StalenessKnown bool  `protobuf:"varint,7,opt,name=staleness_known,json=stalenessKnown,proto3" json:"staleness_known,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *StoreQueryReply) Reset() {
@@ -1761,6 +1776,27 @@ func (x *StoreQueryReply) GetNode() string {
 func (x *StoreQueryReply) GetStale() bool {
 	if x != nil {
 		return x.Stale
+	}
+	return false
+}
+
+func (x *StoreQueryReply) GetIndex() uint64 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *StoreQueryReply) GetStalenessMs() int64 {
+	if x != nil {
+		return x.StalenessMs
+	}
+	return 0
+}
+
+func (x *StoreQueryReply) GetStalenessKnown() bool {
+	if x != nil {
+		return x.StalenessKnown
 	}
 	return false
 }
@@ -2055,16 +2091,20 @@ const file_proto_admin_v1_admin_proto_rawDesc = "" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x16\n" +
 	"\x06digest\x18\x02 \x01(\tR\x06digest\x12\x14\n" +
 	"\x05index\x18\x03 \x01(\x04R\x05index\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"O\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"y\n" +
 	"\x11StoreQueryRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x12\x14\n" +
-	"\x05local\x18\x03 \x01(\bR\x05local\"{\n" +
+	"\x05local\x18\x03 \x01(\bR\x05local\x12(\n" +
+	"\x10max_staleness_ms\x18\x04 \x01(\x03R\x0emaxStalenessMs\"\xdd\x01\n" +
 	"\x0fStoreQueryReply\x12\x18\n" +
 	"\acolumns\x18\x01 \x03(\tR\acolumns\x12$\n" +
 	"\x04rows\x18\x02 \x03(\v2\x10.drun.fsm.v1.RowR\x04rows\x12\x12\n" +
 	"\x04node\x18\x03 \x01(\tR\x04node\x12\x14\n" +
-	"\x05stale\x18\x04 \x01(\bR\x05stale\"k\n" +
+	"\x05stale\x18\x04 \x01(\bR\x05stale\x12\x14\n" +
+	"\x05index\x18\x05 \x01(\x04R\x05index\x12!\n" +
+	"\fstaleness_ms\x18\x06 \x01(\x03R\vstalenessMs\x12'\n" +
+	"\x0fstaleness_known\x18\a \x01(\bR\x0estalenessKnown\"k\n" +
 	"\x10StoreExecRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03sql\x18\x02 \x01(\tR\x03sql\x12\x18\n" +

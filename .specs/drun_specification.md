@@ -726,7 +726,7 @@ one verb that displays objects. All but `serve`, `version` and
 | `drun runnable show [NAME]` | incarnation, epoch, digests, health, checkpoint metadata, failures |
 | `drun runnable enable\|disable\|restart NAME` | FR-14 |
 | `drun runnable reset NAME [--checkpoint] [--completion] [--failures]` | FR-14 |
-| `drun store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16) |
+| `drun store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16); `store query --local [--max-staleness D]` on any member (STO-18) |
 | `drun checkpoint show NAME [--data]` | metadata; `--data` writes the bytes to stdout |
 | `drun version [--verbose]`, `drun completion bash\|zsh` | as in the other projects |
 

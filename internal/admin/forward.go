@@ -66,7 +66,7 @@ func (s *Server) intercept(ctx context.Context, req any, info *grpc.UnaryServerI
 	}
 	ctx = context.WithValue(ctx, callerCtx{}, who)
 	r := routes[info.FullMethod]
-	if q, ok := req.(*adminpb.StoreQueryRequest); ok && q.GetLocal() {
+	if q, ok := req.(*adminpb.StoreQueryRequest); ok && (q.GetLocal() || q.GetMaxStalenessMs() > 0) {
 		r.leader = false
 	}
 	var reply any

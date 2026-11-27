@@ -32,7 +32,7 @@ Each option can also come from the environment: `DRUN_ADMIN`,
 | `runnable reset NAME [--checkpoint] [--completion] [--failures]` | Clears the chosen parts; `--completion` lets a finished task run again |
 | `checkpoint show NAME [--data]` | The checkpoint's sequence, epoch, size and age; `--data` writes its bytes to stdout |
 | `store show [NAME]` | Size, tables and last index of the runnable's database on the node called, and every member's digest |
-| `store query NAME SQL [--local]` | A read-only statement, on the leader; `--local` on the node called, flagged as possibly behind |
+| `store query NAME SQL [--local] [--max-staleness D]` | A read-only statement, on the leader; `--local` on the node called (any member, non-voters included), flagged as possibly behind, with the index it read at and how far behind the leader the node is; `--max-staleness D` refuses the read if the node is further behind, or cannot tell |
 | `store exec NAME [SQL…] [--file F] [--disable] [--dry-run]` | An operator's batch, see below |
 | `store backup NAME FILE` | A consistent copy of the database on the node called, written to FILE (`0600`) |
 | `store reset NAME` | Drops the database, on every node; refused while the runnable runs |

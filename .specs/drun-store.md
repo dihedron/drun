@@ -1,6 +1,6 @@
 # drun: the replicated SQL store of a runnable
 
-- **Document Version:** `0.2.3` (2026-11-27): STO-16, STO-17 as built, static release build (§4.1); `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
+- **Document Version:** `0.2.4` (2026-11-27): bounded stale reads on any member (STO-18, FW-S-3); `0.2.3` (2026-11-27): STO-16, STO-17 as built, static release build (§4.1); `0.2.2` (2026-11-26): static musl build checked with zig (§4.1); `0.2.1` (2026-11-26): spike results (§7), date and time functions overridden (STO-4, EXT-S-6, OI-S-4 decided); `0.2.0` (2026-11-25): engine `mattn/go-sqlite3`, operator writes (STO-17), limits confirmed
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Parent:** `drun_specification.md` (conventions §0, identifiers, invariants, threat model)
 - **Identifiers:** `STO-nn` requirements, `INV-S-nn` invariants, `T-S-nn` threats, `AC-S-nn` scenarios, `EXT-S-nn` assumptions, `OI-S-nn` open issues
@@ -198,6 +198,20 @@ type Host interface {
   `Release` follows the batch, so the runnable restarts without a
   takeover delay. Statements are split with `sqlite3_complete`. The dry
   run uses a `VACUUM INTO` copy. `store reset` is `Reset{store}`.
+- **STO-18 (bounded stale reads, FW-S-3)** `drun store query NAME SQL
+  --local` reads on the member called, voter or non-voter, so that
+  administrators and reporting can read without loading the leader. The
+  reply carries the index the database was at, read in the same read
+  transaction as the query (one consistent state), and the member's
+  estimate of how far behind the leader it is: 0 on the leader; on a
+  follower, the time since it last heard from the leader, valid only when
+  it has applied every entry it knows to be committed (otherwise
+  unknown). `--max-staleness D` (implies `--local`) refuses the read
+  (`FailedPrecondition`, with the estimate) when the estimate is unknown
+  or above D, so that a script can try another member. The estimate is a
+  lower bound of the true lag by about one network delay: a member hears
+  of a commit one heartbeat after the leader. Runnables keep reading on
+  the leader only (STO-10).
 
 ## 4. Engine
 

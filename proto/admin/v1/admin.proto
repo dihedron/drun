@@ -215,6 +215,9 @@ message StoreQueryRequest {
   string name = 1;
   string sql = 2;
   bool local = 3;
+  // refuse the read unless this member is known to be at most this far
+  // behind the leader; implies local (STO-18). 0: no bound.
+  int64 max_staleness_ms = 4;
 }
 
 message StoreQueryReply {
@@ -223,6 +226,11 @@ message StoreQueryReply {
   string node = 3;
   // answered by a follower: possibly behind the leader
   bool stale = 4;
+  // the database's index, read with the rows (STO-18)
+  uint64 index = 5;
+  // how far behind the leader the member is, if staleness_known
+  int64 staleness_ms = 6;
+  bool staleness_known = 7;
 }
 
 message StoreExecRequest {

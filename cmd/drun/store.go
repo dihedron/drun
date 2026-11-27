@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/dihedron/drun/internal/admin"
 	"github.com/dihedron/drun/internal/admin/adminpb"
@@ -53,8 +54,9 @@ func (c *StoreShowCommand) Execute([]string) error {
 }
 
 type StoreQueryCommand struct {
-	Local bool `long:"local" description:"query the node called, possibly behind the leader, instead of the leader"`
-	Args  struct {
+	Local        bool          `long:"local" description:"query the node called, possibly behind the leader, instead of the leader"`
+	MaxStaleness time.Duration `long:"max-staleness" description:"refuse the read unless the node called is known to be at most this far behind the leader (implies --local)"`
+	Args         struct {
 		Name string `positional-arg-name:"NAME"`
 		SQL  string `positional-arg-name:"SQL"`
 	} `positional-args:"yes" required:"yes"`
@@ -62,12 +64,16 @@ type StoreQueryCommand struct {
 
 func (c *StoreQueryCommand) Execute([]string) error {
 	return call(func(ctx context.Context, cl *admin.Client) error {
-		r, err := cl.StoreQuery(ctx, &adminpb.StoreQueryRequest{Name: c.Args.Name, Sql: c.Args.SQL, Local: c.Local})
+		r, err := cl.StoreQuery(ctx, &adminpb.StoreQueryRequest{Name: c.Args.Name, Sql: c.Args.SQL, Local: c.Local, MaxStalenessMs: c.MaxStaleness.Milliseconds()})
 		if err != nil {
 			return err
 		}
 		if r.GetStale() {
-			fmt.Fprintf(os.Stderr, "warning: answered by %s, a follower: possibly behind the leader\n", r.GetNode())
+			lag := "an unknown time"
+			if r.GetStalenessKnown() {
+				lag = "about " + (time.Duration(r.GetStalenessMs()) * time.Millisecond).String()
+			}
+			fmt.Fprintf(os.Stderr, "warning: answered by %s, a follower %s behind the leader, at index %d\n", r.GetNode(), lag, r.GetIndex())
 		}
 		return output(r, func(w *tabwriter.Writer) {
 			_, _ = fmt.Fprintln(w, strings.Join(r.GetColumns(), "\t"))

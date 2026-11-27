@@ -58,6 +58,15 @@ they never see an apply's uncommitted changes. A digest is a SHA-256 of the
 schema and of every table's rows in a fixed order, with the index it is
 at: equal on every node at the same index.
 
+An operator's query on a follower (`store query --local`) reads the
+index and the rows in one read transaction, so the reply is the
+database's state at that index. The node also estimates its lag. On the
+leader the lag is 0. On a follower it is the time since the follower
+last heard from the leader, and it is unknown while committed entries
+are still waiting to be applied. The estimate is low by about one
+network delay. `--max-staleness` refuses the read when the lag is
+unknown or above the bound.
+
 ## Snapshots
 
 A snapshot carries a copy of every database, made with `VACUUM INTO` while
