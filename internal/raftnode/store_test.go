@@ -14,8 +14,11 @@ import (
 // the FSM, the SQL store and a 3-node cluster over TLS together: batches
 // replicate (INV-S-1), a stale epoch's batch is refused (INV-S-2), and a
 // restarted node applies nothing twice (INV-S-3, AC-S-3)
-func TestStoreOnCluster(t *testing.T) {
+func TestStoreOnCluster(t *testing.T) { forEachLogStore(t, testStoreOnCluster) }
+
+func testStoreOnCluster(t *testing.T, logStore string) {
 	c := newTestCluster(t, 3, 3)
+	c.logStore = logStore
 	stores := map[string]*store.Store{}
 	c.newStore = func(id string) fsm.Store {
 		s, err := store.Open(filepath.Join(c.dirs[id], "data", "store"), func(err error) { t.Errorf("%s: fatal store error: %v", id, err) }, discard)

@@ -81,8 +81,11 @@ func TestRebuildAVoter(t *testing.T) {
 }
 
 // both followers wiped at once, the leader up
-func TestRebuildTwoFollowers(t *testing.T) {
+func TestRebuildTwoFollowers(t *testing.T) { forEachLogStore(t, testRebuildTwoFollowers) }
+
+func testRebuildTwoFollowers(t *testing.T, logStore string) {
 	c := newTCluster(t, 3)
+	c.logStore = logStore
 	c.startAll()
 	l := c.checkpointing()
 	var rebuilt []string
@@ -104,8 +107,11 @@ func TestRebuildTwoFollowers(t *testing.T) {
 
 // a rebuilt node whose cluster.voters changed since the cluster was
 // created must not bootstrap a different first entry
-func TestRebuildWithEditedVoters(t *testing.T) {
+func TestRebuildWithEditedVoters(t *testing.T) { forEachLogStore(t, testRebuildWithEditedVoters) }
+
+func testRebuildWithEditedVoters(t *testing.T, logStore string) {
 	c := newTCluster(t, 3)
+	c.logStore = logStore
 	c.startAll()
 	l := c.checkpointing()
 	victim := c.follower(l)

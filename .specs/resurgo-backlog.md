@@ -6,7 +6,7 @@ is part of v1.
 | ID | Item |
 | :--- | :--- |
 | FW-1 | Placement beyond the leader: per-runnable leases in the FSM, spreading runnables over nodes |
-| FW-2 | `hashicorp/raft-wal` as the log store, after a benchmark against bbolt |
+| FW-2 | `hashicorp/raft-wal` as the log store, after a benchmark against bbolt. *Trialled 2026-11-27*: opt-in as `raft.log_store: wal` (v0.5.0, experimental upstream); `make bench-logstore` compares the two |
 | FW-3 | Export of Raft's own metrics (go-metrics) to Prometheus |
 | FW-4 | Encryption at rest of checkpoints and snapshots |
 | FW-5 | A separate UID (and systemd sandbox) per runnable |

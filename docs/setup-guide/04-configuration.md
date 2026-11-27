@@ -35,6 +35,13 @@ is not an initial voter waits until a member adds it.
 | `lease.renew_interval` | 250 ms | 400 ms |
 | `raft.snapshot_threshold` / `raft.trailing_logs` | 512 / 256 | 512 / 256 |
 
+`raft.log_store` chooses where the Raft log is kept: `bolt` (the
+default, a bbolt file) or `wal` (hashicorp/raft-wal: segment files,
+faster appends, disk space returned after compaction). raft-wal is still
+marked experimental by its authors. A node refuses to start on the other
+store's data: to change it, rebuild the node (stop it, empty its
+`data_dir`, start it).
+
 Any of them can be set on its own; the profile fills in the others. The
 node refuses timings that break the leadership lease:
 `leader_lease_timeout` and `lease.duration` must be less than

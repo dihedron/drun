@@ -23,6 +23,12 @@ const (
 	ProfileWAN = "wan"
 )
 
+// Raft log stores (ADR-1, FW-2): raft-wal is experimental, opt-in.
+const (
+	LogStoreBolt = "bolt"
+	LogStoreWAL  = "wal"
+)
+
 // Kinds of runnable (FR-7).
 const (
 	KindService = "service"
@@ -77,7 +83,9 @@ type TLS struct {
 }
 
 type Raft struct {
-	Profile            string        `yaml:"profile"`
+	Profile string `yaml:"profile"`
+	// LogStore is where the Raft log is kept: bolt (default) or wal.
+	LogStore           string        `yaml:"log_store"`
 	HeartbeatTimeout   time.Duration `yaml:"heartbeat_timeout"`
 	ElectionTimeout    time.Duration `yaml:"election_timeout"`
 	LeaderLeaseTimeout time.Duration `yaml:"leader_lease_timeout"`
@@ -187,6 +195,7 @@ func setDefault[T comparable](v *T, def T) {
 
 func (c *Config) applyDefaults() {
 	setDefault(&c.Raft.Profile, ProfileLAN)
+	setDefault(&c.Raft.LogStore, LogStoreBolt)
 	// unknown profiles are refused by Validate; LAN values meanwhile
 	hb, lease, renew := time.Second, 750*time.Millisecond, 250*time.Millisecond
 	if c.Raft.Profile == ProfileWAN {
@@ -341,6 +350,11 @@ func (c *Config) validateTimings(bad func(string, ...any)) {
 	case ProfileLAN, ProfileWAN:
 	default:
 		bad("raft.profile %q is neither %q nor %q", c.Raft.Profile, ProfileLAN, ProfileWAN)
+	}
+	switch c.Raft.LogStore {
+	case LogStoreBolt, LogStoreWAL:
+	default:
+		bad("raft.log_store %q is neither %q nor %q", c.Raft.LogStore, LogStoreBolt, LogStoreWAL)
 	}
 	if c.Raft.LeaderLeaseTimeout >= c.Raft.HeartbeatTimeout {
 		bad("raft.leader_lease_timeout %s must be less than raft.heartbeat_timeout %s", c.Raft.LeaderLeaseTimeout, c.Raft.HeartbeatTimeout)

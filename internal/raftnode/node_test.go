@@ -35,7 +35,7 @@ type nopSnapshot struct{}
 func (nopSnapshot) WriteTo(io.Writer) (int64, error) { return 0, nil }
 func (nopSnapshot) Release()                         {}
 
-func freePort(t *testing.T) string {
+func freePort(t testing.TB) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -46,7 +46,7 @@ func freePort(t *testing.T) string {
 }
 
 type testCluster struct {
-	t      *testing.T
+	t      testing.TB
 	ca     *tlstest.CA
 	ids    []string
 	addrs  map[string]string
@@ -58,11 +58,20 @@ type testCluster struct {
 	unlisted map[string]bool
 	// newStore, if set, gives each node's store (default: none)
 	newStore func(id string) fsm.Store
+	// logStore is raft.log_store (default: bolt)
+	logStore string
+}
+
+// forEachLogStore runs a test with each Raft log store (ADR-1, FW-2)
+func forEachLogStore(t *testing.T, test func(t *testing.T, logStore string)) {
+	for _, s := range []string{config.LogStoreBolt, config.LogStoreWAL} {
+		t.Run(s, func(t *testing.T) { test(t, s) })
+	}
 }
 
 // newTestCluster prepares nodes 0..n-1, the first voters of them initial
 // voters, with real certificates and ports
-func newTestCluster(t *testing.T, n, voters int) *testCluster {
+func newTestCluster(t testing.TB, n, voters int) *testCluster {
 	c := &testCluster{t: t, ca: tlstest.NewCA(t), addrs: map[string]string{}, dirs: map[string]string{}, nodes: map[string]*Node{}, fsms: map[string]*fsm.FSM{}, unlisted: map[string]bool{}}
 	for i := range n {
 		id := fmt.Sprintf("node-%d", i)
@@ -101,6 +110,9 @@ func (c *testCluster) configFor(id string) *config.Config {
 		if other == id || !c.unlisted[other] {
 			fmt.Fprintf(&b, "      %s: %q\n", other, c.identity(other))
 		}
+	}
+	if c.logStore != "" {
+		b.WriteString("raft: { log_store: " + c.logStore + " }\n")
 	}
 	path := filepath.Join(dir, "resurgo.yaml")
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
@@ -172,8 +184,11 @@ func (c *testCluster) incarnate(l *Node, runnable string) uint64 {
 	return res.Epoch
 }
 
-func TestBootstrapReplicateRestart(t *testing.T) {
+func TestBootstrapReplicateRestart(t *testing.T) { forEachLogStore(t, testBootstrapReplicateRestart) }
+
+func testBootstrapReplicateRestart(t *testing.T, logStore string) {
 	c := newTestCluster(t, 3, 3)
+	c.logStore = logStore
 	for _, id := range c.ids {
 		c.start(id)
 	}
@@ -219,8 +234,11 @@ func (c *testCluster) others(l *Node) []string {
 	return out
 }
 
-func TestMembershipAndTransfer(t *testing.T) {
+func TestMembershipAndTransfer(t *testing.T) { forEachLogStore(t, testMembershipAndTransfer) }
+
+func testMembershipAndTransfer(t *testing.T, logStore string) {
 	c := newTestCluster(t, 4, 3)
+	c.logStore = logStore
 	extra := c.ids[3]
 	c.unlisted[extra] = true
 	for _, id := range c.voters {
@@ -325,5 +343,23 @@ func TestDataDirMustBePrivate(t *testing.T) {
 	}
 	if _, err := New(cfg, fsm.New(nopStore{}, discard), nil, discard); err == nil || !strings.Contains(err.Error(), "0700") {
 		t.Fatalf("New with a 0755 data directory: %v", err)
+	}
+}
+
+// changing raft.log_store on a node with state is refused: rebuild it
+func TestLogStoreSwitchRefused(t *testing.T) {
+	for _, from := range []string{config.LogStoreBolt, config.LogStoreWAL} {
+		t.Run(from, func(t *testing.T) {
+			c := newTestCluster(t, 1, 1)
+			c.logStore = from
+			c.start("node-0")
+			c.leader(10 * time.Second)
+			c.stop("node-0")
+			c.logStore = map[string]string{config.LogStoreBolt: config.LogStoreWAL, config.LogStoreWAL: config.LogStoreBolt}[from]
+			f := fsm.New(nopStore{}, discard)
+			if _, err := New(c.configFor("node-0"), f, f.Peers, discard); err == nil || !strings.Contains(err.Error(), "log_store") {
+				t.Fatalf("switching from %s: %v", from, err)
+			}
+		})
 	}
 }

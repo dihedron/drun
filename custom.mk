@@ -129,6 +129,11 @@ stress: ## run an in-process cluster under random faults for STRESS_DURATION (de
 soak: ## the same for SOAK_DURATION (default 8h): an overnight run
 	@RESURGO_STRESS=$(SOAK_DURATION) go test -count=1 -v -run '^TestStress$$' -timeout 0 ./internal/supervisor/
 
+.PHONY: bench-logstore
+bench-logstore: ## compare the Raft log stores (bolt, wal): append latency, cluster commits, disk after compaction (FW-2)
+	@go test -run '^$$' -bench 'LogStoreAppend|ClusterApply' -benchtime 3s ./internal/raftnode/
+	@go test -run '^$$' -bench 'LogStoreDisk' -benchtime 1x ./internal/raftnode/
+
 .PHONY: package-check
 package-check: ## check the packages in dist/ (after make snapshot): static binaries, paths, owners, modes
 	@test/packaging/check.sh
