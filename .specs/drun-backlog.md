@@ -9,7 +9,7 @@ is part of v1.
 | FW-2 | `hashicorp/raft-wal` as the log store, after a benchmark against bbolt. *Done 2026-11-27*: the default for new nodes (`raft.log_store`; v0.5.0, experimental upstream); on this host 1.3–2× the commits and ~9× faster 1–4 MiB appends than bolt, 320 vs 1023 MiB after compaction; `make bench-logstore` compares the two |
 | FW-3 | Export of Raft's own metrics (go-metrics) to Prometheus. *Done 2026-11-27*: a go-metrics sink renders hashicorp/raft's, raft-boltdb's and raft-wal's metrics on `/metrics` (`drun_raft_…`, samples as histograms in ms), installed only with `metrics.listen` (§10.3, T-15) |
 | FW-4 | Encryption at rest of checkpoints and snapshots |
-| FW-5 | A separate UID (and systemd sandbox) per runnable |
+| FW-5 | A separate UID (and systemd sandbox) per runnable. *Skipped 2026-11-27* (R-3 stays accepted). Spike on systemd 255: polkit gets no unit name for `StartTransientUnit`, so letting the service user create transient units would let it start any unit as root; a shipped template `drun-runnable@.service` (`DynamicUser=yes`) does get `unit` and `verb`, so a rule can allow exactly its start and stop. The way to do it, if taken up: that template, a launcher (`drun runnable exec %i`) that receives the binary, environment and stdio over the node's socket, and a go-plugin `RunnerFunc` |
 | FW-6 | *Done in v0.2.0 of the specification*: the SQL store (`drun-store.md`) |
 | FW-7 | Signed runnable manifests, as in veho, for third-party runnables |
 | FW-8 | Non-voter promotion helpers (autopilot-like health checks). *Done 2026-11-27*: `member show` (health as the leader judges it), `member promote` and gated `member add` of a voter (healthy for `--stable`), `member demote` (FR-17); automatic promotion stays out |
