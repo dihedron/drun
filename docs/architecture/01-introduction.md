@@ -1,11 +1,11 @@
 # Introduction
 
-resurgo runs a runnable on the leader of a Raft cluster and nowhere else,
+drun runs a runnable on the leader of a Raft cluster and nowhere else,
 and runs it again on every new leader. This guide explains how: the
 replicated state machine, the cluster port, the stores, the plugin
 protocol, the supervisor and the admin API, then how to write a runnable
-and how to fence state outside resurgo. The specification
-(`.specs/resurgo_specification.md` and `.specs/resurgo-store.md` in the
+and how to fence state outside drun. The specification
+(`.specs/drun_specification.md` and `.specs/drun-store.md` in the
 source) holds the requirements, decisions and invariants these chapters
 refer to by identifier (FR-, SEC-, INV-, STO-).
 
@@ -21,5 +21,5 @@ refer to by identifier (FR-, SEC-, INV-, STO-).
 | The same result on every node | The state machine reads no clock and no randomness; the stores refuse non-deterministic SQL |
 
 The lease bounds how long a cut-off leader's runnable can go on; the
-epoch makes the rare overlap that remains harmless to resurgo's own state
+epoch makes the rare overlap that remains harmless to drun's own state
 and, with the fence of *Fencing external state*, to a database outside it.

@@ -1,5 +1,5 @@
 # Operator's Guide: title page and PDF metadata (see docs/build.sh)
 title: "Operator's Guide"
-subtitle: "Running, monitoring and repairing a resurgo cluster"
-author: "resurgo"
+subtitle: "Running, monitoring and repairing a drun cluster"
+author: "drun"
 lang: en-GB

@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/dihedron/resurgo/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm"
 )
 
 // the store's part of a snapshot is a series of frames: the length of the
@@ -227,7 +227,7 @@ func lastIndexOf(path string) (uint64, error) {
 	}
 	defer db.Close() //nolint:errcheck // read only
 	var index uint64
-	if err := db.QueryRowContext(context.Background(), "SELECT last_index FROM _resurgo_meta").Scan(&index); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT last_index FROM _drun_meta").Scan(&index); err != nil {
 		return 0, fmt.Errorf("not a store database: %w", err)
 	}
 	return index, nil

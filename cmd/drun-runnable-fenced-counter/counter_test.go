@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/runnable"
-	"github.com/dihedron/resurgo/pkg/runnable/conformance"
+	"github.com/dihedron/drun/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable/conformance"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -42,20 +42,20 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-// postgres returns a connection to the test database (RESURGO_TEST_POSTGRES,
+// postgres returns a connection to the test database (DRUN_TEST_POSTGRES,
 // set by make test-postgres), with the example's tables emptied
 func postgres(t *testing.T) (string, *pgx.Conn) {
 	t.Helper()
-	dsn := os.Getenv("RESURGO_TEST_POSTGRES")
+	dsn := os.Getenv("DRUN_TEST_POSTGRES")
 	if dsn == "" {
-		t.Skip("RESURGO_TEST_POSTGRES is not set: run make test-postgres")
+		t.Skip("DRUN_TEST_POSTGRES is not set: run make test-postgres")
 	}
 	conn, err := pgx.Connect(t.Context(), dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close(context.Background()) })
-	if _, err := conn.Exec(t.Context(), schema+"TRUNCATE resurgo_fence, counter_rows;"); err != nil {
+	if _, err := conn.Exec(t.Context(), schema+"TRUNCATE drun_fence, counter_rows;"); err != nil {
 		t.Fatal(err)
 	}
 	return dsn, conn
@@ -66,7 +66,7 @@ func TestConformance(t *testing.T) {
 	cfg := []byte(`{"dsn_file":"` + dsnFile(t, dsn) + `","interval":"20ms"}`)
 	conformance.Check(t, func(t *testing.T) runnable.Instance {
 		// every check starts at epoch 1: a fresh fence each time
-		if _, err := conn.Exec(t.Context(), "TRUNCATE resurgo_fence"); err != nil {
+		if _, err := conn.Exec(t.Context(), "TRUNCATE drun_fence"); err != nil {
 			t.Fatal(err)
 		}
 		return runnable.InProcess(counter{})

@@ -1,5 +1,5 @@
-// The replicated state machine of resurgo: the commands in the Raft log and
-// the state in its snapshots (resurgo_specification.md §9).
+// The replicated state machine of drun: the commands in the Raft log and
+// the state in its snapshots (drun_specification.md §9).
 //
 // Every timestamp is set by the leader, in Unix milliseconds: the FSM never
 // reads a clock. The messages hold no maps, so that their encoding, and so
@@ -266,7 +266,7 @@ func (*Command_SetPeer) isCommand_Command() {}
 func (*Command_RemovePeer) isCommand_Command() {}
 
 // StoreBatch is applied to the runnable's database in one transaction
-// (resurgo-store.md STO-1, STO-2).
+// (drun-store.md STO-1, STO-2).
 type StoreBatch struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Runnable      string                 `protobuf:"bytes,1,opt,name=runnable,proto3" json:"runnable,omitempty"`
@@ -2029,38 +2029,38 @@ var File_proto_fsm_v1_fsm_proto protoreflect.FileDescriptor
 
 const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\n" +
-	"\x16proto/fsm/v1/fsm.proto\x12\x0eresurgo.fsm.v1\"\xb5\x05\n" +
+	"\x16proto/fsm/v1/fsm.proto\x12\vdrun.fsm.v1\"\x94\x05\n" +
 	"\aCommand\x12%\n" +
-	"\x0eformat_version\x18\x01 \x01(\rR\rformatVersion\x12=\n" +
-	"\vstore_batch\x18\x02 \x01(\v2\x1a.resurgo.fsm.v1.StoreBatchH\x00R\n" +
-	"storeBatch\x129\n" +
-	"\tincarnate\x18\x03 \x01(\v2\x19.resurgo.fsm.v1.IncarnateH\x00R\tincarnate\x12<\n" +
+	"\x0eformat_version\x18\x01 \x01(\rR\rformatVersion\x12:\n" +
+	"\vstore_batch\x18\x02 \x01(\v2\x17.drun.fsm.v1.StoreBatchH\x00R\n" +
+	"storeBatch\x126\n" +
+	"\tincarnate\x18\x03 \x01(\v2\x16.drun.fsm.v1.IncarnateH\x00R\tincarnate\x129\n" +
 	"\n" +
-	"checkpoint\x18\x04 \x01(\v2\x1a.resurgo.fsm.v1.CheckpointH\x00R\n" +
-	"checkpoint\x123\n" +
-	"\arelease\x18\x05 \x01(\v2\x17.resurgo.fsm.v1.ReleaseH\x00R\arelease\x126\n" +
-	"\bcomplete\x18\x06 \x01(\v2\x18.resurgo.fsm.v1.CompleteH\x00R\bcomplete\x12*\n" +
-	"\x04fail\x18\a \x01(\v2\x14.resurgo.fsm.v1.FailH\x00R\x04fail\x12@\n" +
-	"\fset_disabled\x18\b \x01(\v2\x1b.resurgo.fsm.v1.SetDisabledH\x00R\vsetDisabled\x12>\n" +
-	"\x0ereset_runnable\x18\t \x01(\v2\x15.resurgo.fsm.v1.ResetH\x00R\rresetRunnable\x120\n" +
+	"checkpoint\x18\x04 \x01(\v2\x17.drun.fsm.v1.CheckpointH\x00R\n" +
+	"checkpoint\x120\n" +
+	"\arelease\x18\x05 \x01(\v2\x14.drun.fsm.v1.ReleaseH\x00R\arelease\x123\n" +
+	"\bcomplete\x18\x06 \x01(\v2\x15.drun.fsm.v1.CompleteH\x00R\bcomplete\x12'\n" +
+	"\x04fail\x18\a \x01(\v2\x11.drun.fsm.v1.FailH\x00R\x04fail\x12=\n" +
+	"\fset_disabled\x18\b \x01(\v2\x18.drun.fsm.v1.SetDisabledH\x00R\vsetDisabled\x12;\n" +
+	"\x0ereset_runnable\x18\t \x01(\v2\x12.drun.fsm.v1.ResetH\x00R\rresetRunnable\x12-\n" +
 	"\x06forget\x18\n" +
-	" \x01(\v2\x16.resurgo.fsm.v1.ForgetH\x00R\x06forget\x124\n" +
-	"\bset_peer\x18\v \x01(\v2\x17.resurgo.fsm.v1.SetPeerH\x00R\asetPeer\x12=\n" +
-	"\vremove_peer\x18\f \x01(\v2\x1a.resurgo.fsm.v1.RemovePeerH\x00R\n" +
+	" \x01(\v2\x13.drun.fsm.v1.ForgetH\x00R\x06forget\x121\n" +
+	"\bset_peer\x18\v \x01(\v2\x14.drun.fsm.v1.SetPeerH\x00R\asetPeer\x12:\n" +
+	"\vremove_peer\x18\f \x01(\v2\x17.drun.fsm.v1.RemovePeerH\x00R\n" +
 	"removePeerB\t\n" +
-	"\acommand\"\x89\x01\n" +
+	"\acommand\"\x86\x01\n" +
 	"\n" +
 	"StoreBatch\x12\x1a\n" +
 	"\brunnable\x18\x01 \x01(\tR\brunnable\x12\x14\n" +
-	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\x129\n" +
+	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\x126\n" +
 	"\n" +
-	"statements\x18\x03 \x03(\v2\x19.resurgo.fsm.v1.StatementR\n" +
+	"statements\x18\x03 \x03(\v2\x16.drun.fsm.v1.StatementR\n" +
 	"statements\x12\x0e\n" +
-	"\x02at\x18\x04 \x01(\x03R\x02at\"}\n" +
+	"\x02at\x18\x04 \x01(\x03R\x02at\"w\n" +
 	"\tStatement\x12\x10\n" +
-	"\x03sql\x18\x01 \x01(\tR\x03sql\x12)\n" +
-	"\x04args\x18\x02 \x03(\v2\x15.resurgo.fsm.v1.ValueR\x04args\x123\n" +
-	"\x06expect\x18\x03 \x01(\v2\x1b.resurgo.fsm.v1.ExpectationR\x06expect\"\xa0\x01\n" +
+	"\x03sql\x18\x01 \x01(\tR\x03sql\x12&\n" +
+	"\x04args\x18\x02 \x03(\v2\x12.drun.fsm.v1.ValueR\x04args\x120\n" +
+	"\x06expect\x18\x03 \x01(\v2\x18.drun.fsm.v1.ExpectationR\x06expect\"\xa0\x01\n" +
 	"\x05Value\x12\x1a\n" +
 	"\ainteger\x18\x01 \x01(\x03H\x00R\ainteger\x12\x14\n" +
 	"\x04real\x18\x02 \x01(\x01H\x00R\x04real\x12\x14\n" +
@@ -2073,27 +2073,27 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\rrows_affected\x18\x01 \x01(\x03H\x00R\frowsAffected\x88\x01\x01\x12/\n" +
 	"\x11min_rows_affected\x18\x02 \x01(\x03H\x01R\x0fminRowsAffected\x88\x01\x01B\x10\n" +
 	"\x0e_rows_affectedB\x14\n" +
-	"\x12_min_rows_affected\"z\n" +
-	"\vBatchResult\x129\n" +
-	"\aresults\x18\x01 \x03(\v2\x1f.resurgo.fsm.v1.StatementResultR\aresults\x120\n" +
-	"\x05error\x18\x02 \x01(\v2\x1a.resurgo.fsm.v1.BatchErrorR\x05error\"\x85\x01\n" +
+	"\x12_min_rows_affected\"t\n" +
+	"\vBatchResult\x126\n" +
+	"\aresults\x18\x01 \x03(\v2\x1c.drun.fsm.v1.StatementResultR\aresults\x12-\n" +
+	"\x05error\x18\x02 \x01(\v2\x17.drun.fsm.v1.BatchErrorR\x05error\"\x82\x01\n" +
 	"\x0fStatementResult\x12#\n" +
 	"\rrows_affected\x18\x01 \x01(\x03R\frowsAffected\x12$\n" +
-	"\x0elast_insert_id\x18\x02 \x01(\x03R\flastInsertId\x12'\n" +
-	"\x04rows\x18\x03 \x03(\v2\x13.resurgo.fsm.v1.RowR\x04rows\"4\n" +
-	"\x03Row\x12-\n" +
-	"\x06values\x18\x01 \x03(\v2\x15.resurgo.fsm.v1.ValueR\x06values\"X\n" +
+	"\x0elast_insert_id\x18\x02 \x01(\x03R\flastInsertId\x12$\n" +
+	"\x04rows\x18\x03 \x03(\v2\x10.drun.fsm.v1.RowR\x04rows\"1\n" +
+	"\x03Row\x12*\n" +
+	"\x06values\x18\x01 \x03(\v2\x12.drun.fsm.v1.ValueR\x06values\"X\n" +
 	"\n" +
 	"BatchError\x12\x1c\n" +
 	"\tstatement\x18\x01 \x01(\x05R\tstatement\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\x05R\x04code\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"\xf1\x01\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xee\x01\n" +
 	"\tIncarnate\x12\x1a\n" +
 	"\brunnable\x18\x01 \x01(\tR\brunnable\x12\x12\n" +
 	"\x04node\x18\x02 \x01(\tR\x04node\x12#\n" +
 	"\rbinary_sha256\x18\x03 \x01(\fR\fbinarySha256\x12#\n" +
-	"\rconfig_sha256\x18\x04 \x01(\fR\fconfigSha256\x12>\n" +
-	"\fstore_limits\x18\x05 \x01(\v2\x1b.resurgo.fsm.v1.StoreLimitsR\vstoreLimits\x12\x0e\n" +
+	"\rconfig_sha256\x18\x04 \x01(\fR\fconfigSha256\x12;\n" +
+	"\fstore_limits\x18\x05 \x01(\v2\x18.drun.fsm.v1.StoreLimitsR\vstoreLimits\x12\x0e\n" +
 	"\x02at\x18\x06 \x01(\x03R\x02at\x12\x1a\n" +
 	"\boperator\x18\a \x01(\tR\boperator\"\x81\x01\n" +
 	"\vStoreLimits\x12\x1b\n" +
@@ -2142,26 +2142,26 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\bidentity\x18\x02 \x01(\tR\bidentity\"\x1c\n" +
 	"\n" +
 	"RemovePeer\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xb7\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xb1\x01\n" +
 	"\x05State\x12%\n" +
 	"\x0eformat_version\x18\x01 \x01(\rR\rformatVersion\x12#\n" +
-	"\repoch_counter\x18\x02 \x01(\x04R\fepochCounter\x126\n" +
-	"\trunnables\x18\x03 \x03(\v2\x18.resurgo.fsm.v1.RunnableR\trunnables\x12*\n" +
-	"\x05peers\x18\x04 \x03(\v2\x14.resurgo.fsm.v1.PeerR\x05peers\"2\n" +
+	"\repoch_counter\x18\x02 \x01(\x04R\fepochCounter\x123\n" +
+	"\trunnables\x18\x03 \x03(\v2\x15.drun.fsm.v1.RunnableR\trunnables\x12'\n" +
+	"\x05peers\x18\x04 \x03(\v2\x11.drun.fsm.v1.PeerR\x05peers\"2\n" +
 	"\x04Peer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\bidentity\x18\x02 \x01(\tR\bidentity\"\x82\x03\n" +
+	"\bidentity\x18\x02 \x01(\tR\bidentity\"\xf3\x02\n" +
 	"\bRunnable\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x125\n" +
-	"\acurrent\x18\x02 \x01(\v2\x1b.resurgo.fsm.v1.IncarnationR\acurrent\x12\x1a\n" +
-	"\breleased\x18\x03 \x01(\bR\breleased\x12>\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
+	"\acurrent\x18\x02 \x01(\v2\x18.drun.fsm.v1.IncarnationR\acurrent\x12\x1a\n" +
+	"\breleased\x18\x03 \x01(\bR\breleased\x12;\n" +
 	"\n" +
-	"checkpoint\x18\x04 \x01(\v2\x1e.resurgo.fsm.v1.CheckpointMetaR\n" +
-	"checkpoint\x12>\n" +
-	"\fstore_limits\x18\x05 \x01(\v2\x1b.resurgo.fsm.v1.StoreLimitsR\vstoreLimits\x128\n" +
-	"\tcompleted\x18\x06 \x01(\v2\x1a.resurgo.fsm.v1.CompletionR\tcompleted\x12\x1a\n" +
-	"\bdisabled\x18\a \x01(\bR\bdisabled\x129\n" +
-	"\bfailures\x18\b \x03(\v2\x1d.resurgo.fsm.v1.FailureRecordR\bfailures\"\xd0\x01\n" +
+	"checkpoint\x18\x04 \x01(\v2\x1b.drun.fsm.v1.CheckpointMetaR\n" +
+	"checkpoint\x12;\n" +
+	"\fstore_limits\x18\x05 \x01(\v2\x18.drun.fsm.v1.StoreLimitsR\vstoreLimits\x125\n" +
+	"\tcompleted\x18\x06 \x01(\v2\x17.drun.fsm.v1.CompletionR\tcompleted\x12\x1a\n" +
+	"\bdisabled\x18\a \x01(\bR\bdisabled\x126\n" +
+	"\bfailures\x18\b \x03(\v2\x1a.drun.fsm.v1.FailureRecordR\bfailures\"\xd0\x01\n" +
 	"\vIncarnation\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12\x12\n" +
 	"\x04term\x18\x02 \x01(\x04R\x04term\x12\x12\n" +
@@ -2185,7 +2185,7 @@ const file_proto_fsm_v1_fsm_proto_rawDesc = "" +
 	"\vconsecutive\x18\x02 \x01(\x04R\vconsecutive\x12\x17\n" +
 	"\alast_at\x18\x03 \x01(\x03R\x06lastAt\x12\x1f\n" +
 	"\vlast_reason\x18\x04 \x01(\tR\n" +
-	"lastReasonB0Z.github.com/dihedron/resurgo/internal/fsm/fsmpbb\x06proto3"
+	"lastReasonB-Z+github.com/dihedron/drun/internal/fsm/fsmpbb\x06proto3"
 
 var (
 	file_proto_fsm_v1_fsm_proto_rawDescOnce sync.Once
@@ -2201,61 +2201,61 @@ func file_proto_fsm_v1_fsm_proto_rawDescGZIP() []byte {
 
 var file_proto_fsm_v1_fsm_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_proto_fsm_v1_fsm_proto_goTypes = []any{
-	(*Command)(nil),         // 0: resurgo.fsm.v1.Command
-	(*StoreBatch)(nil),      // 1: resurgo.fsm.v1.StoreBatch
-	(*Statement)(nil),       // 2: resurgo.fsm.v1.Statement
-	(*Value)(nil),           // 3: resurgo.fsm.v1.Value
-	(*Expectation)(nil),     // 4: resurgo.fsm.v1.Expectation
-	(*BatchResult)(nil),     // 5: resurgo.fsm.v1.BatchResult
-	(*StatementResult)(nil), // 6: resurgo.fsm.v1.StatementResult
-	(*Row)(nil),             // 7: resurgo.fsm.v1.Row
-	(*BatchError)(nil),      // 8: resurgo.fsm.v1.BatchError
-	(*Incarnate)(nil),       // 9: resurgo.fsm.v1.Incarnate
-	(*StoreLimits)(nil),     // 10: resurgo.fsm.v1.StoreLimits
-	(*Checkpoint)(nil),      // 11: resurgo.fsm.v1.Checkpoint
-	(*Release)(nil),         // 12: resurgo.fsm.v1.Release
-	(*Complete)(nil),        // 13: resurgo.fsm.v1.Complete
-	(*Fail)(nil),            // 14: resurgo.fsm.v1.Fail
-	(*SetDisabled)(nil),     // 15: resurgo.fsm.v1.SetDisabled
-	(*Reset)(nil),           // 16: resurgo.fsm.v1.Reset
-	(*Forget)(nil),          // 17: resurgo.fsm.v1.Forget
-	(*SetPeer)(nil),         // 18: resurgo.fsm.v1.SetPeer
-	(*RemovePeer)(nil),      // 19: resurgo.fsm.v1.RemovePeer
-	(*State)(nil),           // 20: resurgo.fsm.v1.State
-	(*Peer)(nil),            // 21: resurgo.fsm.v1.Peer
-	(*Runnable)(nil),        // 22: resurgo.fsm.v1.Runnable
-	(*Incarnation)(nil),     // 23: resurgo.fsm.v1.Incarnation
-	(*CheckpointMeta)(nil),  // 24: resurgo.fsm.v1.CheckpointMeta
-	(*Completion)(nil),      // 25: resurgo.fsm.v1.Completion
-	(*FailureRecord)(nil),   // 26: resurgo.fsm.v1.FailureRecord
+	(*Command)(nil),         // 0: drun.fsm.v1.Command
+	(*StoreBatch)(nil),      // 1: drun.fsm.v1.StoreBatch
+	(*Statement)(nil),       // 2: drun.fsm.v1.Statement
+	(*Value)(nil),           // 3: drun.fsm.v1.Value
+	(*Expectation)(nil),     // 4: drun.fsm.v1.Expectation
+	(*BatchResult)(nil),     // 5: drun.fsm.v1.BatchResult
+	(*StatementResult)(nil), // 6: drun.fsm.v1.StatementResult
+	(*Row)(nil),             // 7: drun.fsm.v1.Row
+	(*BatchError)(nil),      // 8: drun.fsm.v1.BatchError
+	(*Incarnate)(nil),       // 9: drun.fsm.v1.Incarnate
+	(*StoreLimits)(nil),     // 10: drun.fsm.v1.StoreLimits
+	(*Checkpoint)(nil),      // 11: drun.fsm.v1.Checkpoint
+	(*Release)(nil),         // 12: drun.fsm.v1.Release
+	(*Complete)(nil),        // 13: drun.fsm.v1.Complete
+	(*Fail)(nil),            // 14: drun.fsm.v1.Fail
+	(*SetDisabled)(nil),     // 15: drun.fsm.v1.SetDisabled
+	(*Reset)(nil),           // 16: drun.fsm.v1.Reset
+	(*Forget)(nil),          // 17: drun.fsm.v1.Forget
+	(*SetPeer)(nil),         // 18: drun.fsm.v1.SetPeer
+	(*RemovePeer)(nil),      // 19: drun.fsm.v1.RemovePeer
+	(*State)(nil),           // 20: drun.fsm.v1.State
+	(*Peer)(nil),            // 21: drun.fsm.v1.Peer
+	(*Runnable)(nil),        // 22: drun.fsm.v1.Runnable
+	(*Incarnation)(nil),     // 23: drun.fsm.v1.Incarnation
+	(*CheckpointMeta)(nil),  // 24: drun.fsm.v1.CheckpointMeta
+	(*Completion)(nil),      // 25: drun.fsm.v1.Completion
+	(*FailureRecord)(nil),   // 26: drun.fsm.v1.FailureRecord
 }
 var file_proto_fsm_v1_fsm_proto_depIdxs = []int32{
-	1,  // 0: resurgo.fsm.v1.Command.store_batch:type_name -> resurgo.fsm.v1.StoreBatch
-	9,  // 1: resurgo.fsm.v1.Command.incarnate:type_name -> resurgo.fsm.v1.Incarnate
-	11, // 2: resurgo.fsm.v1.Command.checkpoint:type_name -> resurgo.fsm.v1.Checkpoint
-	12, // 3: resurgo.fsm.v1.Command.release:type_name -> resurgo.fsm.v1.Release
-	13, // 4: resurgo.fsm.v1.Command.complete:type_name -> resurgo.fsm.v1.Complete
-	14, // 5: resurgo.fsm.v1.Command.fail:type_name -> resurgo.fsm.v1.Fail
-	15, // 6: resurgo.fsm.v1.Command.set_disabled:type_name -> resurgo.fsm.v1.SetDisabled
-	16, // 7: resurgo.fsm.v1.Command.reset_runnable:type_name -> resurgo.fsm.v1.Reset
-	17, // 8: resurgo.fsm.v1.Command.forget:type_name -> resurgo.fsm.v1.Forget
-	18, // 9: resurgo.fsm.v1.Command.set_peer:type_name -> resurgo.fsm.v1.SetPeer
-	19, // 10: resurgo.fsm.v1.Command.remove_peer:type_name -> resurgo.fsm.v1.RemovePeer
-	2,  // 11: resurgo.fsm.v1.StoreBatch.statements:type_name -> resurgo.fsm.v1.Statement
-	3,  // 12: resurgo.fsm.v1.Statement.args:type_name -> resurgo.fsm.v1.Value
-	4,  // 13: resurgo.fsm.v1.Statement.expect:type_name -> resurgo.fsm.v1.Expectation
-	6,  // 14: resurgo.fsm.v1.BatchResult.results:type_name -> resurgo.fsm.v1.StatementResult
-	8,  // 15: resurgo.fsm.v1.BatchResult.error:type_name -> resurgo.fsm.v1.BatchError
-	7,  // 16: resurgo.fsm.v1.StatementResult.rows:type_name -> resurgo.fsm.v1.Row
-	3,  // 17: resurgo.fsm.v1.Row.values:type_name -> resurgo.fsm.v1.Value
-	10, // 18: resurgo.fsm.v1.Incarnate.store_limits:type_name -> resurgo.fsm.v1.StoreLimits
-	22, // 19: resurgo.fsm.v1.State.runnables:type_name -> resurgo.fsm.v1.Runnable
-	21, // 20: resurgo.fsm.v1.State.peers:type_name -> resurgo.fsm.v1.Peer
-	23, // 21: resurgo.fsm.v1.Runnable.current:type_name -> resurgo.fsm.v1.Incarnation
-	24, // 22: resurgo.fsm.v1.Runnable.checkpoint:type_name -> resurgo.fsm.v1.CheckpointMeta
-	10, // 23: resurgo.fsm.v1.Runnable.store_limits:type_name -> resurgo.fsm.v1.StoreLimits
-	25, // 24: resurgo.fsm.v1.Runnable.completed:type_name -> resurgo.fsm.v1.Completion
-	26, // 25: resurgo.fsm.v1.Runnable.failures:type_name -> resurgo.fsm.v1.FailureRecord
+	1,  // 0: drun.fsm.v1.Command.store_batch:type_name -> drun.fsm.v1.StoreBatch
+	9,  // 1: drun.fsm.v1.Command.incarnate:type_name -> drun.fsm.v1.Incarnate
+	11, // 2: drun.fsm.v1.Command.checkpoint:type_name -> drun.fsm.v1.Checkpoint
+	12, // 3: drun.fsm.v1.Command.release:type_name -> drun.fsm.v1.Release
+	13, // 4: drun.fsm.v1.Command.complete:type_name -> drun.fsm.v1.Complete
+	14, // 5: drun.fsm.v1.Command.fail:type_name -> drun.fsm.v1.Fail
+	15, // 6: drun.fsm.v1.Command.set_disabled:type_name -> drun.fsm.v1.SetDisabled
+	16, // 7: drun.fsm.v1.Command.reset_runnable:type_name -> drun.fsm.v1.Reset
+	17, // 8: drun.fsm.v1.Command.forget:type_name -> drun.fsm.v1.Forget
+	18, // 9: drun.fsm.v1.Command.set_peer:type_name -> drun.fsm.v1.SetPeer
+	19, // 10: drun.fsm.v1.Command.remove_peer:type_name -> drun.fsm.v1.RemovePeer
+	2,  // 11: drun.fsm.v1.StoreBatch.statements:type_name -> drun.fsm.v1.Statement
+	3,  // 12: drun.fsm.v1.Statement.args:type_name -> drun.fsm.v1.Value
+	4,  // 13: drun.fsm.v1.Statement.expect:type_name -> drun.fsm.v1.Expectation
+	6,  // 14: drun.fsm.v1.BatchResult.results:type_name -> drun.fsm.v1.StatementResult
+	8,  // 15: drun.fsm.v1.BatchResult.error:type_name -> drun.fsm.v1.BatchError
+	7,  // 16: drun.fsm.v1.StatementResult.rows:type_name -> drun.fsm.v1.Row
+	3,  // 17: drun.fsm.v1.Row.values:type_name -> drun.fsm.v1.Value
+	10, // 18: drun.fsm.v1.Incarnate.store_limits:type_name -> drun.fsm.v1.StoreLimits
+	22, // 19: drun.fsm.v1.State.runnables:type_name -> drun.fsm.v1.Runnable
+	21, // 20: drun.fsm.v1.State.peers:type_name -> drun.fsm.v1.Peer
+	23, // 21: drun.fsm.v1.Runnable.current:type_name -> drun.fsm.v1.Incarnation
+	24, // 22: drun.fsm.v1.Runnable.checkpoint:type_name -> drun.fsm.v1.CheckpointMeta
+	10, // 23: drun.fsm.v1.Runnable.store_limits:type_name -> drun.fsm.v1.StoreLimits
+	25, // 24: drun.fsm.v1.Runnable.completed:type_name -> drun.fsm.v1.Completion
+	26, // 25: drun.fsm.v1.Runnable.failures:type_name -> drun.fsm.v1.FailureRecord
 	26, // [26:26] is the sub-list for method output_type
 	26, // [26:26] is the sub-list for method input_type
 	26, // [26:26] is the sub-list for extension type_name

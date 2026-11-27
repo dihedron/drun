@@ -10,8 +10,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
-	"github.com/dihedron/resurgo/internal/raftnode"
+	"github.com/dihedron/drun/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/raftnode"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

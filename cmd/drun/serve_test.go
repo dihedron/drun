@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/tlstest"
+	"github.com/dihedron/drun/internal/tlstest"
 )
 
 // a one-node cluster: serve, the CLI against its socket, then SIGTERM
 func TestServeAndCLI(t *testing.T) {
 	dir := t.TempDir()
 	ca := tlstest.NewCA(t)
-	files := ca.WriteFiles(t, dir, "spiffe://example.org/resurgo/solo")
+	files := ca.WriteFiles(t, dir, "spiffe://example.org/drun/solo")
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -41,15 +41,15 @@ cluster:
   bind: %s
   advertise: %s
   voters: [{ id: solo, address: %s }]
-  tls: { cert: %s, key: %s, ca: %s, peers: { solo: "spiffe://example.org/resurgo/solo" } }
+  tls: { cert: %s, key: %s, ca: %s, peers: { solo: "spiffe://example.org/drun/solo" } }
 admin: { socket: %s, allowed_groups: [%q] }
 `, filepath.Join(dir, "data"), addr, addr, addr, files.Cert, files.Key, files.CA, sock, g.Name)
-	path := filepath.Join(dir, "resurgo.yaml")
+	path := filepath.Join(dir, "drun.yaml")
 	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv(envName("LOG_LEVEL"), "off")
-	t.Setenv("RESURGO_ADMIN", "unix://"+sock)
+	t.Setenv("DRUN_ADMIN", "unix://"+sock)
 
 	// serve runs on its own: run() sets the global options the CLI calls use
 	served := make(chan error, 1)
@@ -71,7 +71,7 @@ admin: { socket: %s, allowed_groups: [%q] }
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if out, code := cli("cluster", "show"); code != 0 || !strings.Contains(out, "IDENTITY") || !strings.Contains(out, "spiffe://example.org/resurgo/solo") {
+	if out, code := cli("cluster", "show"); code != 0 || !strings.Contains(out, "IDENTITY") || !strings.Contains(out, "spiffe://example.org/drun/solo") {
 		t.Fatalf("cluster show: %d\n%s", code, out)
 	}
 	out, code := cli("--json", "cluster", "show")

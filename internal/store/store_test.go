@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -97,7 +97,7 @@ func TestBatchAtomicWithResults(t *testing.T) {
 	h := newHarness(t)
 	h.ok("svc", stmt("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT, at INTEGER, e INTEGER)"))
 	res := h.ok("svc",
-		stmt("INSERT INTO t (v, at, e) VALUES (?, resurgo_now(), resurgo_epoch())", "a"),
+		stmt("INSERT INTO t (v, at, e) VALUES (?, drun_now(), drun_epoch())", "a"),
 		stmt("INSERT INTO t (v) VALUES (?), (?) RETURNING id, v", "b", "c"),
 		expect(stmt("UPDATE t SET v = upper(v) WHERE v IN ('a', 'b')"), 2),
 	)
@@ -108,7 +108,7 @@ func TestBatchAtomicWithResults(t *testing.T) {
 	}
 	_, rows, err := h.s.Query(t.Context(), "svc", "SELECT at, e FROM t WHERE id = 1")
 	if err != nil || rows[0][0] != int64(1_700_000_000_000) || rows[0][1] != int64(7) {
-		t.Fatalf("resurgo_now/resurgo_epoch: %v %v", rows, err)
+		t.Fatalf("drun_now/drun_epoch: %v %v", rows, err)
 	}
 
 	// a failing statement or expectation rolls back the whole batch
@@ -145,9 +145,9 @@ func TestDeterminismRules(t *testing.T) {
 		"PRAGMA journal_mode = DELETE",
 		"PRAGMA cache_size",
 		"SELECT load_extension('x')",
-		"SELECT * FROM _resurgo_meta",
-		"UPDATE _resurgo_checkpoint SET seq = 9",
-		"CREATE TABLE _resurgo_mine (x)",
+		"SELECT * FROM _drun_meta",
+		"UPDATE _drun_checkpoint SET seq = 9",
+		"CREATE TABLE _drun_mine (x)",
 		"WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) INSERT INTO t SELECT x FROM c",
 	} {
 		ea := a.exec("svc", nil, stmt(q)).GetError()
@@ -241,7 +241,7 @@ func TestIsolation(t *testing.T) {
 	if _, _, err := h.s.Query(t.Context(), "b", "SELECT * FROM secret"); err == nil {
 		t.Fatal("b read a's table")
 	}
-	if _, _, err := h.s.Query(t.Context(), "a", "SELECT * FROM _resurgo_meta"); err == nil {
+	if _, _, err := h.s.Query(t.Context(), "a", "SELECT * FROM _drun_meta"); err == nil {
 		t.Fatal("a read a reserved table")
 	}
 	if _, _, err := h.s.Query(t.Context(), "a", "DELETE FROM secret"); err == nil {

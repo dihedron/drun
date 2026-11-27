@@ -7,18 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable"
 )
 
-// TestStress runs a cluster under random faults for RESURGO_STRESS (a
+// TestStress runs a cluster under random faults for DRUN_STRESS (a
 // duration: "make stress", "make soak"): partitions and heals of random
 // nodes, planned handovers, and a runnable that fails at random. The
 // tracker checks throughout that no two incarnations act at once, that
 // epochs increase and that no acknowledged checkpoint is lost.
 func TestStress(t *testing.T) {
-	d, err := time.ParseDuration(os.Getenv("RESURGO_STRESS"))
+	d, err := time.ParseDuration(os.Getenv("DRUN_STRESS"))
 	if err != nil {
-		t.Skip("set RESURGO_STRESS to a duration to run")
+		t.Skip("set DRUN_STRESS to a duration to run")
 	}
 	c := newCluster(t, 3, testSpec(behaviour{Mode: "flaky", Store: true}, func(s *Spec) { s.Restart.HandoverAfter = 4 }))
 	c.leader(5 * time.Second)

@@ -31,18 +31,18 @@
 * **Logging:** Use structured logging (with `log/slog`) with contextual keys (`node_id`, `runnable`, `epoch`, `term`). Never log raw secrets, tokens, or PII.
 
 ## Project Structure Overview
-* `cmd/` - Application entrypoints and main binaries: `resurgo` (the node and its CLI) and the example runnables (`resurgo-runnable-*`); for details on how the application command lines are structured, see the paragraph on command line arguments
+* `cmd/` - Application entrypoints and main binaries: `drun` (the node and its CLI) and the example runnables (`drun-runnable-*`); for details on how the application command lines are structured, see the paragraph on command line arguments
 * `internal/` - Private application and library code (the Raft node and its FSM, the supervisor, the admin API, the configuration).
 * `pkg/` - Public library code: the build metadata injected at link time (`pkg/metadata`) and the runnable SDK (`pkg/runnable`: the interface, the go-plugin loader and server, the conformance kit), which third-party runnables import.
-* `.specs/` - Feature design documents and architectural specifications; start from `resurgo_specification.md`, and see `resurgo-backlog.md` for the work agreed for later.
+* `.specs/` - Feature design documents and architectural specifications; start from `drun_specification.md`, and see `drun-backlog.md` for the work agreed for later.
 * `test/` - Test tooling: the LXD lab (`test/lab`) and its fault injection.
 * `docs/` - The Setup, Operator's and Architecture and Design guides, in Markdown (rule 12).
 * `packaging/` - Install scripts, the service unit and the public packaging key.
 * `*.mk` - The build: `go.mk`, `help.mk` and `release.mk` are identical in ligo, netcheck and veho (keep them in sync with those copies); `Makefile` and `custom.mk` hold this project's settings and targets. Run `make help`.
 
 ## Project Notes
-* **Consensus:** `hashicorp/raft`, pinned; every behaviour the design relies on is an `EXT-nn` assumption in `.specs/resurgo_specification.md` §12, checked by the spike's regression tests; recheck them on every version bump.
-* **The FSM does very little:** it holds the fencing epoch and the current incarnations, plus each runnable's store, a SQLite database (`mattn/go-sqlite3`: the only cgo in the node, built statically against musl) written only by fenced batches (`.specs/resurgo-store.md`). `Apply` is deterministic: no clock, no randomness, no I/O but the store files; the leader puts timestamps in the commands, and the store refuses non-deterministic SQL. Every batch is applied exactly once, tracked by the last applied index inside the database itself.
+* **Consensus:** `hashicorp/raft`, pinned; every behaviour the design relies on is an `EXT-nn` assumption in `.specs/drun_specification.md` §12, checked by the spike's regression tests; recheck them on every version bump.
+* **The FSM does very little:** it holds the fencing epoch and the current incarnations, plus each runnable's store, a SQLite database (`mattn/go-sqlite3`: the only cgo in the node, built statically against musl) written only by fenced batches (`.specs/drun-store.md`). `Apply` is deterministic: no clock, no randomness, no I/O but the store files; the leader puts timestamps in the commands, and the store refuses non-deterministic SQL. Every batch is applied exactly once, tracked by the last applied index inside the database itself.
 * **Schema migrations belong to the runnable:** it migrates its own store at the start of `Run`, one version per batch (`pkg/runnable/migrate`).
 * **Fencing:** a runnable is started only after its incarnation's epoch is committed; every checkpoint carries the epoch and the FSM refuses a stale one (INV-3). Stateful runnables pass the epoch to their external state store; the overlap window between two leaders is reduced, never assumed away.
 * **Plugins:** `hashicorp/go-plugin` over gRPC with AutoMTLS; one fresh process per incarnation, killed when leadership is lost; only pinned binaries (SHA-256 in the configuration) are executed.

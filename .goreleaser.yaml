@@ -8,11 +8,11 @@
 
 version: 2
 
-project_name: resurgo
+project_name: drun
 
 env:
   # the node links SQLite (cgo), statically against musl through zig cc
-  # (resurgo-store.md §4.1); ZIG names another zig than the one on PATH
+  # (drun-store.md §4.1); ZIG names another zig than the one on PATH
   - CGO_ENABLED=1
 #  - _GO_MK_VARS_NAME={{ .Env._GO_MK_VARS_NAME}}
 #  - _GO_MK_VARS_METADATA_PACKAGE={{ .Env._GO_MK_VARS_METADATA_PACKAGE }}
@@ -22,13 +22,13 @@ before:
     - go mod tidy
     - go generate ./...
     # the completion scripts come from the binary, so that they always match it
-    - sh -c 'mkdir -p build/completions && go run ./cmd/resurgo completion bash >build/completions/resurgo && go run ./cmd/resurgo completion zsh >build/completions/_resurgo'
+    - sh -c 'mkdir -p build/completions && go run ./cmd/drun completion bash >build/completions/drun && go run ./cmd/drun completion zsh >build/completions/_drun'
 
 builds:
-  - id: resurgo
-    main: ./cmd/resurgo
-    binary: resurgo
-    # Linux only, statically linked against musl (NFR-6, resurgo-store.md §4.1)
+  - id: drun
+    main: ./cmd/drun
+    binary: drun
+    # Linux only, statically linked against musl (NFR-6, drun-store.md §4.1)
     goos:
       - linux
     goarch:
@@ -87,10 +87,10 @@ builds:
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.GoReleaserVersion={{.Env._GORELEASER_VERSION}}'
     mod_timestamp: "{{ .CommitTimestamp }}"
 
-  # the example runnables: the SDK only, no cgo (resurgo-store.md §4.1)
+  # the example runnables: the SDK only, no cgo (drun-store.md §4.1)
   - id: ticker
-    main: ./cmd/resurgo-runnable-ticker
-    binary: resurgo-runnable-ticker
+    main: ./cmd/drun-runnable-ticker
+    binary: drun-runnable-ticker
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64]
@@ -100,8 +100,8 @@ builds:
       - -X '{{.Env._GO_MK_VARS_METADATA_PACKAGE}}.Version={{.Version}}'
     mod_timestamp: "{{ .CommitTimestamp }}"
   - id: fenced-counter
-    main: ./cmd/resurgo-runnable-fenced-counter
-    binary: resurgo-runnable-fenced-counter
+    main: ./cmd/drun-runnable-fenced-counter
+    binary: drun-runnable-fenced-counter
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64]
@@ -112,13 +112,13 @@ builds:
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: resurgo
+  - id: drun
     ids:
-      - resurgo
+      - drun
     formats:
       - tar.gz
     name_template: >-
-      resurgo_
+      drun_
       {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
@@ -134,14 +134,14 @@ archives:
     ids: [ticker, fenced-counter]
     formats: [tar.gz]
     name_template: >-
-      resurgo-runnable-examples_
+      drun-runnable-examples_
       {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
 
 upx:
   - enabled: false
-    ids: [resurgo]
+    ids: [drun]
     goos: [linux]
     goarch: [amd64, arm64]
     goamd64: [v1, v2, v3]
@@ -149,16 +149,16 @@ upx:
     lzma: true
 
 nfpms:
-  - id: resurgo
-    package_name: resurgo
+  - id: drun
+    package_name: drun
     ids:
-      - resurgo
+      - drun
     description: |
-      resurgo runs a plugin (a "runnable") on the leader of a Raft cluster
+      drun runs a plugin (a "runnable") on the leader of a Raft cluster
       and nowhere else: when the leader changes, it stops the runnable on
       the old leader and starts it again on the new one, with a fencing
       epoch and the last checkpoint the runnable committed through Raft.
-    homepage: "https://github.com/dihedron/resurgo"
+    homepage: "https://github.com/dihedron/drun"
     maintainer: "Andrea Funtò <dihedron.dev@gmail.com>"
     vendor: "Andrea Funtò"
     license: "MIT"
@@ -185,30 +185,30 @@ nfpms:
       rpm:
         dependencies: [ca-certificates]
     contents:
-      - src: ./packaging/resurgo.service
-        dst: /usr/lib/systemd/system/resurgo.service
+      - src: ./packaging/drun.service
+        dst: /usr/lib/systemd/system/drun.service
         file_info:
           mode: 0644
-      - src: ./examples/resurgo.yaml
-        dst: /etc/resurgo/resurgo.yaml
+      - src: ./examples/drun.yaml
+        dst: /etc/drun/drun.yaml
         type: config|noreplace
         file_info:
           mode: 0640
           owner: root
-          group: resurgo
-      # the runnables' binaries (.specs/resurgo_specification.md, SEC-5)
-      - dst: /usr/libexec/resurgo/runnables
+          group: drun
+      # the runnables' binaries (.specs/drun_specification.md, SEC-5)
+      - dst: /usr/libexec/drun/runnables
         type: dir
         file_info:
           mode: 0755
           owner: root
           group: root
-      - src: ./build/completions/resurgo
-        dst: /usr/share/bash-completion/completions/resurgo
+      - src: ./build/completions/drun
+        dst: /usr/share/bash-completion/completions/drun
         file_info:
           mode: 0644
-      - src: ./build/completions/_resurgo
-        dst: /usr/share/zsh/site-functions/_resurgo
+      - src: ./build/completions/_drun
+        dst: /usr/share/zsh/site-functions/_drun
         file_info:
           mode: 0644
     scripts:
@@ -216,13 +216,13 @@ nfpms:
       postinstall: ./packaging/postinstall.sh
 
   - id: examples
-    package_name: resurgo-runnable-examples
+    package_name: drun-runnable-examples
     ids: [ticker, fenced-counter]
     description: |
-      The example runnables of resurgo: resurgo-runnable-ticker (stateless,
-      checkpoints a counter) and resurgo-runnable-fenced-counter (stateful,
+      The example runnables of drun: drun-runnable-ticker (stateless,
+      checkpoints a counter) and drun-runnable-fenced-counter (stateful,
       appends rows to PostgreSQL fenced by its epoch, with a checker).
-    homepage: "https://github.com/dihedron/resurgo"
+    homepage: "https://github.com/dihedron/drun"
     maintainer: "Andrea Funtò <dihedron.dev@gmail.com>"
     vendor: "Andrea Funtò"
     license: "MIT"
@@ -232,7 +232,7 @@ nfpms:
     section: default
     priority: "optional"
     # root's, writable by root only (SEC-4)
-    bindir: /usr/libexec/resurgo/runnables
+    bindir: /usr/libexec/drun/runnables
     rpm:
       signature:
         key_file: '{{ if index .Env "GPG_KEY_FILE" }}{{ .Env.GPG_KEY_FILE }}{{ end }}'
@@ -293,7 +293,7 @@ release:
   # GitHub pre-release
   prerelease: auto
   # the release documents (make docs, before make release): see
-  # .specs/resurgo_specification.md (rule 12)
+  # .specs/drun_specification.md (rule 12)
   extra_files:
     - glob: ./build/docs/*.pdf
   footer: |

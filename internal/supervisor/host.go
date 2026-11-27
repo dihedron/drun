@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/pkg/runnable"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -95,7 +95,7 @@ func (h *host) Store() runnable.Store { return hostStore{h} }
 
 type hostStore struct{ h *host }
 
-// Exec replicates a batch (resurgo-store.md STO-1, STO-2).
+// Exec replicates a batch (drun-store.md STO-1, STO-2).
 func (s hostStore) Exec(_ context.Context, batch []runnable.Statement) ([]runnable.Result, error) {
 	spec := s.h.c.spec
 	stmts, err := toStatements(batch)

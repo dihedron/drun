@@ -13,17 +13,17 @@ extern int sqlite3_prepare_v2(sqlite3 *, const char *, int, sqlite3_stmt **, con
 extern int sqlite3_finalize(sqlite3_stmt *);
 extern int sqlite3_complete(const char *);
 
-int resurgo_complete(const char *sql) { return sqlite3_complete(sql); }
+int drun_complete(const char *sql) { return sqlite3_complete(sql); }
 
-static int trampoline(void *handle) { return resurgoProgress((uintptr_t)handle); }
+static int trampoline(void *handle) { return drunProgress((uintptr_t)handle); }
 
-void resurgo_set_progress(sqlite3 *db, int every, uintptr_t handle) {
+void drun_set_progress(sqlite3 *db, int every, uintptr_t handle) {
 	sqlite3_progress_handler(db, every, handle ? trampoline : 0, (void *)handle);
 }
 
-// resurgo_statements counts the statements in sql, up to 2; whitespace and
+// drun_statements counts the statements in sql, up to 2; whitespace and
 // comments are not statements. It returns -1 if one does not prepare.
-int resurgo_statements(sqlite3 *db, const char *sql) {
+int drun_statements(sqlite3 *db, const char *sql) {
 	int count = 0;
 	const char *tail = sql;
 	while (tail && *tail && count < 2) {

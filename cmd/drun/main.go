@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dihedron/resurgo/pkg/metadata"
+	"github.com/dihedron/drun/pkg/metadata"
 	"github.com/jessevdk/go-flags"
 	"google.golang.org/grpc/status"
 )
@@ -30,7 +30,7 @@ func run(args []string) int {
 
 	if len(args) >= 1 && args[0] == "completion" {
 		if len(args) != 2 || (args[1] != "bash" && args[1] != "zsh") {
-			fmt.Fprintln(os.Stderr, "usage: resurgo completion bash|zsh")
+			fmt.Fprintln(os.Stderr, "usage: drun completion bash|zsh")
 			return 1
 		}
 		fmt.Print(completionScript)
@@ -64,7 +64,7 @@ func run(args []string) int {
 	return 0
 }
 
-// completionScript completes resurgo's commands and options in bash, and in
+// completionScript completes drun's commands and options in bash, and in
 // zsh through bashcompinit: go-flags answers when GO_FLAGS_COMPLETION is set,
 // so the completions always match the binary.
 //

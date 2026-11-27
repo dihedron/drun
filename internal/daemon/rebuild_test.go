@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/admin/adminpb"
 )
 
 // stopAndWipe stops a node and deletes its data, as a lost disk would

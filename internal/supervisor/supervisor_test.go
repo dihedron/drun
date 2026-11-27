@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 // AC-1, INV-2: one incarnation, on the leader; the followers run none

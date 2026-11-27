@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 // PutCheckpoint replaces the runnable's checkpoint (STO-12).
@@ -17,7 +17,7 @@ func (s *Store) PutCheckpoint(index uint64, runnable string, meta *fsmpb.Checkpo
 		return s.failed(err)
 	}
 	_, _, err = s.change(d, index, func(tx *sql.Tx) (*fsmpb.BatchError, error) {
-		_, err := tx.ExecContext(context.Background(), "INSERT OR REPLACE INTO _resurgo_checkpoint VALUES (1, ?, ?, ?, ?)",
+		_, err := tx.ExecContext(context.Background(), "INSERT OR REPLACE INTO _drun_checkpoint VALUES (1, ?, ?, ?, ?)",
 			meta.GetSeq(), meta.GetEpoch(), meta.GetCommittedAt(), data)
 		if err != nil {
 			return nil, s.failed(fmt.Errorf("store %s: checkpoint: %w", runnable, err))
@@ -37,7 +37,7 @@ func (s *Store) ClearCheckpoint(index uint64, runnable string) error {
 		return nil
 	}
 	_, _, err = s.change(d, index, func(tx *sql.Tx) (*fsmpb.BatchError, error) {
-		if _, err := tx.ExecContext(context.Background(), "DELETE FROM _resurgo_checkpoint"); err != nil {
+		if _, err := tx.ExecContext(context.Background(), "DELETE FROM _drun_checkpoint"); err != nil {
 			return nil, s.failed(fmt.Errorf("store %s: checkpoint: %w", runnable, err))
 		}
 		return nil, nil
@@ -56,7 +56,7 @@ func (s *Store) Checkpoint(runnable string) (*fsmpb.CheckpointMeta, []byte, bool
 	defer r.mu.Unlock()
 	meta := &fsmpb.CheckpointMeta{}
 	var data []byte
-	err = r.conn.QueryRowContext(context.Background(), "SELECT seq, epoch, committed_at, data FROM _resurgo_checkpoint").
+	err = r.conn.QueryRowContext(context.Background(), "SELECT seq, epoch, committed_at, data FROM _drun_checkpoint").
 		Scan(&meta.Seq, &meta.Epoch, &meta.CommittedAt, &data)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, false, nil
@@ -79,7 +79,7 @@ func (s *Store) Forget(index uint64, runnable string) error {
 		return nil
 	}
 	var last uint64
-	if err := d.conn.QueryRowContext(context.Background(), "SELECT last_index FROM _resurgo_meta").Scan(&last); err != nil {
+	if err := d.conn.QueryRowContext(context.Background(), "SELECT last_index FROM _drun_meta").Scan(&last); err != nil {
 		return s.failed(fmt.Errorf("store %s: last index: %w", runnable, err))
 	}
 	if last >= index {

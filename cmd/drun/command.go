@@ -7,18 +7,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin"
+	"github.com/dihedron/drun/internal/admin"
 )
 
-// Command is the root of the command line (.specs/resurgo_specification.md
+// Command is the root of the command line (.specs/drun_specification.md
 // §10.2): the process command (serve) and the clients of a node's admin
-// API, as resurgo <object> <verb>.
+// API, as drun <object> <verb>.
 type Command struct {
-	Admin          string        `long:"admin" env:"RESURGO_ADMIN" default:"unix:///run/resurgo/admin.sock" description:"the node's admin API: unix:///path, or tls://host:port for a remote endpoint"`
-	Cert           string        `long:"cert" env:"RESURGO_ADMIN_CERT" description:"client certificate for a tls:// admin endpoint"`
-	Key            string        `long:"key" env:"RESURGO_ADMIN_KEY" description:"its private key"`
-	CA             string        `long:"ca" env:"RESURGO_ADMIN_CA" description:"the CA of the node's certificate"`
-	ServerIdentity string        `long:"server-identity" env:"RESURGO_ADMIN_SERVER_IDENTITY" description:"the identity the node's certificate must carry (default: any certificate of the CA)"`
+	Admin          string        `long:"admin" env:"DRUN_ADMIN" default:"unix:///run/drun/admin.sock" description:"the node's admin API: unix:///path, or tls://host:port for a remote endpoint"`
+	Cert           string        `long:"cert" env:"DRUN_ADMIN_CERT" description:"client certificate for a tls:// admin endpoint"`
+	Key            string        `long:"key" env:"DRUN_ADMIN_KEY" description:"its private key"`
+	CA             string        `long:"ca" env:"DRUN_ADMIN_CA" description:"the CA of the node's certificate"`
+	ServerIdentity string        `long:"server-identity" env:"DRUN_ADMIN_SERVER_IDENTITY" description:"the identity the node's certificate must carry (default: any certificate of the CA)"`
 	Timeout        time.Duration `long:"timeout" default:"90s" description:"how long a call may take (a handover waits for the runnables to stop)"`
 	JSON           bool          `long:"json" description:"print replies as JSON"`
 
@@ -61,7 +61,7 @@ var stdout io.Writer = os.Stdout
 
 // Execute runs when no subcommand is given.
 func (cmd *Command) Execute(_ []string) error {
-	return errors.New("no command given: run \"resurgo version\" or \"resurgo --help\"")
+	return errors.New("no command given: run \"drun version\" or \"drun --help\"")
 }
 
 // call connects to the node's admin API and runs f within the timeout

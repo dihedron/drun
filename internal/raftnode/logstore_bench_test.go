@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
+	"github.com/dihedron/drun/internal/config"
 	"github.com/hashicorp/raft"
 )
 

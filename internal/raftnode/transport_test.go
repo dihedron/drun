@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/tlstest"
+	"github.com/dihedron/drun/internal/tlstest"
 	"github.com/hashicorp/raft"
 )
 
@@ -22,9 +22,9 @@ var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 // testPeers: a SPIFFE identity, a DNS identity, and one more
 var testPeers = map[string]string{
-	"a": "spiffe://example.org/resurgo/a",
-	"b": "b.resurgo.example.org",
-	"c": "spiffe://example.org/resurgo/c",
+	"a": "spiffe://example.org/drun/a",
+	"b": "b.drun.example.org",
+	"c": "spiffe://example.org/drun/c",
 }
 
 type endpoint struct {
@@ -184,7 +184,7 @@ func TestHandshakeRefused(t *testing.T) {
 	for name, cfg := range map[string]*tls.Config{
 		"no client certificate": {MinVersion: tls.VersionTLS13},
 		"another CA":            {MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair(tlstest.NewCA(t), testPeers["b"])}},
-		"unknown identity":      {MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair(ca, "spiffe://example.org/resurgo/z")}},
+		"unknown identity":      {MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair(ca, "spiffe://example.org/drun/z")}},
 		"TLS 1.2":               {MaxVersion: tls.VersionTLS12, Certificates: []tls.Certificate{pair(ca, testPeers["b"])}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -260,7 +260,7 @@ func TestCertificateRotation(t *testing.T) {
 	// b's files now hold a certificate a does not accept: the next dial
 	// reads them
 	time.Sleep(10 * time.Millisecond) // a later modification time
-	certPEM, keyPEM := ca.Issue(t, "spiffe://example.org/resurgo/z")
+	certPEM, keyPEM := ca.Issue(t, "spiffe://example.org/drun/z")
 	for path, data := range map[string][]byte{b.files.Cert: certPEM, b.files.Key: keyPEM} {
 		if err := os.WriteFile(path, data, 0o600); err != nil {
 			t.Fatal(err)
@@ -295,7 +295,7 @@ func TestCertificateRotation(t *testing.T) {
 }
 
 func TestPeersDirectory(t *testing.T) {
-	recorded := map[string]string{"d": "spiffe://example.org/resurgo/d", "a": "spiffe://example.org/resurgo/not-a"}
+	recorded := map[string]string{"d": "spiffe://example.org/drun/d", "a": "spiffe://example.org/drun/not-a"}
 	p := NewPeers(testPeers, func() map[string]string { return recorded }, discard)
 	if id, ok := p.Identity("d"); !ok || id != recorded["d"] {
 		t.Fatalf("recorded identity: %q %v", id, ok)

@@ -12,14 +12,14 @@ import (
 
 // schema creates the reserved tables (STO-3, STO-12)
 const schema = `
-CREATE TABLE IF NOT EXISTS _resurgo_meta (id INTEGER PRIMARY KEY CHECK (id = 1), last_index INTEGER NOT NULL);
-INSERT OR IGNORE INTO _resurgo_meta VALUES (1, 0);
-CREATE TABLE IF NOT EXISTS _resurgo_checkpoint (
+CREATE TABLE IF NOT EXISTS _drun_meta (id INTEGER PRIMARY KEY CHECK (id = 1), last_index INTEGER NOT NULL);
+INSERT OR IGNORE INTO _drun_meta VALUES (1, 0);
+CREATE TABLE IF NOT EXISTS _drun_checkpoint (
 	id INTEGER PRIMARY KEY CHECK (id = 1),
 	seq INTEGER NOT NULL, epoch INTEGER NOT NULL, committed_at INTEGER NOT NULL, data BLOB
 );`
 
-const reservedPrefix = "_resurgo_"
+const reservedPrefix = "_drun_"
 
 // refused functions: they give different results on different nodes, or
 // reach outside the database (STO-4)
@@ -74,7 +74,7 @@ func authorize(op int, arg1, arg2 string) int {
 }
 
 // register sets up a connection: the authorizer, the date and time
-// overrides, resurgo_now() and resurgo_epoch()
+// overrides, drun_now() and drun_epoch()
 func (s *Store) register(conn *sqlite3.SQLiteConn, enforce *atomic.Bool, now, epoch *atomic.Int64) error {
 	conn.RegisterAuthorizer(func(op int, arg1, arg2, _ string) int {
 		if !enforce.Load() {
@@ -85,11 +85,11 @@ func (s *Store) register(conn *sqlite3.SQLiteConn, enforce *atomic.Bool, now, ep
 	if err := overrideTimeFunctions(conn, s.builtin); err != nil {
 		return err
 	}
-	if err := conn.RegisterFunc("resurgo_now", func() int64 { return now.Load() }, false); err != nil {
-		return fmt.Errorf("resurgo_now: %w", err)
+	if err := conn.RegisterFunc("drun_now", func() int64 { return now.Load() }, false); err != nil {
+		return fmt.Errorf("drun_now: %w", err)
 	}
-	if err := conn.RegisterFunc("resurgo_epoch", func() int64 { return epoch.Load() }, false); err != nil {
-		return fmt.Errorf("resurgo_epoch: %w", err)
+	if err := conn.RegisterFunc("drun_epoch", func() int64 { return epoch.Load() }, false); err != nil {
+		return fmt.Errorf("drun_epoch: %w", err)
 	}
 	return nil
 }
@@ -101,7 +101,7 @@ var timeFunctions = map[string][]int{
 	"strftime": {1}, "timediff": {0, 1},
 }
 
-var errNotDeterministic = errors.New("not deterministic: use resurgo_now()")
+var errNotDeterministic = errors.New("not deterministic: use drun_now()")
 
 // overrideTimeFunctions replaces the date and time functions with ones that
 // refuse what depends on the node ('now', a missing time value, the

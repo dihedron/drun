@@ -1,6 +1,6 @@
 // Package spike holds the regression tests of the external assumptions the
-// design relies on (EXT-1 to EXT-9 in resurgo_specification.md §12.1 and
-// EXT-S-1 to EXT-S-5 in resurgo-store.md §7): re-run them on every bump of
+// design relies on (EXT-1 to EXT-9 in drun_specification.md §12.1 and
+// EXT-S-1 to EXT-S-5 in drun-store.md §7): re-run them on every bump of
 // hashicorp/raft, hashicorp/go-plugin or mattn/go-sqlite3 ("make spike").
 package spike
 

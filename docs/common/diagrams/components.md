@@ -2,8 +2,8 @@ The components of a node (the architecture guide's introduction).
 
 ```mermaid
 flowchart TB
-  subgraph node["resurgo node (one per host)"]
-    CLI["resurgo CLI"] -->|"unix socket, or mutual TLS"| ADM["Admin API (gRPC)"]
+  subgraph node["drun node (one per host)"]
+    CLI["drun CLI"] -->|"unix socket, or mutual TLS"| ADM["Admin API (gRPC)"]
     ADM --> RN["Raft node (hashicorp/raft)"]
     RN --> FSM["FSM: epochs, incarnations, checkpoints"]
     FSM --> ST[("stores: one SQLite database per runnable")]

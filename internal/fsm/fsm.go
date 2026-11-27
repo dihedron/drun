@@ -1,4 +1,4 @@
-// Package fsm is resurgo's replicated state machine (resurgo_specification.md
+// Package fsm is drun's replicated state machine (drun_specification.md
 // §9): the fencing epoch, the runnables' incarnations, checkpoints,
 // failures and completions, and, through Store, their SQL stores.
 //
@@ -17,8 +17,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	"google.golang.org/protobuf/proto"
 )

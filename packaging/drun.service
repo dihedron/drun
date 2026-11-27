@@ -1,21 +1,21 @@
 [Unit]
-Description=resurgo, a runnable on the leader of a Raft cluster
+Description=drun, a runnable on the leader of a Raft cluster
 After=network-online.target
 Wants=network-online.target
 # never give up restarting: the back-off below keeps it cheap
 StartLimitIntervalSec=0
 
 [Service]
-User=resurgo
-Group=resurgo
-# the configuration is /etc/resurgo/resurgo.yaml; the node's Raft state is
-# under /var/lib/resurgo (data_dir), 0700
-Environment=RESURGO_LOG_LEVEL=info
-EnvironmentFile=-/etc/resurgo/resurgo.env
-ExecStart=/usr/bin/resurgo serve
+User=drun
+Group=drun
+# the configuration is /etc/drun/drun.yaml; the node's Raft state is
+# under /var/lib/drun (data_dir), 0700
+Environment=DRUN_LOG_LEVEL=info
+EnvironmentFile=-/etc/drun/drun.env
+ExecStart=/usr/bin/drun serve
 KillSignal=SIGTERM
 # on SIGTERM a leader hands leadership over and stops its runnables within
-# their stop_grace (.specs/resurgo_specification.md, FR-12): keep this above
+# their stop_grace (.specs/drun_specification.md, FR-12): keep this above
 # the longest stop_grace plus the leadership transfer
 TimeoutStopSec=90
 # the default, made explicit: whatever is left of the cgroup, the runnables'
@@ -25,16 +25,16 @@ Restart=on-failure
 RestartSec=5
 RestartSteps=10
 RestartMaxDelaySec=300
-StateDirectory=resurgo
+StateDirectory=drun
 StateDirectoryMode=0700
-# the admin socket's directory, /run/resurgo: the node gives it and the
+# the admin socket's directory, /run/drun: the node gives it and the
 # socket to the first of admin.allowed_groups (SEC-6), of which it must be
 # a member
-RuntimeDirectory=resurgo
+RuntimeDirectory=drun
 RuntimeDirectoryMode=0750
-SupplementaryGroups=resurgo-admin
+SupplementaryGroups=drun-admin
 
-# confinement (.specs/resurgo_specification.md §11)
+# confinement (.specs/drun_specification.md §11)
 NoNewPrivileges=true
 CapabilityBoundingSet=
 AmbientCapabilities=

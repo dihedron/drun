@@ -17,9 +17,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 	wal "github.com/hashicorp/raft-wal"
@@ -145,11 +145,11 @@ func New(cfg *config.Config, f raft.FSM, recorded func() map[string]string, logg
 	case existing:
 		logger.Info("existing raft state: the configured voters are ignored")
 	case !n.isInitialVoter():
-		logger.Info("no raft state, not an initial voter: waiting to be added (resurgo member add)")
+		logger.Info("no raft state, not an initial voter: waiting to be added (drun member add)")
 	case n.clusterExists():
 		// a rebuilt node: bootstrapping would write a first entry that may
 		// differ from the cluster's at the same index and term
-		logger.Info("no raft state, but a configured voter has some: waiting for the cluster's leader (if this node was removed: resurgo member add)")
+		logger.Info("no raft state, but a configured voter has some: waiting for the cluster's leader (if this node was removed: drun member add)")
 	default:
 		err := n.raft.BootstrapCluster(n.initialConfiguration()).Error()
 		if err != nil && !errors.Is(err, raft.ErrCantBootstrap) {

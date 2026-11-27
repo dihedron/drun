@@ -1,8 +1,8 @@
-# resurgo node configuration (.specs/resurgo_specification.md §10.1).
+# drun node configuration (.specs/drun_specification.md §10.1).
 # Every key is described in the Setup Guide, chapter "Configuration".
 node:
   id: node-a                       # the Raft server ID; unique, stable
-  data_dir: /var/lib/resurgo
+  data_dir: /var/lib/drun
 cluster:
   name: billing-singletons
   bind: 0.0.0.0:7350
@@ -12,30 +12,30 @@ cluster:
     - { id: node-b, address: 10.0.1.12:7350 }
     - { id: node-c, address: 10.0.1.13:7350 }
   tls:                             # SEC-1, SEC-2
-    cert: /etc/resurgo/tls/node.crt
-    key: /etc/resurgo/tls/node.key
-    ca: /etc/resurgo/tls/ca.crt
+    cert: /etc/drun/tls/node.crt
+    key: /etc/drun/tls/node.key
+    ca: /etc/drun/tls/ca.crt
     peers:                         # node ID -> identity it MUST present
-      node-a: "spiffe://example.org/resurgo/node-a"
-      node-b: "spiffe://example.org/resurgo/node-b"
-      node-c: "spiffe://example.org/resurgo/node-c"
+      node-a: "spiffe://example.org/drun/node-a"
+      node-b: "spiffe://example.org/drun/node-b"
+      node-c: "spiffe://example.org/drun/node-c"
 raft: {}                           # §8.6 defaults
 lease: {}
 admin:
-  socket: /run/resurgo/admin.sock
-  allowed_groups: [resurgo-admin]  # SEC-6
+  socket: /run/drun/admin.sock
+  allowed_groups: [drun-admin]  # SEC-6
   # remote:                        # SEC-11: opt-in admin over mutual TLS
   #   listen: 10.0.1.11:7351
-  #   tls: { cert: /etc/resurgo/tls/admin.crt, key: /etc/resurgo/tls/admin.key, ca: /etc/resurgo/tls/admin-ca.crt }
+  #   tls: { cert: /etc/drun/tls/admin.crt, key: /etc/drun/tls/admin.key, ca: /etc/drun/tls/admin-ca.crt }
   #   allowed_identities: ["spiffe://example.org/ops/alice"]
 metrics:
   listen: 127.0.0.1:9350
 runnables:
   - name: invoice-scheduler
-    binary: /usr/libexec/resurgo/runnables/invoice-scheduler
+    binary: /usr/libexec/drun/runnables/invoice-scheduler
     sha256: "<the binary's SHA-256>"  # SEC-4: pinned
     config:                        # passed to Validate and Run as JSON
-      dsn_file: /etc/resurgo/invoice-scheduler/dsn
+      dsn_file: /etc/drun/invoice-scheduler/dsn
       batch: 100
     takeover_delay: auto
     stop_grace: 2s

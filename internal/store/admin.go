@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 )
 
 // Split splits sql into its statements, each ending where SQLite's
@@ -78,10 +78,10 @@ func (s *Store) Info(runnable string) (Info, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	ctx := context.Background()
-	if err := r.conn.QueryRowContext(ctx, "SELECT last_index FROM _resurgo_meta").Scan(&info.LastIndex); err != nil {
+	if err := r.conn.QueryRowContext(ctx, "SELECT last_index FROM _drun_meta").Scan(&info.LastIndex); err != nil {
 		return Info{}, fmt.Errorf("store %s: last index: %w", runnable, err)
 	}
-	rows, err := r.conn.QueryContext(ctx, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name NOT LIKE '\\_resurgo\\_%' ESCAPE '\\' ORDER BY name")
+	rows, err := r.conn.QueryContext(ctx, "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name NOT LIKE '\\_drun\\_%' ESCAPE '\\' ORDER BY name")
 	if err != nil {
 		return Info{}, fmt.Errorf("store %s: tables: %w", runnable, err)
 	}

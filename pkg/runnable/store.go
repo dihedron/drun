@@ -1,5 +1,5 @@
-// Package runnable is the SDK of resurgo's runnables. This file holds the
-// types of the runnable's store (resurgo-store.md §3); the rest of the SDK
+// Package runnable is the SDK of drun's runnables. This file holds the
+// types of the runnable's store (drun-store.md §3); the rest of the SDK
 // (the Runnable interface, the plugin server and loader) comes with it.
 package runnable
 

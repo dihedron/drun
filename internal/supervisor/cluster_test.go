@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/internal/store"
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/store"
+	"github.com/dihedron/drun/pkg/runnable"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 )
@@ -175,7 +175,7 @@ func (k ticker) Run(ctx context.Context, inc runnable.Incarnation, host runnable
 		}
 		k.tr.ack(inc.Runnable, v)
 		if b.Store {
-			if _, err := host.Store().Exec(ctx, []runnable.Statement{{SQL: "INSERT INTO ticks VALUES (?, resurgo_epoch())", Args: []any{int64(v)}}}); err != nil {
+			if _, err := host.Store().Exec(ctx, []runnable.Statement{{SQL: "INSERT INTO ticks VALUES (?, drun_epoch())", Args: []any{int64(v)}}}); err != nil {
 				return err
 			}
 		}

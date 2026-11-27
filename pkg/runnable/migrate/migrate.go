@@ -1,5 +1,5 @@
 // Package migrate applies a runnable's schema migrations to its store at
-// the start of Run (resurgo-store.md STO-13).
+// the start of Run (drun-store.md STO-13).
 //
 // Each migration is one batch that also moves the version on, from n-1 to
 // n, with an expectation on exactly one row: a failover in the middle
@@ -13,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dihedron/resurgo/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable"
 )
 
 // Migration is one step of the schema: version n is Migrations[n-1].

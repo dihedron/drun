@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/config"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/internal/tlstest"
+	"github.com/dihedron/drun/internal/config"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/tlstest"
 	"github.com/hashicorp/raft"
 )
 
@@ -99,7 +99,7 @@ func newTestCluster(t testing.TB, n, voters int) *testCluster {
 	return c
 }
 
-func (c *testCluster) identity(id string) string { return "spiffe://example.org/resurgo/" + id }
+func (c *testCluster) identity(id string) string { return "spiffe://example.org/drun/" + id }
 
 func (c *testCluster) configFor(id string) *config.Config {
 	c.t.Helper()
@@ -123,7 +123,7 @@ func (c *testCluster) configFor(id string) *config.Config {
 	if c.logStore != "" {
 		b.WriteString("raft: { log_store: " + c.logStore + " }\n")
 	}
-	path := filepath.Join(dir, "resurgo.yaml")
+	path := filepath.Join(dir, "drun.yaml")
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		c.t.Fatal(err)
 	}

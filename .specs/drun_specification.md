@@ -1,6 +1,6 @@
-# Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
+# Architectural & Technical Specification: `drun`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-wal` (v0.5.x, the default log store) and `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -23,7 +23,7 @@ The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHOULD**, **SHO
 | `AC-nn` | Acceptance scenario (§14) |
 | `EXT-nn` | External assumption about a dependency, verified by the spike (§12.1) |
 | `OI-nn` | Open issue to decide before implementing the affected component (§15) |
-| `FW-nn` | Future work: recorded for later, not part of this version (`resurgo-backlog.md`) |
+| `FW-nn` | Future work: recorded for later, not part of this version (`drun-backlog.md`) |
 
 ## 1. Problem statement
 
@@ -32,9 +32,9 @@ reconciler, a poller of an external system, a singleton consumer, a
 lease holder. Running it on one fixed machine makes that machine a single
 point of failure; running it everywhere makes it run more than once.
 
-`resurgo` (Latin, *I rise again*) runs such work, packaged as a plugin
+`drun` (*distributed run*; formerly *resurgo*) runs such work, packaged as a plugin
 called a **runnable**, on the **leader** of a small Raft cluster of
-`resurgo` nodes, and nowhere else. When leadership moves, because the leader
+`drun` nodes, and nowhere else. When leadership moves, because the leader
 failed, was partitioned away, or was shut down, the runnable is stopped on
 the old leader (if it is still alive) and started again on the new one: a
 new **incarnation**. Each incarnation receives a **fencing epoch**, strictly
@@ -44,7 +44,7 @@ incarnation committed.
 Runnables are *stateless* (they keep nothing between incarnations) or
 *stateful*. A stateful runnable keeps its state in its own **store**, a
 SQLite database replicated through the Raft log and fenced by the epoch
-(`resurgo-store.md`), or in an external system (for example a PostgreSQL
+(`drun-store.md`), or in an external system (for example a PostgreSQL
 cluster) that it fences with the epoch itself. A runnable MAY also commit a
 small **checkpoint**, so that the next incarnation can restart from where
 the last one left off. Apart from the stores, the Raft state machine holds
@@ -72,11 +72,11 @@ only the epochs and the current incarnations.
 
 - A general-purpose scheduler: no placement on followers, no bin packing,
   no constraints beyond "on the leader".
-- Exactly-once side effects: `resurgo` bounds overlap and provides the
+- Exactly-once side effects: `drun` bounds overlap and provides the
   fencing epoch; side effects outside fenced systems may repeat (§8.5).
 - A general-purpose replicated database: a runnable's store serves that
   runnable only, is bounded in size and work, and is not reachable by other
-  clients (`resurgo-store.md`); bulk state lives outside.
+  clients (`drun-store.md`); bulk state lives outside.
 - Uploading or distributing runnable binaries through the cluster: binaries
   are installed on every node by packaging or configuration management.
 - Windows, macOS and the BSDs.
@@ -87,7 +87,7 @@ only the epochs and the current incarnations.
 
 | Term | Meaning |
 | :--- | :--- |
-| Node | One `resurgo serve` process, a Raft server (voter or non-voter). |
+| Node | One `drun serve` process, a Raft server (voter or non-voter). |
 | Leader | The Raft leader; the only node that runs runnables. |
 | Runnable | A plugin binary implementing the runnable interface (§8), plus its node-local configuration, identified by a name unique in the cluster. |
 | Incarnation | One execution of a runnable: one plugin process, from its start on a leader to its stop. |
@@ -114,12 +114,12 @@ only the epochs and the current incarnations.
   others unreachable, cannot tell a lost cluster from a new one and
   bootstraps: never wipe a majority while the others are down.
 - **FR-2 (membership)** Voters and non-voters MUST be addable and removable
-  at runtime (`resurgo member add|remove`); the change is executed by the
+  at runtime (`drun member add|remove`); the change is executed by the
   leader. `member add` takes the member's certificate identity
   (`--identity`), recorded through the log so that every node accepts the
   member without a restart (§10.1). Removing the current leader MUST first transfer leadership.
 - **FR-3 (leadership transfer)** An operator MUST be able to move
-  leadership to a named node or to any other voter (`resurgo leader
+  leadership to a named node or to any other voter (`drun leader
   transfer [--to ID]`); this is a planned handover (FR-12).
 
 ### Runnables
@@ -136,7 +136,7 @@ only the epochs and the current incarnations.
     failure handled by FR-8.
   - *task*: runs to completion once per cluster; a successful return MUST
     be committed as completion, and a completed task MUST NOT be started
-    again until an operator resets it (`resurgo runnable reset`). An error
+    again until an operator resets it (`drun runnable reset`). An error
     is a failure handled by FR-8 (OI-2).
 - **FR-8 (failures)** A failed incarnation (error, crash, failed health
   check, failure to start) MUST be restarted on the same leader as a new
@@ -156,7 +156,7 @@ only the epochs and the current incarnations.
   The latest checkpoint replaces the previous one. Checkpoints are stored
   in the runnable's store (STO-12).
 - **FR-17 (store)** Every runnable MUST have its own replicated, fenced SQL
-  store, as specified in `resurgo-store.md`; the runnable migrates its own
+  store, as specified in `drun-store.md`; the runnable migrates its own
   schema at the start of each incarnation (STO-13).
 - **FR-10 (resume)** Every incarnation MUST receive the latest committed
   checkpoint of its runnable (or none), its epoch, the Raft term, the node
@@ -206,7 +206,7 @@ only the epochs and the current incarnations.
 - **NFR-5 (footprint)** A node idles below 50 MiB RSS and 1 % of a core,
   plugin processes excluded.
 - **NFR-6 (portability)** Linux amd64/arm64, one statically linked binary;
-  cgo only for SQLite, built against musl (`resurgo-store.md` §4.1);
+  cgo only for SQLite, built against musl (`drun-store.md` §4.1);
   runnables and the SDK need no cgo. Tier 1:
   LXD and OpenStack VMs on Ubuntu 24.04 LTS or later and Rocky/Alma, under
   systemd.
@@ -224,8 +224,8 @@ only the epochs and the current incarnations.
 
 ```mermaid
 flowchart LR
-  subgraph node["resurgo node (one per host)"]
-    CLI["resurgo CLI"] -->|unix socket| ADM["Admin API (gRPC)"]
+  subgraph node["drun node (one per host)"]
+    CLI["drun CLI"] -->|unix socket| ADM["Admin API (gRPC)"]
     ADM --> RN["Raft node\n(hashicorp/raft)"]
     RN --> FSM["FSM\nepochs · incarnations · checkpoints"]
     RN --> ST[("bbolt log + stable store\nfile snapshots")]
@@ -339,7 +339,7 @@ type Host interface {
 	// Status reports health and progress, shown by "runnable show";
 	// unhealthy for longer than health.timeout fails the incarnation.
 	Status(ctx context.Context, healthy bool, detail string) error
-	// Store is the runnable's replicated SQL database (resurgo-store.md).
+	// Store is the runnable's replicated SQL database (drun-store.md).
 	Store() Store
 }
 
@@ -364,7 +364,7 @@ SDK when the lease expires, even if the host is unreachable.
 ### 8.2 Plugin protocol
 
 `hashicorp/go-plugin`, gRPC only, AutoMTLS on, handshake
-`RESURGO_RUNNABLE` / protocol version 1 (a plugin of another protocol is
+`DRUN_RUNNABLE` / protocol version 1 (a plugin of another protocol is
 refused before the first call). One service *(illustrative)*:
 
 ```proto
@@ -391,7 +391,7 @@ message RunnableMessage {
     CheckpointRequest checkpoint = 1;   // id, data
     StatusReport status = 2;            // healthy, detail
     Exit exit = 3;                      // completed | error (class, message)
-    StoreExec exec = 4;                 // id, batch (resurgo-store.md)
+    StoreExec exec = 4;                 // id, batch (drun-store.md)
     StoreQuery query = 5;               // id, sql, args; rows stream back
   }
 }
@@ -460,15 +460,15 @@ stateful runnable MUST make every write conditional on its epoch being the
 newest the store has seen. For PostgreSQL *(illustrative)*:
 
 ```sql
-CREATE TABLE resurgo_fence (runnable text PRIMARY KEY, epoch bigint NOT NULL);
+CREATE TABLE drun_fence (runnable text PRIMARY KEY, epoch bigint NOT NULL);
 
 -- at start of the incarnation: claim the fence, or find out it is stale
-INSERT INTO resurgo_fence VALUES ($1, $2)
+INSERT INTO drun_fence VALUES ($1, $2)
   ON CONFLICT (runnable) DO UPDATE SET epoch = EXCLUDED.epoch
-  WHERE resurgo_fence.epoch < EXCLUDED.epoch;      -- 0 rows: fenced, return
+  WHERE drun_fence.epoch < EXCLUDED.epoch;      -- 0 rows: fenced, return
 
 -- in every transaction that writes state
-SELECT epoch FROM resurgo_fence WHERE runnable = $1 FOR SHARE;  -- MUST equal $2
+SELECT epoch FROM drun_fence WHERE runnable = $1 FOR SHARE;  -- MUST equal $2
 -- ... the writes ...
 COMMIT;
 ```
@@ -560,7 +560,7 @@ reads a clock.
 
 | Command | Effect | Refused when |
 | :--- | :--- | :--- |
-| `StoreBatch{runnable, epoch, statements, at}` | applied to the runnable's database in one transaction (`resurgo-store.md`) | stale epoch (`ErrFenced`); STO-4, STO-7, STO-8 |
+| `StoreBatch{runnable, epoch, statements, at}` | applied to the runnable's database in one transaction (`drun-store.md`) | stale epoch (`ErrFenced`); STO-4, STO-7, STO-8 |
 | `Incarnate{runnable, node, digests, store_limits, at}` | `epoch = ++epoch_counter`; `current = {epoch, log.Term, node, …}`; `released = false`; returns `epoch` | runnable disabled or completed |
 | `Checkpoint{runnable, epoch, data, at}` | `checkpoint = {seq+1, epoch, data, at}`; returns `seq` | `epoch != current.epoch`, or released (`ErrFenced`); `len(data) > 1 MiB` |
 | `Release{runnable, epoch, at}` | `released = true` | `epoch != current.epoch` |
@@ -597,13 +597,13 @@ at about 64 MiB.
 
 ### 10.1 Configuration *(illustrative)*
 
-`/etc/resurgo/resurgo.yaml`, one per node; secrets are never inline
+`/etc/drun/drun.yaml`, one per node; secrets are never inline
 (SEC-8): a runnable's configuration names files that the runnable reads.
 
 ```yaml
 node:
   id: node-a                       # the Raft server ID; unique, stable
-  data_dir: /var/lib/resurgo
+  data_dir: /var/lib/drun
 cluster:
   name: billing-singletons
   bind: 0.0.0.0:7350
@@ -613,30 +613,30 @@ cluster:
     - { id: node-b, address: 10.0.1.12:7350 }
     - { id: node-c, address: 10.0.1.13:7350 }
   tls:                             # SEC-1, SEC-2
-    cert: /etc/resurgo/tls/node.crt
-    key: /etc/resurgo/tls/node.key
-    ca: /etc/resurgo/tls/ca.crt
+    cert: /etc/drun/tls/node.crt
+    key: /etc/drun/tls/node.key
+    ca: /etc/drun/tls/ca.crt
     peers:                         # node ID -> identity it MUST present
-      node-a: "spiffe://example.org/resurgo/node-a"
-      node-b: "spiffe://example.org/resurgo/node-b"
-      node-c: "spiffe://example.org/resurgo/node-c"
+      node-a: "spiffe://example.org/drun/node-a"
+      node-b: "spiffe://example.org/drun/node-b"
+      node-c: "spiffe://example.org/drun/node-c"
 raft: {}                           # §8.6 defaults
 lease: {}
 admin:
-  socket: /run/resurgo/admin.sock
-  allowed_groups: [resurgo-admin]  # SEC-6
+  socket: /run/drun/admin.sock
+  allowed_groups: [drun-admin]  # SEC-6
   remote:                          # SEC-11: opt-in; absent, local only
     listen: 10.0.1.11:7351
-    tls: { cert: /etc/resurgo/tls/admin.crt, key: /etc/resurgo/tls/admin.key, ca: /etc/resurgo/tls/admin-ca.crt }
+    tls: { cert: /etc/drun/tls/admin.crt, key: /etc/drun/tls/admin.key, ca: /etc/drun/tls/admin-ca.crt }
     allowed_identities: ["spiffe://example.org/ops/alice"]
 metrics:
   listen: 127.0.0.1:9350
 runnables:
   - name: invoice-scheduler
-    binary: /usr/libexec/resurgo/runnables/invoice-scheduler
+    binary: /usr/libexec/drun/runnables/invoice-scheduler
     sha256: 3b4c…                  # SEC-4: pinned
     config:                        # passed to Validate and Run as JSON
-      dsn_file: /etc/resurgo/invoice-scheduler/dsn
+      dsn_file: /etc/drun/invoice-scheduler/dsn
       batch: 100
     takeover_delay: auto
     stop_grace: 2s
@@ -657,27 +657,27 @@ configured identity wins over a recorded one for the same ID (decided
 
 ### 10.2 Command line
 
-`github.com/jessevdk/go-flags`, `resurgo <object> <verb>`; `show` is the
+`github.com/jessevdk/go-flags`, `drun <object> <verb>`; `show` is the
 one verb that displays objects. All but `serve`, `version` and
 `completion` talk to the local node's admin socket.
 
 | Command | Purpose |
 | :--- | :--- |
-| `resurgo serve` | run a node |
-| `resurgo cluster show` | members, suffrage, leader, term, commit index, last contact |
-| `resurgo member add ID ADDRESS [--identity I] [--non-voter]` / `member remove ID` | FR-2 |
-| `resurgo leader show` / `leader transfer [--to ID]` | FR-3 |
-| `resurgo runnable show [NAME]` | incarnation, epoch, digests, health, checkpoint metadata, failures |
-| `resurgo runnable enable\|disable\|restart NAME` | FR-14 |
-| `resurgo runnable reset NAME [--checkpoint] [--completion] [--failures]` | FR-14 |
-| `resurgo store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16) |
-| `resurgo checkpoint show NAME [--data]` | metadata; `--data` writes the bytes to stdout |
-| `resurgo version [--verbose]`, `resurgo completion bash\|zsh` | as in the other projects |
+| `drun serve` | run a node |
+| `drun cluster show` | members, suffrage, leader, term, commit index, last contact |
+| `drun member add ID ADDRESS [--identity I] [--non-voter]` / `member remove ID` | FR-2 |
+| `drun leader show` / `leader transfer [--to ID]` | FR-3 |
+| `drun runnable show [NAME]` | incarnation, epoch, digests, health, checkpoint metadata, failures |
+| `drun runnable enable\|disable\|restart NAME` | FR-14 |
+| `drun runnable reset NAME [--checkpoint] [--completion] [--failures]` | FR-14 |
+| `drun store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16) |
+| `drun checkpoint show NAME [--data]` | metadata; `--data` writes the bytes to stdout |
+| `drun version [--verbose]`, `drun completion bash\|zsh` | as in the other projects |
 
 As built (C5): the admin API is one gRPC service on pluggable endpoints,
 each authenticating its callers in its handshake: the local socket
 (SEC-6) and the opt-in remote endpoint (SEC-11). The CLI picks one with
-`--admin unix:///path` (the default, `/run/resurgo/admin.sock`) or
+`--admin unix:///path` (the default, `/run/drun/admin.sock`) or
 `--admin tls://host:port` with `--cert`, `--key`, `--ca` and optionally
 `--server-identity`; `--json` prints the replies as JSON. `cluster
 show`, `leader show`, `runnable show` and `checkpoint show` answer from
@@ -691,19 +691,19 @@ removing the leader are planned handovers (FR-12).
 
 ### 10.3 Metrics
 
-`resurgo_is_leader`, `resurgo_raft_term`, `resurgo_epoch{runnable}`,
-`resurgo_incarnation_state{runnable,state}`,
-`resurgo_incarnations_total{runnable,outcome}`,
-`resurgo_failover_seconds{runnable,kind=planned|unplanned}`,
-`resurgo_takeover_wait_seconds{runnable}`,
-`resurgo_checkpoint_bytes{runnable}`, `resurgo_checkpoint_seq{runnable}`,
-`resurgo_checkpoint_commit_seconds{runnable}` (histogram),
-`resurgo_lease_renew_failures_total`, `resurgo_config_drift{runnable}`;
+`drun_is_leader`, `drun_raft_term`, `drun_epoch{runnable}`,
+`drun_incarnation_state{runnable,state}`,
+`drun_incarnations_total{runnable,outcome}`,
+`drun_failover_seconds{runnable,kind=planned|unplanned}`,
+`drun_takeover_wait_seconds{runnable}`,
+`drun_checkpoint_bytes{runnable}`, `drun_checkpoint_seq{runnable}`,
+`drun_checkpoint_commit_seconds{runnable}` (histogram),
+`drun_lease_renew_failures_total`, `drun_config_drift{runnable}`;
 plus Raft's own metrics (FW-3).
 
 As built (C5): served on `metrics.listen` (off unless set) in the
 Prometheus text format, written without a client library;
-`resurgo_failover_seconds` and `resurgo_takeover_wait_seconds` are gauges
+`drun_failover_seconds` and `drun_takeover_wait_seconds` are gauges
 of the last first incarnation of a leadership (a restart on the same
 leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
 `unhealthy`, `fenced`, `lost` and `stopped`.
@@ -745,7 +745,7 @@ leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
   a checkpoint written by the shipped runnables, a log line or a metric.
   Runnable configuration is node-local and not replicated (ADR-6); only
   its digest is.
-- **SEC-9** The service runs confined by systemd (`packaging/resurgo.service`:
+- **SEC-9** The service runs confined by systemd (`packaging/drun.service`:
   no capabilities, `ProtectSystem=strict`, `MemoryDenyWriteExecute`, …);
   the plugin processes inherit the confinement and are in the service's
   cgroup.
@@ -806,7 +806,7 @@ leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
 | 4 | go-plugin over gRPC, one fresh process per incarnation | The stop is enforceable (kill), no state leaks between incarnations, any language with gRPC can implement a runnable | One long-lived process (faster restart, but a stuck runnable cannot be stopped); in-process Go plugins (no isolation) |
 | 5 | The epoch: an FSM counter incremented by `Incarnate`, not the Raft term | Unique per incarnation (a restart on the same leader keeps the term), dense, persisted, usable by external stores; `Incarnate` after `Barrier` also proves the leader has committed in its term | The term (not unique per restart) |
 | 6 | Runnable configuration is node-local, only its digest is replicated | Secrets never enter the Raft log; configuration management already owns `/etc` | Configuration replicated through Raft (one source of truth, but secrets in the log) (OI-3) |
-| 7 | *Superseded* (v0.2.0): one checkpoint blob per runnable. Now a replicated SQLite database per runnable, fenced by the epoch, with checkpoints stored in it (`resurgo-store.md`, ADR S-1 to S-3) | The fencing comes for free: a stale write is refused in the step that would apply it; stateful runnables need no external database for moderate state | Blob only (v0.1.0); a key/value store in bbolt (simpler, no SQL) |
+| 7 | *Superseded* (v0.2.0): one checkpoint blob per runnable. Now a replicated SQLite database per runnable, fenced by the epoch, with checkpoints stored in it (`drun-store.md`, ADR S-1 to S-3) | The fencing comes for free: a stale write is refused in the step that would apply it; stateful runnables need no external database for moderate state | Blob only (v0.1.0); a key/value store in bbolt (simpler, no SQL) |
 | 8 | Overlap is reduced by the lease and the takeover delay, and made harmless by fencing; it is never assumed absent | Clocks and pauses make a pure timing argument unsafe | Timing only (unsafe under pauses); fencing only (more overlap) |
 | 9 | `Release` on planned handover | Planned handovers need no delay and have no overlap | Always wait the delay |
 | 10 | A transport-neutral `Runnable` interface, two loaders: go-plugin (production) and in-process (tests, conformance) | Fast deterministic cluster tests with `InmemTransport`; one conformance suite for both | Tests through processes only |
@@ -851,15 +851,15 @@ partitions, pauses, leadership transfers) with the race detector;
 (`test/lab/lab.sh`, LXD: 5 node VMs and one PostgreSQL VM; faults by
 `kill -9`, `SIGSTOP`, `lxc pause`, nftables partitions and `tc netem`
 latency) runs the scenarios below against the installed packages, with two
-example runnables: `resurgo-runnable-ticker` (stateless, checkpoints a
-counter) and `resurgo-runnable-fenced-counter` (stateful, appends
+example runnables: `drun-runnable-ticker` (stateless, checkpoints a
+counter) and `drun-runnable-fenced-counter` (stateful, appends
 `(epoch, seq)` rows to PostgreSQL through the fence of §8.5, plus a
 checker).
 
-As built (C6): the examples are `cmd/resurgo-runnable-ticker` and
-`cmd/resurgo-runnable-fenced-counter`, shipped in the package
-`resurgo-runnable-examples`. The fenced counter's rows carry an id in
-commit order; its checker (`resurgo-runnable-fenced-counter check`) fails
+As built (C6): the examples are `cmd/drun-runnable-ticker` and
+`cmd/drun-runnable-fenced-counter`, shipped in the package
+`drun-runnable-examples`. The fenced counter's rows carry an id in
+commit order; its checker (`drun-runnable-fenced-counter check`) fails
 when a row of an epoch follows a row of a newer one, and reports rows
 written again after a failover as repeats (at least once). Its tests run
 against a pinned PostgreSQL container (`make test-postgres`).
@@ -889,7 +889,7 @@ against a pinned PostgreSQL container (`make test-postgres`).
   cluster, several supported, all on the leader (FR-6). Every runnable
   gets a SQL store and manages its own schema migrations (FR-17); cgo is
   acceptable if needed, but the default engine avoids it
-  (`resurgo-store.md` §4, OI-S-1).
+  (`drun-store.md` §4, OI-S-1).
 - **OI-2 Tasks.** Proposed: services and run-once tasks (FR-7). Is "task"
   needed in v1?
 - **OI-3 Configuration.** Proposed: node-local with drift detection
@@ -931,17 +931,17 @@ secrets`, and the documents updated (rules 11 to 13).
 | C0 | Spike: EXT-1 to EXT-9 and EXT-S-1 to EXT-S-5 as regression tests (`test/spike`), re-run on every bump of raft or go-plugin |
 | C1 | `internal/fsm`: state, commands (protobuf), snapshot/restore; unit, property and fuzz tests (INV-1, INV-3, INV-7) |
 | C2 | `internal/raftnode`: stores, mTLS muxed stream layer with identity binding, bootstrap, membership; `internal/config` with the checks of §8.6 |
-| C2b | The store: `mattn/go-sqlite3` (static musl build, `resurgo-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`). Done 2026-11-26: `fsm.Store.Exec` takes the runnable's replicated limits and `Forget` the entry index; the release build turns static when `serve` links the store (C5) |
+| C2b | The store: `mattn/go-sqlite3` (static musl build, `drun-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`drun-store.md`). Done 2026-11-26: `fsm.Store.Exec` takes the runnable's replicated limits and `Forget` the entry index; the release build turns static when `serve` links the store (C5) |
 | C3 | `pkg/runnable`: interface, protocol, go-plugin server and loader, lease in the SDK, in-process loader, conformance kit |
 | C4 | `internal/supervisor`: incarnation controller, takeover delay, release, restart and handover; in-process cluster tests; `make stress` / `make soak` |
 | C5 | `internal/admin` and the CLI (§10.2); metrics. C5a (2026-11-27): the admin API on pluggable endpoints (socket, opt-in remote TLS: SEC-11), forwarding, `serve` (`internal/daemon`), FR-15 drift and FR-16 validation; C5b (2026-11-27): store commands (STO-15 to STO-17), metrics, static musl release build with zig; FR-13 fixed: a command during the takeover wait no longer cuts it short |
-| C6 | Example runnables, packaging, the three guides (rule 12). Done 2026-11-27: the admin socket's directory and socket go to the first of `admin.allowed_groups` (`resurgo-admin`, created by the package); `make package-check` checks the packages |
+| C6 | Example runnables, packaging, the three guides (rule 12). Done 2026-11-27: the admin socket's directory and socket go to the first of `admin.allowed_groups` (`drun-admin`, created by the package); `make package-check` checks the packages |
 | C7 | The LXD lab, AC-1 to AC-15, the overnight soak (rules 14 and 15) |
 
 ## 17. Specifications
 
 | File | Content |
 | :--- | :--- |
-| `resurgo_specification.md` | This file |
-| `resurgo-store.md` | The replicated SQL store of a runnable, schema migrations |
-| `resurgo-backlog.md` | Future work (FW-nn) |
+| `drun_specification.md` | This file |
+| `drun-store.md` | The replicated SQL store of a runnable, schema migrations |
+| `drun-backlog.md` | Future work (FW-nn) |

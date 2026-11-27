@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	"google.golang.org/protobuf/proto"
 )
@@ -358,15 +358,15 @@ func removePeer(id string) *fsmpb.Command {
 func TestPeers(t *testing.T) {
 	h := newHarness(t)
 	for _, cmd := range []*fsmpb.Command{
-		setPeer("n4", "spiffe://example.org/resurgo/n4"),
+		setPeer("n4", "spiffe://example.org/drun/n4"),
 		setPeer("n5", "n5.example.org"),
-		setPeer("n4", "spiffe://example.org/resurgo/n4-renewed"), // replaced
+		setPeer("n4", "spiffe://example.org/drun/n4-renewed"), // replaced
 	} {
 		if res := h.apply(cmd); res.Err != nil {
 			t.Fatalf("%v: %v", cmd, res.Err)
 		}
 	}
-	want := map[string]string{"n4": "spiffe://example.org/resurgo/n4-renewed", "n5": "n5.example.org"}
+	want := map[string]string{"n4": "spiffe://example.org/drun/n4-renewed", "n5": "n5.example.org"}
 	if got := h.fsm.Peers(); len(got) != 2 || got["n4"] != want["n4"] || got["n5"] != want["n5"] {
 		t.Fatalf("peers %v, want %v", got, want)
 	}

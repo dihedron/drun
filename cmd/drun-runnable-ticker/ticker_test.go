@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dihedron/resurgo/pkg/runnable"
-	"github.com/dihedron/resurgo/pkg/runnable/conformance"
+	"github.com/dihedron/drun/pkg/runnable"
+	"github.com/dihedron/drun/pkg/runnable/conformance"
 )
 
 func TestConformance(t *testing.T) {

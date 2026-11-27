@@ -1,5 +1,5 @@
 # Setup Guide: title page and PDF metadata (see docs/build.sh)
 title: "Setup Guide"
-subtitle: "Installing a resurgo cluster and its first runnable"
-author: "resurgo"
+subtitle: "Installing a drun cluster and its first runnable"
+author: "drun"
 lang: en-GB

@@ -29,7 +29,7 @@ type Description struct {
 	// Version is the runnable's own version.
 	Version string
 	Kind    Kind
-	// Stateful runnables keep state outside resurgo and fence it with the
+	// Stateful runnables keep state outside drun and fence it with the
 	// epoch (§8.5).
 	Stateful bool
 	// ConfigSchema is an optional JSON Schema of the configuration.

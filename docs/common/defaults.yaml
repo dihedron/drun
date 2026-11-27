@@ -1,5 +1,5 @@
 # pandoc defaults shared by the documents (see docs/build.sh and
-# .specs/resurgo-docs.md). Paths are relative to the repository
+# .specs/drun-docs.md). Paths are relative to the repository
 # root, where the build runs.
 from: markdown
 to: pdf
@@ -30,7 +30,7 @@ variables:
   titlepage: true
   titlepage-rule-color: "1E4E79"
   toc-own-page: true
-  footer-left: "resurgo"
+  footer-left: "drun"
   code-block-font-size: \small
   table-use-row-colors: true
   # a description list's text starts below its term: the configuration

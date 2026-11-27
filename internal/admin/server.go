@@ -1,4 +1,4 @@
-// Package admin is a node's admin API (resurgo_specification.md §10.2): a
+// Package admin is a node's admin API (drun_specification.md §10.2): a
 // gRPC service on pluggable endpoints (the local socket, the opt-in remote
 // TLS endpoint), whose mutations the leader executes; a follower forwards
 // them over the cluster port's admin stream (ADR-3).
@@ -15,12 +15,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dihedron/resurgo/internal/admin/adminpb"
-	"github.com/dihedron/resurgo/internal/fsm"
-	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
-	"github.com/dihedron/resurgo/internal/raftnode"
-	"github.com/dihedron/resurgo/internal/store"
-	"github.com/dihedron/resurgo/internal/supervisor"
+	"github.com/dihedron/drun/internal/admin/adminpb"
+	"github.com/dihedron/drun/internal/fsm"
+	"github.com/dihedron/drun/internal/fsm/fsmpb"
+	"github.com/dihedron/drun/internal/raftnode"
+	"github.com/dihedron/drun/internal/store"
+	"github.com/dihedron/drun/internal/supervisor"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

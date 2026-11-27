@@ -35,11 +35,11 @@ func TestLoadDotEnv(t *testing.T) {
 		t.Errorf("malformed file: got %v", err)
 	}
 	good := filepath.Join(dir, "good")
-	if err := os.WriteFile(good, []byte("RESURGO_TEST_DOTENV_GOOD=1\n"), 0o600); err != nil {
+	if err := os.WriteFile(good, []byte("DRUN_TEST_DOTENV_GOOD=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Unsetenv("RESURGO_TEST_DOTENV_GOOD") })
-	if err := LoadDotEnv(good); err != nil || os.Getenv("RESURGO_TEST_DOTENV_GOOD") != "1" {
+	t.Cleanup(func() { _ = os.Unsetenv("DRUN_TEST_DOTENV_GOOD") })
+	if err := LoadDotEnv(good); err != nil || os.Getenv("DRUN_TEST_DOTENV_GOOD") != "1" {
 		t.Errorf("good file: %v", err)
 	}
 }

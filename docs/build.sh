@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the release documents (see .specs/resurgo-docs.md) into
+# Builds the release documents (see .specs/drun-docs.md) into
 # build/docs/ (not dist/, which goreleaser cleans), with pinned container images: Mermaid diagrams to PDF with
 # mermaid-cli, then each document to PDF with pandoc, LaTeX and Eisvogel.
 #
@@ -70,7 +70,7 @@ done
 sed -e "s/\\\$version\\\$/$version/g" -e "s/\\\$date\\\$/$date/g" docs/common/front-matter.md >"$work/front-matter.md"
 
 for d in "${documents[@]}"; do
-	pdf="$out/resurgo-${FILE_NAMES[$d]}-$version.pdf"
+	pdf="$out/drun-${FILE_NAMES[$d]}-$version.pdf"
 	echo "docs: $pdf"
 	# a document's own defaults, if any, override the shared ones
 	own=()
