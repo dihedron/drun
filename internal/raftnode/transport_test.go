@@ -323,3 +323,24 @@ func parseCert(t *testing.T, certPEM []byte) *x509.Certificate {
 	}
 	return cert
 }
+
+// the probe stream answers whether the node has Raft state, to members only
+func TestProbe(t *testing.T) {
+	eps := newEndpoints(t, tlstest.NewCA(t), "a", "b")
+	a, b := eps["a"], eps["b"]
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if has, err := b.trans.Probe(ctx, a.net.LocalAddr()); err != nil || has {
+		t.Fatalf("probe before SetStateful: %v %v", has, err)
+	}
+	a.trans.SetStateful(func() bool { return true })
+	if has, err := b.trans.Probe(ctx, a.net.LocalAddr()); err != nil || !has {
+		t.Fatalf("probe of a stateful node: %v %v", has, err)
+	}
+	// a node of another CA is refused at the handshake
+	stranger := newEndpoints(t, tlstest.NewCA(t), "c")["c"]
+	stranger.trans.SetResolver(func(raft.ServerAddress) (raft.ServerID, bool) { return "a", true })
+	if _, err := stranger.trans.Probe(ctx, a.net.LocalAddr()); err == nil {
+		t.Fatal("a stranger's probe was answered")
+	}
+}

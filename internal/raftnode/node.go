@@ -5,12 +5,14 @@
 package raftnode
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -24,6 +26,9 @@ import (
 const (
 	retainSnapshots = 2
 	changeTimeout   = 10 * time.Second
+	// probeTimeout bounds the questions a node with no state asks before
+	// bootstrapping
+	probeTimeout = 3 * time.Second
 )
 
 // ErrNotLeader: a call only the leader executes reached another node.
@@ -56,6 +61,10 @@ type Node struct {
 	observations chan raft.Observation
 	observer     *raft.Observer
 	done         chan struct{}
+
+	existing     bool
+	running      atomic.Pointer[raft.Raft] // set once raft runs, for probes
+	bootstrapped bool
 }
 
 // New starts the node's Raft server with f, and bootstraps the cluster
@@ -122,20 +131,31 @@ func New(cfg *config.Config, f raft.FSM, recorded func() map[string]string, logg
 	if err != nil {
 		return nil, fmt.Errorf("raft state: %w", err)
 	}
+	n.existing = existing
+	n.trans.SetStateful(n.stateful)
 	n.raft, err = raft.NewRaft(rc, f, n.store, n.store, snaps, n.net)
 	if err != nil {
 		return nil, fmt.Errorf("raft: %w", err)
 	}
+	n.running.Store(n.raft)
 	cleanup = append(cleanup, func() error { return n.raft.Shutdown().Error() })
 
-	if !existing && n.isInitialVoter() {
+	switch {
+	case existing:
+		logger.Info("existing raft state: the configured voters are ignored")
+	case !n.isInitialVoter():
+		logger.Info("no raft state, not an initial voter: waiting to be added (resurgo member add)")
+	case n.clusterExists():
+		// a rebuilt node: bootstrapping would write a first entry that may
+		// differ from the cluster's at the same index and term
+		logger.Info("no raft state, but a configured voter has some: waiting for the cluster's leader (if this node was removed: resurgo member add)")
+	default:
 		err := n.raft.BootstrapCluster(n.initialConfiguration()).Error()
 		if err != nil && !errors.Is(err, raft.ErrCantBootstrap) {
 			return nil, fmt.Errorf("bootstrap: %w", err)
 		}
+		n.bootstrapped = err == nil
 		logger.Info("bootstrapped the cluster from the configured voters", "voters", len(cfg.Cluster.Voters))
-	} else if existing {
-		logger.Info("existing raft state: the configured voters are ignored")
 	}
 
 	// addresses of members added later come from the raft configuration
@@ -218,6 +238,46 @@ func (n *Node) watchPeers() {
 		}
 	}
 }
+
+// stateful answers probes: whether this node has Raft state
+func (n *Node) stateful() bool {
+	if r := n.running.Load(); r != nil {
+		return r.LastIndex() > 0
+	}
+	return n.existing
+}
+
+// clusterExists asks the other configured voters, in parallel, whether
+// any has Raft state; unreachable ones count as no
+func (n *Node) clusterExists() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	answers := make(chan bool, len(n.cfg.Cluster.Voters))
+	asked := 0
+	for _, v := range n.cfg.Cluster.Voters {
+		if v.ID == n.cfg.Node.ID {
+			continue
+		}
+		asked++
+		go func() {
+			has, err := n.trans.Probe(ctx, raft.ServerAddress(v.Address))
+			if err != nil {
+				n.logger.Debug("probe before bootstrapping", "peer", v.ID, "error", err)
+			}
+			answers <- has
+		}()
+	}
+	for range asked {
+		if <-answers {
+			return true
+		}
+	}
+	return false
+}
+
+// Bootstrapped reports whether this node created the cluster when it
+// started (FR-1).
+func (n *Node) Bootstrapped() bool { return n.bootstrapped }
 
 // Raft is the raft server, for the supervisor and the admin API.
 func (n *Node) Raft() *raft.Raft { return n.raft }

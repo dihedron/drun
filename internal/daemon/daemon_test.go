@@ -69,7 +69,9 @@ type tcluster struct {
 	runnableConfig map[string]string
 	// invalid makes a node's loader fail
 	invalid map[string]error
-	group   string
+	// voters overrides a node's cluster.voters (default: every node)
+	voters map[string][]string
+	group  string
 }
 
 func freePort(t *testing.T) string {
@@ -122,7 +124,11 @@ func (c *tcluster) config(id string) *config.Config {
 	var b strings.Builder
 	fmt.Fprintf(&b, "node: { id: %s, data_dir: %s }\n", id, filepath.Join(dir, "data"))
 	fmt.Fprintf(&b, "cluster:\n  name: test\n  bind: %s\n  advertise: %s\n  voters:\n", c.addrs[id], c.addrs[id])
-	for _, v := range c.ids {
+	voters := c.ids
+	if v, ok := c.voters[id]; ok {
+		voters = v
+	}
+	for _, v := range voters {
 		fmt.Fprintf(&b, "    - { id: %s, address: %s }\n", v, c.addrs[v])
 	}
 	fmt.Fprintf(&b, "  tls:\n    cert: %s\n    key: %s\n    ca: %s\n    peers:\n", files.Cert, files.Key, files.CA)

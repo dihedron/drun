@@ -30,23 +30,24 @@ resurgo member remove node-a
 ```
 
 The new node's configuration lists the current members in
-`cluster.tls.peers`, and in `cluster.voters` the current voters but not
-itself: a node that has no data and finds itself in `cluster.voters`
-creates a new cluster instead of waiting to be added.
+`cluster.tls.peers`. Before it creates a cluster, a node with no data asks
+the voters in its `cluster.voters` whether one exists: if any answers, it
+waits to be added instead.
 
 ## Rebuilding a node
 
 A node whose data is lost or damaged is rebuilt from the others:
 
-1. `resurgo member remove node-a` (from another node);
-2. on `node-a`: `systemctl stop resurgo`, then empty
-   `/var/lib/resurgo`;
-3. remove `node-a` from its own `cluster.voters` (see above), and start
-   it;
-4. `resurgo member add node-a 10.0.1.11:7350` from another node.
+1. `systemctl stop resurgo` on the node, then empty `/var/lib/resurgo`;
+2. `systemctl start resurgo`: finding that the other nodes hold the
+   cluster, it waits, and the leader sends it a snapshot and the log since:
+   state, checkpoints and stores;
+3. only if it had been removed (`member remove`): `resurgo member add
+   node-a 10.0.1.11:7350` from another node.
 
-The leader sends it a snapshot and the log since: state, checkpoints and
-stores.
+Rebuild nodes one at a time, or at least never a majority while the other
+nodes are down: nodes that all lack data cannot tell a lost cluster from
+a new one, and would create a new, empty one.
 
 ## Backups
 

@@ -11,9 +11,24 @@ Raft and the admin calls forwarded to the leader share one TCP port
    `cluster.tls.peers` and from the `SetPeer` entries the node has applied;
    for the same ID, the configured one wins.
 2. The first byte says what the connection carries: `R` for Raft, `A`
-   for a forwarded admin call. Any other byte closes the connection.
+   for a forwarded admin call, `P` for a probe. Any other byte closes the
+   connection.
 3. `R` connections go to hashicorp/raft's `NetworkTransport`; `A`
-   connections to the admin server, with the peer's ID attached.
+   connections to the admin server, with the peer's ID attached; a `P`
+   connection is answered one byte, whether this node has Raft state, and
+   closed.
+
+## Bootstrapping
+
+A node with no Raft state that is one of the configured voters probes the
+other configured voters (in parallel, for at most 3 s) before it
+bootstraps. If any has state, the cluster exists and this node was wiped:
+bootstrapping would write a first log entry that, if `cluster.voters`
+changed since the cluster was created, differs from the cluster's at the
+same index and term, which Raft cannot detect. It waits instead, with no
+configuration: it grants votes and starts no election until the leader
+replicates to it. Nodes that all lack state cannot tell a lost cluster
+from a new one, and bootstrap.
 
 When a node dials, it looks up the server ID of the address in the
 cluster's configuration and checks that the server presents that ID's

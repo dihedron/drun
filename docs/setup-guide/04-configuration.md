@@ -18,9 +18,11 @@ reported together.
 | `cluster.tls.cert`, `key`, `ca` | Absolute paths of this node's certificate, key and the CA that signs every node's certificate |
 | `cluster.tls.peers` | For every node ID (this one, every voter, every member added later): the identity its certificate carries |
 
-A node without Raft state that is one of `cluster.voters` creates the
-cluster from that list; a node that already has state ignores the list.
-A node that is not an initial voter waits until a member adds it.
+A node without Raft state that is one of `cluster.voters` first asks the
+other voters in the list whether a cluster exists; if none has, it creates
+the cluster from that list, otherwise it waits for the cluster's leader (a
+rebuilt node). A node that already has state ignores the list. A node that
+is not an initial voter waits until a member adds it.
 
 ## Timings
 

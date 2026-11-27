@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"sync"
@@ -20,6 +21,8 @@ import (
 const (
 	streamRaft  byte = 'R'
 	streamAdmin byte = 'A'
+	// streamProbe asks whether the node has Raft state: one byte back
+	streamProbe byte = 'P'
 )
 
 const handshakeTimeout = 10 * time.Second
@@ -41,8 +44,9 @@ type Transport struct {
 	peers     *Peers
 	logger    *slog.Logger
 
-	mu      sync.RWMutex
-	resolve Resolver
+	mu       sync.RWMutex
+	resolve  Resolver
+	stateful func() bool
 
 	raftConns  chan net.Conn
 	adminConns chan net.Conn
@@ -92,6 +96,38 @@ func (t *Transport) lookup(addr raft.ServerAddress) (raft.ServerID, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.resolve(addr)
+}
+
+// SetStateful sets what a probe is answered: whether this node has Raft
+// state (false until set).
+func (t *Transport) SetStateful(f func() bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.stateful = f
+}
+
+func (t *Transport) isStateful() bool {
+	t.mu.RLock()
+	f := t.stateful
+	t.mu.RUnlock()
+	return f != nil && f()
+}
+
+// Probe asks the server at address whether it has Raft state.
+func (t *Transport) Probe(ctx context.Context, address raft.ServerAddress) (bool, error) {
+	conn, err := t.dial(ctx, address, streamProbe)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close() //nolint:errcheck // read only
+	if d, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(d)
+	}
+	var b [1]byte
+	if _, err := io.ReadFull(conn, b[:]); err != nil {
+		return false, fmt.Errorf("probing %s: %w", address, err)
+	}
+	return b[0] == 1, nil
 }
 
 // Addr is the address of the listening socket.
@@ -175,6 +211,15 @@ func (t *Transport) handle(raw net.Conn) {
 		out, ch = newGate(conn, r, raft.ServerID(peer), t.lookup), t.raftConns
 	case streamAdmin:
 		out, ch = &PeerConn{Conn: &bufferedConn{Conn: conn, r: r}, Peer: raft.ServerID(peer)}, t.adminConns
+	case streamProbe:
+		var answer byte
+		if t.isStateful() {
+			answer = 1
+		}
+		_ = conn.SetDeadline(time.Now().Add(handshakeTimeout))
+		_, _ = conn.Write([]byte{answer})
+		_ = conn.Close()
+		return
 	default:
 		t.logger.Warn("cluster port: unknown stream", "peer", peer, "kind", kind)
 		_ = conn.Close()
