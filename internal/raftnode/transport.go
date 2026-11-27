@@ -137,7 +137,7 @@ func (t *Transport) serverConfig() *tls.Config {
 			if err != nil {
 				return err
 			}
-			leaf, err := verifyChain(cs, roots, x509.ExtKeyUsageClientAuth)
+			leaf, err := VerifyChain(cs, roots, x509.ExtKeyUsageClientAuth)
 			if err != nil {
 				return err
 			}
@@ -221,11 +221,11 @@ func (t *Transport) dial(ctx context.Context, address raft.ServerAddress, kind b
 		// checked in VerifyConnection
 		InsecureSkipVerify: true, //nolint:gosec // see above
 		VerifyConnection: func(cs tls.ConnectionState) error {
-			leaf, err := verifyChain(cs, roots, x509.ExtKeyUsageServerAuth)
+			leaf, err := VerifyChain(cs, roots, x509.ExtKeyUsageServerAuth)
 			if err != nil {
 				return err
 			}
-			if !hasIdentity(leaf, want) {
+			if !HasIdentity(leaf, want) {
 				return fmt.Errorf("%s does not present the identity of %s", address, id)
 			}
 			return nil

@@ -93,6 +93,25 @@ type Lease struct {
 type Admin struct {
 	Socket        string   `yaml:"socket"`
 	AllowedGroups []string `yaml:"allowed_groups"`
+	// Remote, if set, also serves the admin API on a TCP endpoint with
+	// mutual TLS (SEC-11); absent, the API is local only.
+	Remote *Remote `yaml:"remote"`
+}
+
+// Remote is the opt-in remote admin endpoint.
+type Remote struct {
+	Listen string   `yaml:"listen"`
+	TLS    TLSFiles `yaml:"tls"`
+	// AllowedIdentities are the client identities (spiffe:// URI or DNS
+	// SAN) admitted; every other client is refused.
+	AllowedIdentities []string `yaml:"allowed_identities"`
+}
+
+// TLSFiles are a certificate, its key and the CA that signs the peers'.
+type TLSFiles struct {
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
+	CA   string `yaml:"ca"`
 }
 
 type Metrics struct {
@@ -218,6 +237,7 @@ func (c *Config) Validate() error {
 	c.validateCluster(p.bad)
 	c.validateTLS(p.bad)
 	c.validateTimings(p.bad)
+	c.validateAdmin(p.bad)
 	c.validateRunnables(p.bad)
 	return errors.Join(p...)
 }
@@ -281,6 +301,32 @@ func (c *Config) validateTLS(bad func(string, ...any)) {
 	for _, id := range need {
 		if _, ok := c.Cluster.TLS.Peers[id]; id != "" && !ok {
 			bad("cluster.tls.peers: no identity for %q", id)
+		}
+	}
+}
+
+func (c *Config) validateAdmin(bad func(string, ...any)) {
+	if !filepath.IsAbs(c.Admin.Socket) {
+		bad("admin.socket %q is not an absolute path", c.Admin.Socket)
+	}
+	r := c.Admin.Remote
+	if r == nil {
+		return
+	}
+	if _, _, err := net.SplitHostPort(r.Listen); err != nil {
+		bad("admin.remote.listen %q: %w", r.Listen, err)
+	}
+	for _, f := range []struct{ name, path string }{{"cert", r.TLS.Cert}, {"key", r.TLS.Key}, {"ca", r.TLS.CA}} {
+		if !filepath.IsAbs(f.path) {
+			bad("admin.remote.tls.%s %q is not an absolute path", f.name, f.path)
+		}
+	}
+	if len(r.AllowedIdentities) == 0 {
+		bad("admin.remote.allowed_identities is empty: no client could connect")
+	}
+	for _, identity := range r.AllowedIdentities {
+		if err := ValidIdentity(identity); err != nil {
+			bad("admin.remote.allowed_identities: %w", err)
 		}
 	}
 }

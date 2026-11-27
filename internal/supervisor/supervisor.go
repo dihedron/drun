@@ -25,6 +25,9 @@ import (
 // applyTimeout bounds a command's wait for its commit
 const applyTimeout = 5 * time.Second
 
+// ErrNotLeader: a planned stop or handover on a node that is not leader.
+var ErrNotLeader = errors.New("supervisor: not leader")
+
 // Spec is a runnable as this node runs it.
 type Spec struct {
 	config.Runnable
@@ -166,11 +169,9 @@ func (s *Supervisor) lose() {
 // planned stops every controller's incarnation and releases it (FR-12);
 // hold keeps them from starting another until leadership changes
 func (s *Supervisor) planned(ctx context.Context, hold bool, names ...string) error {
-	s.mu.Lock()
-	l := s.leading
-	s.mu.Unlock()
-	if l == nil {
-		return errors.New("supervisor: not leader")
+	l, err := s.leadership(ctx)
+	if err != nil {
+		return err
 	}
 	var dones []chan struct{}
 	for name, c := range l.ctrls {
@@ -193,6 +194,27 @@ func (s *Supervisor) planned(ctx context.Context, hold bool, names ...string) er
 		}
 	}
 	return nil
+}
+
+// leadership returns the current leadership; a node raft just made leader
+// is waited for until its controllers run (after the barrier)
+func (s *Supervisor) leadership(ctx context.Context) (*leadership, error) {
+	for {
+		s.mu.Lock()
+		l := s.leading
+		s.mu.Unlock()
+		if l != nil {
+			return l, nil
+		}
+		if s.o.Raft.State() != raft.Leader {
+			return nil, ErrNotLeader
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 }
 
 func contains(names []string, name string) bool {
@@ -250,7 +272,25 @@ func (s *Supervisor) Shutdown(ctx context.Context) error {
 	if s.o.Raft.State() != raft.Leader {
 		return nil
 	}
+	if !s.otherVoter() {
+		// a single voter has no one to hand over to: stop and release
+		return s.planned(ctx, true)
+	}
 	return s.Handover(ctx, "")
+}
+
+// otherVoter reports whether a voter other than this node exists
+func (s *Supervisor) otherVoter() bool {
+	f := s.o.Raft.GetConfiguration()
+	if f.Error() != nil {
+		return true // let the transfer report it
+	}
+	for _, srv := range f.Configuration().Servers {
+		if string(srv.ID) != s.o.Node && srv.Suffrage == raft.Voter {
+			return true
+		}
+	}
+	return false
 }
 
 // Restart stops and releases the runnable's incarnation, and starts a new

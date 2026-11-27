@@ -55,3 +55,33 @@ node refuses timings that break the leadership lease:
 | `store` | `max_batch: 1MiB, max_steps: 50000000, max_size: 256MiB, max_result: 1MiB, query_timeout: 30s` | `max_batch` at most `4MiB` |
 
 Sizes are integers with an optional `B`, `KiB`, `MiB` or `GiB`.
+
+## Admin API
+
+| Key | Default | Notes |
+| :--- | :--- | :--- |
+| `admin.socket` | `/run/resurgo/admin.sock` | Absolute path; created `0660`; a socket left by a node that died is replaced, one in use is not |
+| `admin.allowed_groups` | none | Groups whose members may use the socket; root always may. The groups must exist |
+| `admin.remote` | off | The remote endpoint, see below |
+
+The remote endpoint serves the same API over TCP to operators on other
+hosts. It is off unless configured, and has no plaintext mode: TLS 1.3,
+and every client must present a certificate from `admin.remote.tls.ca`
+carrying one of the allowed identities.
+
+```yaml
+admin:
+  remote:
+    listen: 10.0.1.11:7351
+    tls:
+      cert: /etc/resurgo/tls/admin.crt   # the node's certificate on this endpoint
+      key: /etc/resurgo/tls/admin.key
+      ca: /etc/resurgo/tls/admin-ca.crt  # signs the operators' certificates
+    allowed_identities:
+      - spiffe://example.org/ops/alice
+      - bob.ops.example.org              # a DNS SAN
+```
+
+Every allowed identity may call every command, so bind the endpoint to an
+operators' network and prefer short-lived client certificates. The
+certificate files are reloaded when they change.

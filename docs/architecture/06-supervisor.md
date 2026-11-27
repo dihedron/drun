@@ -33,7 +33,10 @@ missed signal cannot leave a follower running anything.
 | A newer epoch | as for a lost leadership | nothing |
 
 A released predecessor lets the next leader start at once; otherwise the
-next leader waits `takeover_delay`.
+next leader waits `takeover_delay`. A planned stop on a node raft has just
+made leader waits until its controllers run (after the barrier). A single
+voter that shuts down has no one to hand over to: it stops and releases
+its runnables, and exits.
 
 ## Failures
 

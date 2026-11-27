@@ -159,7 +159,7 @@ func (p *Peers) Configured(id string) (string, bool) {
 func (p *Peers) ID(cert *x509.Certificate) (string, error) {
 	var found []string
 	for id, identity := range p.All() {
-		if hasIdentity(cert, identity) {
+		if HasIdentity(cert, identity) {
 			found = append(found, id)
 		}
 	}
@@ -173,8 +173,9 @@ func (p *Peers) ID(cert *x509.Certificate) (string, error) {
 	}
 }
 
-// hasIdentity: a spiffe:// identity is a URI SAN, anything else a DNS SAN
-func hasIdentity(cert *x509.Certificate, identity string) bool {
+// HasIdentity reports whether the certificate carries identity: a
+// spiffe:// identity as a URI SAN, anything else as a DNS SAN.
+func HasIdentity(cert *x509.Certificate, identity string) bool {
 	if strings.HasPrefix(identity, "spiffe://") {
 		for _, u := range cert.URIs {
 			if u.String() == identity {
@@ -191,8 +192,9 @@ func hasIdentity(cert *x509.Certificate, identity string) bool {
 	return false
 }
 
-// verifyChain checks the peer's chain against roots, for usage
-func verifyChain(cs tls.ConnectionState, roots *x509.CertPool, usage x509.ExtKeyUsage) (*x509.Certificate, error) {
+// VerifyChain checks the peer's chain against roots, for usage, and
+// returns its leaf.
+func VerifyChain(cs tls.ConnectionState, roots *x509.CertPool, usage x509.ExtKeyUsage) (*x509.Certificate, error) {
 	if len(cs.PeerCertificates) == 0 {
 		return nil, errors.New("no peer certificate")
 	}

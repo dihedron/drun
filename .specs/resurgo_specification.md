@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `resurgo`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.3.7` (2026-11-27): admin API as built in C5, opt-in remote admin endpoint (SEC-11, T-14); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -618,6 +618,10 @@ lease: {}
 admin:
   socket: /run/resurgo/admin.sock
   allowed_groups: [resurgo-admin]  # SEC-6
+  remote:                          # SEC-11: opt-in; absent, local only
+    listen: 10.0.1.11:7351
+    tls: { cert: /etc/resurgo/tls/admin.crt, key: /etc/resurgo/tls/admin.key, ca: /etc/resurgo/tls/admin-ca.crt }
+    allowed_identities: ["spiffe://example.org/ops/alice"]
 metrics:
   listen: 127.0.0.1:9350
 runnables:
@@ -662,6 +666,21 @@ one verb that displays objects. All but `serve`, `version` and
 | `resurgo store show\|query\|backup\|reset NAME …` | the runnable's store (STO-16) |
 | `resurgo checkpoint show NAME [--data]` | metadata; `--data` writes the bytes to stdout |
 | `resurgo version [--verbose]`, `resurgo completion bash\|zsh` | as in the other projects |
+
+As built (C5): the admin API is one gRPC service on pluggable endpoints,
+each authenticating its callers in its handshake: the local socket
+(SEC-6) and the opt-in remote endpoint (SEC-11). The CLI picks one with
+`--admin unix:///path` (the default, `/run/resurgo/admin.sock`) or
+`--admin tls://host:port` with `--cert`, `--key`, `--ca` and optionally
+`--server-identity`; `--json` prints the replies as JSON. `cluster
+show`, `leader show`, `runnable show` and `checkpoint show` answer from
+the called node's replicated state (`runnable show` adds the leader's
+views of its runnables, and the called node's digests, drift and
+validation error); the other commands are executed by the leader, a
+follower forwarding them over the cluster port with the caller's
+identity. A forwarded call that reaches a node no longer leader fails
+(`Unavailable`, retry) rather than hopping again. `leader transfer` and
+removing the leader are planned handovers (FR-12).
 
 ### 10.3 Metrics
 
@@ -718,6 +737,12 @@ plus Raft's own metrics (FW-3).
   cgroup.
 - **SEC-10** The plugin process MUST die with the node: `Pdeathsig=SIGKILL`
   on the child, and `KillMode=control-group` in the unit (INV-5, EXT-5).
+- **SEC-11** The admin API MAY also be served on a TCP endpoint
+  (`admin.remote`, off unless configured): TLS 1.3 with mutual
+  authentication, no plaintext mode; the client's certificate MUST chain
+  to `admin.remote.tls.ca` and carry one of `admin.remote.allowed_identities`
+  (SPIFFE ID URI SAN or DNS SAN), which is the caller recorded in the audit
+  log. Any allowed identity may call every admin method.
 
 ### 11.2 Threats (STRIDE)
 
@@ -736,6 +761,7 @@ plus Raft's own metrics (FW-3).
 | T-11 | (T) A tampered package is installed | signed packages and checksums (as in the other projects) | — |
 | T-12 | (I) The plugin's stderr leaks secrets into the node's logs | runnables' responsibility; the conformance kit greps for a canary secret | R-6 |
 | T-13 | (D) A partitioned node with a stale log disrupts the cluster | Raft pre-vote (EXT-4) | — |
+| T-14 | (S, E) A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
 
 ### 11.3 Accepted residual risks
 
@@ -750,6 +776,11 @@ plus Raft's own metrics (FW-3).
   (§8.5).
 - **R-5** The audit trail is the local journal of each node.
 - **R-6** A runnable can log what it wants.
+- **R-7** A stolen admin client key gives full admin access through the
+  remote endpoint until its identity is removed from
+  `admin.remote.allowed_identities` or its certificate expires: short-lived
+  certificates, and an endpoint bound to an operators' network only, are
+  recommended. There are no per-method roles in v1.
 
 ## 12. Decisions
 
@@ -881,7 +912,7 @@ secrets`, and the documents updated (rules 11 to 13).
 | C2b | The store: `mattn/go-sqlite3` (static musl build, `resurgo-store.md` §4.1) behind the FSM, authorizer, step budget, exactly-once apply, snapshots, `pkg/runnable/migrate` (`resurgo-store.md`). Done 2026-11-26: `fsm.Store.Exec` takes the runnable's replicated limits and `Forget` the entry index; the release build turns static when `serve` links the store (C5) |
 | C3 | `pkg/runnable`: interface, protocol, go-plugin server and loader, lease in the SDK, in-process loader, conformance kit |
 | C4 | `internal/supervisor`: incarnation controller, takeover delay, release, restart and handover; in-process cluster tests; `make stress` / `make soak` |
-| C5 | `internal/admin` and the CLI (§10.2); metrics |
+| C5 | `internal/admin` and the CLI (§10.2); metrics. C5a (2026-11-27): the admin API on pluggable endpoints (socket, opt-in remote TLS: SEC-11), forwarding, `serve` (`internal/daemon`), FR-15 drift and FR-16 validation; C5b: store commands, metrics, static release build |
 | C6 | Example runnables, packaging, the three guides (rule 12) |
 | C7 | The LXD lab, AC-1 to AC-15, the overnight soak (rules 14 and 15) |
 

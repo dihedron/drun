@@ -8,6 +8,7 @@ import (
 
 	"github.com/dihedron/resurgo/pkg/metadata"
 	"github.com/jessevdk/go-flags"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -37,6 +38,7 @@ func run(args []string) int {
 	}
 
 	command := Command{}
+	root = &command
 	parser := flags.NewParser(&command, flags.HelpFlag|flags.PassDoubleDash)
 	// without a subcommand, the root's Execute explains what to run
 	parser.SubcommandsOptional = true
@@ -45,6 +47,10 @@ func run(args []string) int {
 		if errors.As(err, &flagsErr) && flagsErr.Type == flags.ErrHelp {
 			_, _ = fmt.Fprintln(os.Stdout, err)
 			return 0
+		}
+		if s, ok := status.FromError(err); ok {
+			// an admin call's error: its message, without gRPC's wrapping
+			err = errors.New(s.Message())
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1

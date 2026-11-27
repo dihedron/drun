@@ -225,6 +225,9 @@ func (n *Node) Raft() *raft.Raft { return n.raft }
 // Transport is the cluster port, for forwarded admin calls (C5).
 func (n *Node) Transport() *Transport { return n.trans }
 
+// Identities returns every known peer identity, by node ID (SEC-2).
+func (n *Node) Identities() map[string]string { return n.peers.All() }
+
 func (n *Node) leaderOnly() error {
 	if n.raft.State() == raft.Leader {
 		return nil

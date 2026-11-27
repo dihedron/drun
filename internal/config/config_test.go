@@ -155,6 +155,11 @@ func TestRefused(t *testing.T) {
 		{"bad size", "    sha256:", "    checkpoint: { max_size: 1 parsec }\n    sha256:", "size"},
 		{"bad kind", "    sha256:", "    kind: daemon\n    sha256:", "kind"},
 		{"bad takeover delay", "    sha256:", "    takeover_delay: soon\n    sha256:", "takeover_delay"},
+		{"relative admin socket", "runnables:", "admin: { socket: admin.sock }\nrunnables:", "admin.socket"},
+		{"remote without identities", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "[\"spiffe://example.org/ops\"]", "[]", 1), "allowed_identities"},
+		{"remote with a bad identity", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "spiffe://example.org/ops", "http://ops", 1), "allowed_identities"},
+		{"remote with a bad listen", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "0.0.0.0:7351", "7351", 1), "admin.remote.listen"},
+		{"remote with a relative cert", "runnables:", strings.Replace("admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", "/etc/resurgo/admin.crt", "admin.crt", 1), "admin.remote.tls.cert"},
 		{"duplicate runnable", "runnables:\n", "runnables:\n  - { name: svc, binary: /x, sha256: " + strings.Repeat("0", 64) + " }\n", "twice"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -167,6 +172,16 @@ func TestRefused(t *testing.T) {
 				t.Fatalf("error %v, want one mentioning %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestRemoteAdmin(t *testing.T) {
+	cfg := mustLoad(t, strings.Replace(valid, "runnables:", "admin:\n  remote:\n    listen: 0.0.0.0:7351\n    tls: { cert: /etc/resurgo/admin.crt, key: /etc/resurgo/admin.key, ca: /etc/resurgo/admin-ca.crt }\n    allowed_identities: [\"spiffe://example.org/ops\"]\nrunnables:", 1))
+	if r := cfg.Admin.Remote; r == nil || r.Listen != "0.0.0.0:7351" || r.TLS.CA != "/etc/resurgo/admin-ca.crt" || len(r.AllowedIdentities) != 1 {
+		t.Fatalf("remote admin %+v", cfg.Admin.Remote)
+	}
+	if mustLoad(t, valid).Admin.Remote != nil {
+		t.Fatal("the remote admin endpoint is on without being configured")
 	}
 }
 
