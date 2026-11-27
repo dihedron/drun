@@ -186,6 +186,14 @@ func openLogStore(kind, dir string, logger *slog.Logger) (logStore, error) {
 	boltPath, walDir := filepath.Join(dir, "raft.db"), filepath.Join(dir, "wal")
 	_, boltErr := os.Stat(boltPath)
 	walEntries, _ := os.ReadDir(walDir)
+	if kind == "" {
+		// unset: the store the data is in; wal for a new node
+		kind = config.LogStoreWAL
+		if boltErr == nil {
+			kind = config.LogStoreBolt
+		}
+	}
+	logger.Info("raft log store", "log_store", kind)
 	switch kind {
 	case config.LogStoreWAL:
 		if boltErr == nil {
@@ -194,13 +202,12 @@ func openLogStore(kind, dir string, logger *slog.Logger) (logStore, error) {
 		if err := os.MkdirAll(walDir, 0o700); err != nil {
 			return nil, fmt.Errorf("raft store: %w", err)
 		}
-		// raft-wal is experimental (its README): opt-in only
 		w, err := wal.Open(walDir, wal.WithLogger(newHclog(logger, "raft-wal")))
 		if err != nil {
 			return nil, fmt.Errorf("raft store (wal): %w", err)
 		}
 		return w, nil
-	default:
+	case config.LogStoreBolt:
 		if len(walEntries) > 0 {
 			return nil, fmt.Errorf("raft.log_store is %q, but %s holds a wal log: rebuild the node to change raft.log_store (stop it, empty its data_dir, start it)", kind, walDir)
 		}
@@ -210,6 +217,7 @@ func openLogStore(kind, dir string, logger *slog.Logger) (logStore, error) {
 		}
 		return b, nil
 	}
+	return nil, fmt.Errorf("raft.log_store %q is neither %q nor %q", kind, config.LogStoreBolt, config.LogStoreWAL)
 }
 
 // checkPrivateDir creates dir 0700 if missing and refuses one that others

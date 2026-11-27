@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,13 +38,21 @@ func (nopSnapshot) Release()                         {}
 
 func freePort(t testing.TB) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	// the port is free when returned, not reserved: one never comes twice
+	for {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr := ln.Addr().String()
+		_ = ln.Close()
+		if _, dup := handedOut.LoadOrStore(addr, true); !dup {
+			return addr
+		}
 	}
-	defer ln.Close() //nolint:errcheck // only the port is needed
-	return ln.Addr().String()
 }
+
+var handedOut sync.Map
 
 type testCluster struct {
 	t      testing.TB
@@ -291,9 +300,13 @@ func testMembershipAndTransfer(t *testing.T, logStore string) {
 	}
 
 	// transfer to a named voter
-	target := c.others(l)[0]
-	if target == extra {
-		target = c.others(l)[1]
+	// others is a map's order: one call, then any voter but the removed one
+	var target string
+	for _, id := range c.others(l) {
+		if id != extra {
+			target = id
+			break
+		}
 	}
 	if err := l.TransferLeadership(target); err != nil {
 		t.Fatalf("transfer: %v", err)
@@ -362,4 +375,30 @@ func TestLogStoreSwitchRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// unset, the store is the one the data is in, wal for a new node
+func TestLogStoreUnset(t *testing.T) {
+	for _, kind := range []string{config.LogStoreBolt, config.LogStoreWAL} {
+		dir := t.TempDir()
+		st, err := openLogStore(kind, dir, discard)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = st.StoreLog(&raft.Log{Index: 1, Term: 1, Type: raft.LogCommand, Data: []byte("x")})
+		_ = st.Close()
+		st, err = openLogStore("", dir, discard)
+		if err != nil {
+			t.Fatalf("reopening %s unset: %v", kind, err)
+		}
+		if got := fmt.Sprintf("%T", st); (kind == config.LogStoreWAL) != strings.Contains(got, "wal") {
+			t.Fatalf("data in %s reopened as %s", kind, got)
+		}
+		_ = st.Close()
+	}
+	st, err := openLogStore("", t.TempDir(), discard)
+	if err != nil || !strings.Contains(fmt.Sprintf("%T", st), "wal") {
+		t.Fatalf("a new node's store: %T %v", st, err)
+	}
+	_ = st.Close()
 }

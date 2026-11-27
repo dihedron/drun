@@ -23,7 +23,8 @@ const (
 	ProfileWAN = "wan"
 )
 
-// Raft log stores (ADR-1, FW-2): raft-wal is experimental, opt-in.
+// Raft log stores (ADR-1, FW-2). Unset, a node keeps the store its data is
+// in, and a new node uses wal.
 const (
 	LogStoreBolt = "bolt"
 	LogStoreWAL  = "wal"
@@ -84,7 +85,8 @@ type TLS struct {
 
 type Raft struct {
 	Profile string `yaml:"profile"`
-	// LogStore is where the Raft log is kept: bolt (default) or wal.
+	// LogStore is where the Raft log is kept: bolt or wal; empty: the store
+	// the node's data is in, wal for a new node.
 	LogStore           string        `yaml:"log_store"`
 	HeartbeatTimeout   time.Duration `yaml:"heartbeat_timeout"`
 	ElectionTimeout    time.Duration `yaml:"election_timeout"`
@@ -195,7 +197,6 @@ func setDefault[T comparable](v *T, def T) {
 
 func (c *Config) applyDefaults() {
 	setDefault(&c.Raft.Profile, ProfileLAN)
-	setDefault(&c.Raft.LogStore, LogStoreBolt)
 	// unknown profiles are refused by Validate; LAN values meanwhile
 	hb, lease, renew := time.Second, 750*time.Millisecond, 250*time.Millisecond
 	if c.Raft.Profile == ProfileWAN {
@@ -352,7 +353,7 @@ func (c *Config) validateTimings(bad func(string, ...any)) {
 		bad("raft.profile %q is neither %q nor %q", c.Raft.Profile, ProfileLAN, ProfileWAN)
 	}
 	switch c.Raft.LogStore {
-	case LogStoreBolt, LogStoreWAL:
+	case "", LogStoreBolt, LogStoreWAL:
 	default:
 		bad("raft.log_store %q is neither %q nor %q", c.Raft.LogStore, LogStoreBolt, LogStoreWAL)
 	}

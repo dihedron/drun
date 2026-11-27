@@ -71,7 +71,7 @@ func TestExampleLoads(t *testing.T) {
 
 func TestDefaultsLAN(t *testing.T) {
 	cfg := mustLoad(t, valid)
-	want := Raft{Profile: ProfileLAN, LogStore: LogStoreBolt, HeartbeatTimeout: time.Second, ElectionTimeout: time.Second,
+	want := Raft{Profile: ProfileLAN, HeartbeatTimeout: time.Second, ElectionTimeout: time.Second,
 		LeaderLeaseTimeout: 500 * time.Millisecond, SnapshotThreshold: 512, TrailingLogs: 256}
 	if cfg.Raft != want {
 		t.Fatalf("raft %+v, want %+v", cfg.Raft, want)
@@ -177,8 +177,8 @@ func TestRefused(t *testing.T) {
 }
 
 func TestLogStore(t *testing.T) {
-	if s := mustLoad(t, valid).Raft.LogStore; s != LogStoreBolt {
-		t.Fatalf("default log store %q", s)
+	if s := mustLoad(t, valid).Raft.LogStore; s != "" {
+		t.Fatalf("an unset log store is %q, want it left to the node", s)
 	}
 	if s := mustLoad(t, strings.Replace(valid, "runnables:", "raft: { log_store: wal }\nrunnables:", 1)).Raft.LogStore; s != LogStoreWAL {
 		t.Fatalf("log store %q", s)

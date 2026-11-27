@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -77,13 +78,22 @@ type tcluster struct {
 }
 
 func freePort(t *testing.T) string {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	t.Helper()
+	// the port is free when returned, not reserved: one never comes twice
+	for {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr := ln.Addr().String()
+		_ = ln.Close()
+		if _, dup := handedOut.LoadOrStore(addr, true); !dup {
+			return addr
+		}
 	}
-	defer ln.Close() //nolint:errcheck // only the port is needed
-	return ln.Addr().String()
 }
+
+var handedOut sync.Map
 
 func newTCluster(t *testing.T, n int) *tcluster {
 	u, err := user.Current()
