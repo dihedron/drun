@@ -1,6 +1,6 @@
 // Package manifest vouches for a runnable binary through a manifest signed
 // by its publisher (drun_specification.md §8.8, FW-7): the node trusts the
-// manifest's SHA-256 as it trusts a configured one. Standard library only.
+// manifest's SHA-256 as it trusts a configured one. No cgo.
 // The design, and much of the code, is veho's pkg/plugin/process manifest.
 package manifest
 
