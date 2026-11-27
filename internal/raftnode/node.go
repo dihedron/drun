@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 	wal "github.com/hashicorp/raft-wal"
+	walmetrics "github.com/hashicorp/raft-wal/metrics"
 )
 
 const (
@@ -202,7 +203,8 @@ func openLogStore(kind, dir string, logger *slog.Logger) (logStore, error) {
 		if err := os.MkdirAll(walDir, 0o700); err != nil {
 			return nil, fmt.Errorf("raft store: %w", err)
 		}
-		w, err := wal.Open(walDir, wal.WithLogger(newHclog(logger, "raft-wal")))
+		w, err := wal.Open(walDir, wal.WithLogger(newHclog(logger, "raft-wal")),
+			wal.WithMetricsCollector(walmetrics.NewGoMetricsCollector([]string{"raft", "wal"}, nil, nil)))
 		if err != nil {
 			return nil, fmt.Errorf("raft store (wal): %w", err)
 		}

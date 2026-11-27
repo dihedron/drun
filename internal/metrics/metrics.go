@@ -1,6 +1,7 @@
 // Package metrics serves a node's metrics (drun_specification.md
 // §10.3) in the Prometheus text format, written by hand: a dozen
-// families do not need a client library (FW-3 adds Raft's own).
+// families do not need a client library; Raft's own (FW-3) come through
+// a go-metrics sink (raft.go).
 package metrics
 
 import (
@@ -38,6 +39,16 @@ type histogram struct {
 	n      uint64
 }
 
+func newHistogram(bk []float64) *histogram { return &histogram{counts: make([]uint64, len(bk))} }
+
+func (h *histogram) observe(bk []float64, v float64) {
+	if i, _ := slices.BinarySearch(bk, v); i < len(bk) {
+		h.counts[i]++
+	}
+	h.sum += v
+	h.n++
+}
+
 // Metrics counts the supervisor's events (it is a supervisor.Events) and
 // serves every family on /metrics.
 type Metrics struct {
@@ -50,6 +61,9 @@ type Metrics struct {
 	takeoverWait  map[string]float64
 	commits       map[string]*histogram
 	renewFailures uint64
+
+	// Raft is Raft's own metrics, if collected (FW-3)
+	Raft *RaftSink
 }
 
 // New returns the metrics of a node; states are the incarnation states
@@ -84,15 +98,10 @@ func (m *Metrics) CheckpointCommitted(runnable string, took time.Duration) {
 	defer m.mu.Unlock()
 	h := m.commits[runnable]
 	if h == nil {
-		h = &histogram{counts: make([]uint64, len(buckets))}
+		h = newHistogram(buckets)
 		m.commits[runnable] = h
 	}
-	s := took.Seconds()
-	if i, _ := slices.BinarySearch(buckets, s); i < len(buckets) {
-		h.counts[i]++
-	}
-	h.sum += s
-	h.n++
+	h.observe(buckets, took.Seconds())
 }
 
 func (m *Metrics) LeaseRenewFailed(string) {
@@ -127,6 +136,18 @@ func (f family) sample(name string, value float64, labels ...string) {
 	f.b.WriteByte(' ')
 	f.b.WriteString(strconv.FormatFloat(value, 'g', -1, 64))
 	f.b.WriteByte('\n')
+}
+
+// histogram writes the series of one histogram; labels as in sample
+func (f family) histogram(name string, bk []float64, h *histogram, labels ...string) {
+	var cum uint64
+	for i, le := range bk {
+		cum += h.counts[i]
+		f.sample(name+"_bucket", float64(cum), append(labels, "le", strconv.FormatFloat(le, 'g', -1, 64))...)
+	}
+	f.sample(name+"_bucket", float64(h.n), append(labels, "le", "+Inf")...)
+	f.sample(name+"_sum", h.sum, labels...)
+	f.sample(name+"_count", float64(h.n), labels...)
 }
 
 func escape(s string) string {
@@ -194,18 +215,13 @@ func (m *Metrics) text() string {
 	}
 	f.head("drun_checkpoint_commit_seconds", "histogram", "time to commit a checkpoint")
 	for _, name := range sortedKeys(m.commits) {
-		h := m.commits[name]
-		var cum uint64
-		for i, le := range buckets {
-			cum += h.counts[i]
-			f.sample("drun_checkpoint_commit_seconds_bucket", float64(cum), "runnable", name, "le", strconv.FormatFloat(le, 'g', -1, 64))
-		}
-		f.sample("drun_checkpoint_commit_seconds_bucket", float64(h.n), "runnable", name, "le", "+Inf")
-		f.sample("drun_checkpoint_commit_seconds_sum", h.sum, "runnable", name)
-		f.sample("drun_checkpoint_commit_seconds_count", float64(h.n), "runnable", name)
+		f.histogram("drun_checkpoint_commit_seconds", buckets, m.commits[name], "runnable", name)
 	}
 	f.head("drun_lease_renew_failures_total", "counter", "lease renewals that failed: leadership not confirmed, or the renewal not delivered")
 	f.sample("drun_lease_renew_failures_total", float64(m.renewFailures))
+	if m.Raft != nil {
+		b.WriteString(m.Raft.text())
+	}
 	return b.String()
 }
 

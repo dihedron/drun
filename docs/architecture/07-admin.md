@@ -60,3 +60,15 @@ digests are compared only between members at the same index.
 `internal/metrics` writes the Prometheus text format by hand. Gauges are
 read at each scrape (Raft state, the FSM, the supervisor's views, drift);
 counters and the histogram come from the supervisor's `Events`.
+
+Raft's own metrics (FW-3) come from `hashicorp/go-metrics`, the
+process-wide instance that `hashicorp/raft`, `raft-boltdb` and `raft-wal`
+report to. With `metrics.listen` set, the daemon installs a `RaftSink` as
+that instance before it opens the Raft stores, because raft-wal binds the
+instance when it opens. The sink keeps counters cumulative, gauges at
+their last value and samples as histograms in milliseconds, all under
+one mutex, and `/metrics` renders it after drun's own families. The four
+keys that hashicorp/raft names after a peer are blocked through
+`BlockedPrefixes`, since each has a twin with a `peer_id` label. Because
+the instance is per process, nodes that share a process (as in the
+tests) share their Raft series.

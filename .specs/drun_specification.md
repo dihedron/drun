@@ -1,6 +1,6 @@
 # Architectural & Technical Specification: `drun`, a runnable on the leader of a Raft cluster, run again on every new leader
 
-- **Document Version:** `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
+- **Document Version:** `0.4.1` (2026-11-27): Raft's own metrics on `/metrics` (FW-3, §10.3, T-15); `0.4.0` (2026-11-27): the project renamed drun (*distributed run*), formerly resurgo; `0.3.10` (2026-11-27): raft-wal the default log store for new nodes (`raft.log_store`, FW-2, ADR-1); `0.3.9` (2026-11-27): a node with no state probes the voters before bootstrapping (FR-1, ADR-3); `0.3.8` (2026-11-27): example runnables and packaging as built (§14, C6); `0.3.7` (2026-11-27): admin API, metrics and store commands as built in C5, opt-in remote admin endpoint (SEC-11, T-14, R-7); `0.3.6` (2026-11-26): plugin protocol as built (§8.2); `0.3.5` (2026-11-26): OI-12 decided; `0.3.4` (2026-11-26): member identities recorded through the log (`SetPeer`, `RemovePeer`); `0.3.3` (2026-11-26): SEC-2 and `tls.peers` as built in C2; `0.3.2` (2026-11-26): command details settled in C1 (§9.2); `0.3.1` (2026-11-26): spike results (§12.1); `0.3.0` (2026-11-25): store engine `mattn/go-sqlite3` (static, musl), operator writes, WAN profile (§8.7), MIT; OI-1, OI-6, OI-7 decided
 - **Status:** Approved for implementation (2026-11-26, `AGENTS.md` rule 1)
 - **Target Stack:** Go 1.27.4+, `github.com/hashicorp/raft` (v1.8.x, pinned), `github.com/hashicorp/raft-wal` (v0.5.x, the default log store) and `github.com/hashicorp/raft-boltdb/v2` (on `go.etcd.io/bbolt` v1.5.x, required directly), `github.com/hashicorp/go-plugin` (v1.8.x, gRPC), `github.com/mattn/go-sqlite3` (the store; cgo), Protocol Buffers, `github.com/jessevdk/go-flags`, `log/slog`; Linux amd64/arm64, statically linked (musl)
 - **Purpose:** Requirements, decisions, invariants, threat model, acceptance scenarios and open issues for Spec-Driven Development
@@ -708,6 +708,43 @@ of the last first incarnation of a leadership (a restart on the same
 leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
 `unhealthy`, `fenced`, `lost` and `stopped`.
 
+Raft's own metrics (FW-3). `hashicorp/raft`, `raft-boltdb/v2` and
+`raft-wal` report through the process-wide `hashicorp/go-metrics`
+instance. When `metrics.listen` is set, the node installs a sink of its
+own as that instance before it opens the Raft stores (raft-wal binds its
+collector at open), and `/metrics` renders it after the families above;
+when it is not set, go-metrics keeps its default sink and nothing is
+collected. The sink, written without a client library:
+
+- **Names:** `drun_` and the key's segments in snake case, joined by
+  `_` (`raft.rpc.appendEntries` is `drun_raft_rpc_append_entries`);
+  characters outside `[a-zA-Z0-9_]` become `_`.
+- **Types:** a counter is a `counter` named `…_total`, cumulative from
+  start; a gauge (and a precision gauge) is a `gauge`, the last value;
+  a sample (and a timer) is a `histogram` (`_bucket`, `_sum`, `_count`),
+  so quantiles aggregate across nodes. Units are go-metrics' and the
+  libraries' own: timers in milliseconds, as HashiCorp documents them;
+  the buckets, one set for every sample, are 0.1, 0.25, 0.5, 1, 2.5, 5,
+  10, 25, 50, 100, 250, 500, 1000, 2500, 5000 and 10000 (they also fit
+  the samples that are counts, such as `raft.fsm.applyBatchNum`).
+- **Labels:** the ones the library gives (`peer_id`), escaped; no host
+  name, no service name, no runtime metrics (the go-metrics defaults
+  for those are off).
+- **Cardinality:** hashicorp/raft also reports four per-peer keys with
+  the peer ID in the name (`raft.replication.appendEntries.rpc.<id>`,
+  `….appendEntries.logs.<id>`, `….heartbeat.<id>`,
+  `….installSnapshot.<id>`); they are blocked (go-metrics
+  `BlockedPrefixes`) because each has a twin with a `peer_id` label.
+  Series are bounded by the keys the libraries emit times the cluster's
+  peers; a removed peer's series stay until the node restarts.
+- **Clashes:** a name first seen with one type keeps it; an observation
+  of the same name with another type is dropped.
+
+The set of keys is the libraries' own and changes with them: the
+Operator's Guide lists the ones worth watching, as seen on the pinned
+versions, and they are rechecked on every version bump with the EXT
+assumptions (§12.1).
+
 ## 11. Security and threat model
 
 ### 11.1 Requirements
@@ -776,6 +813,7 @@ leader is not a failover); outcomes are `completed`, `failed`, `crashed`,
 | T-12 | (I) The plugin's stderr leaks secrets into the node's logs | runnables' responsibility; the conformance kit greps for a canary secret | R-6 |
 | T-13 | (D) A partitioned node with a stale log disrupts the cluster | Raft pre-vote (EXT-4) | — |
 | T-14 | (S, E) A host on the network drives the remote admin endpoint | SEC-11: off by default, mutual TLS, identity allowlist | R-7 |
+| T-15 | (I) A host that reaches `metrics.listen` reads the peers' IDs and Raft's replication timings | metrics off by default; bind to loopback or a monitoring network; no secrets, addresses or payloads in any series | — |
 
 ### 11.3 Accepted residual risks
 
