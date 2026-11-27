@@ -577,8 +577,9 @@ Consequences, measured in the lab (AC-16):
   about 25 batches/s, so the SDK issues batches concurrently where order
   allows (Raft pipelines them), and reads stay local;
 - placement: 3 voters, one per region (a region loss leaves a quorum), or
-  5 as 2 + 2 + 1. Which region leads is not controlled; a preferred-leader
-  policy is FW-9.
+  5 as 2 + 2 + 1. Which region leads is not controlled automatically: an
+  operator moves leadership with `leader transfer --to ID` (FR-3; an
+  automatic preferred-leader policy, FW-9, was dropped).
 
 The profile is a starting point; the lab's measurements decide its final
 values.

@@ -16,5 +16,5 @@ is part of v1.
 | FW-S-1 | Leader-local interactive transactions shipped as SQLite changesets (session extension) |
 | FW-S-2 | Group commit of concurrent batches into one Raft entry |
 | FW-S-3 | Stale reads from followers for administrators and reporting |
-| FW-9 | Preferred-leader policy (e.g. the region closest to the runnable's external systems), by leadership transfer after an election |
+| FW-9 | Preferred-leader policy (e.g. the region closest to the runnable's external systems), by leadership transfer after an election. *Dropped 2026-11-27*: no automatic policy; an operator places leadership by hand with `leader transfer --to ID` (FR-3) |
 | FW-10 | A fence helper in the SDK for runnables that also write to an external database (§8.5). *Done 2026-11-27*: `pkg/runnable/fence/postgres` on pgx (`Claim`, `Check`, `Tx`), keyed by cluster and runnable; the fenced-counter uses it; other databases stay the documented pattern |
