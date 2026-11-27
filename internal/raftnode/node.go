@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"github.com/dihedron/resurgo/internal/fsm/fsmpb"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+	wal "github.com/hashicorp/raft-wal"
 )
 
 const (
@@ -52,7 +54,7 @@ type Node struct {
 	raft   *raft.Raft
 	trans  *Transport
 	net    *raft.NetworkTransport
-	store  *raftboltdb.BoltStore
+	store  logStore
 	peers  *Peers
 
 	mu    sync.RWMutex
@@ -108,9 +110,8 @@ func New(cfg *config.Config, f raft.FSM, recorded func() map[string]string, logg
 	})
 	cleanup = append(cleanup, n.net.Close)
 
-	n.store, err = raftboltdb.NewBoltStore(filepath.Join(raftDir, "raft.db"))
-	if err != nil {
-		return nil, fmt.Errorf("raft store: %w", err)
+	if n.store, err = openLogStore(cfg.Raft.LogStore, raftDir, logger); err != nil {
+		return nil, err
 	}
 	cleanup = append(cleanup, n.store.Close)
 	snaps, err := raft.NewFileSnapshotStoreWithLogger(raftDir, retainSnapshots, newHclog(logger, "raft-snapshots"))
@@ -170,6 +171,53 @@ func New(cfg *config.Config, f raft.FSM, recorded func() map[string]string, logg
 	n.raft.RegisterObserver(n.observer)
 	go n.watchPeers()
 	return n, nil
+}
+
+// logStore is the Raft log and stable store (ADR-1, FW-2)
+type logStore interface {
+	raft.LogStore
+	raft.StableStore
+	io.Closer
+}
+
+// openLogStore opens the configured log store in dir, refusing to start on
+// the other store's state: changing raft.log_store means rebuilding the node
+func openLogStore(kind, dir string, logger *slog.Logger) (logStore, error) {
+	boltPath, walDir := filepath.Join(dir, "raft.db"), filepath.Join(dir, "wal")
+	_, boltErr := os.Stat(boltPath)
+	walEntries, _ := os.ReadDir(walDir)
+	if kind == "" {
+		// unset: the store the data is in; wal for a new node
+		kind = config.LogStoreWAL
+		if boltErr == nil {
+			kind = config.LogStoreBolt
+		}
+	}
+	logger.Info("raft log store", "log_store", kind)
+	switch kind {
+	case config.LogStoreWAL:
+		if boltErr == nil {
+			return nil, fmt.Errorf("raft.log_store is %q, but %s holds a bolt log: rebuild the node to change raft.log_store (stop it, empty its data_dir, start it)", kind, boltPath)
+		}
+		if err := os.MkdirAll(walDir, 0o700); err != nil {
+			return nil, fmt.Errorf("raft store: %w", err)
+		}
+		w, err := wal.Open(walDir, wal.WithLogger(newHclog(logger, "raft-wal")))
+		if err != nil {
+			return nil, fmt.Errorf("raft store (wal): %w", err)
+		}
+		return w, nil
+	case config.LogStoreBolt:
+		if len(walEntries) > 0 {
+			return nil, fmt.Errorf("raft.log_store is %q, but %s holds a wal log: rebuild the node to change raft.log_store (stop it, empty its data_dir, start it)", kind, walDir)
+		}
+		b, err := raftboltdb.NewBoltStore(boltPath)
+		if err != nil {
+			return nil, fmt.Errorf("raft store: %w", err)
+		}
+		return b, nil
+	}
+	return nil, fmt.Errorf("raft.log_store %q is neither %q nor %q", kind, config.LogStoreBolt, config.LogStoreWAL)
 }
 
 // checkPrivateDir creates dir 0700 if missing and refuses one that others

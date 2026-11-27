@@ -23,6 +23,13 @@ const (
 	ProfileWAN = "wan"
 )
 
+// Raft log stores (ADR-1, FW-2). Unset, a node keeps the store its data is
+// in, and a new node uses wal.
+const (
+	LogStoreBolt = "bolt"
+	LogStoreWAL  = "wal"
+)
+
 // Kinds of runnable (FR-7).
 const (
 	KindService = "service"
@@ -77,7 +84,10 @@ type TLS struct {
 }
 
 type Raft struct {
-	Profile            string        `yaml:"profile"`
+	Profile string `yaml:"profile"`
+	// LogStore is where the Raft log is kept: bolt or wal; empty: the store
+	// the node's data is in, wal for a new node.
+	LogStore           string        `yaml:"log_store"`
 	HeartbeatTimeout   time.Duration `yaml:"heartbeat_timeout"`
 	ElectionTimeout    time.Duration `yaml:"election_timeout"`
 	LeaderLeaseTimeout time.Duration `yaml:"leader_lease_timeout"`
@@ -341,6 +351,11 @@ func (c *Config) validateTimings(bad func(string, ...any)) {
 	case ProfileLAN, ProfileWAN:
 	default:
 		bad("raft.profile %q is neither %q nor %q", c.Raft.Profile, ProfileLAN, ProfileWAN)
+	}
+	switch c.Raft.LogStore {
+	case "", LogStoreBolt, LogStoreWAL:
+	default:
+		bad("raft.log_store %q is neither %q nor %q", c.Raft.LogStore, LogStoreBolt, LogStoreWAL)
 	}
 	if c.Raft.LeaderLeaseTimeout >= c.Raft.HeartbeatTimeout {
 		bad("raft.leader_lease_timeout %s must be less than raft.heartbeat_timeout %s", c.Raft.LeaderLeaseTimeout, c.Raft.HeartbeatTimeout)

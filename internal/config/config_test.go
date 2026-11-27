@@ -147,6 +147,7 @@ func TestRefused(t *testing.T) {
 		{"bad digest", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "abc", "sha256"},
 		{"bad runnable name", "name: svc", "name: ../svc", "name"},
 		{"bad profile", "runnables:", "raft: { profile: moon }\nrunnables:", "profile"},
+		{"bad log store", "runnables:", "raft: { log_store: rocks }\nrunnables:", "log_store"},
 		{"lease not below heartbeat", "runnables:", "lease: { duration: 1s }\nrunnables:", "lease.duration"},
 		{"leader lease not below heartbeat", "runnables:", "raft: { leader_lease_timeout: 1s }\nrunnables:", "leader_lease_timeout"},
 		{"renew too slow", "runnables:", "lease: { renew_interval: 300ms }\nrunnables:", "renew_interval"},
@@ -172,6 +173,15 @@ func TestRefused(t *testing.T) {
 				t.Fatalf("error %v, want one mentioning %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLogStore(t *testing.T) {
+	if s := mustLoad(t, valid).Raft.LogStore; s != "" {
+		t.Fatalf("an unset log store is %q, want it left to the node", s)
+	}
+	if s := mustLoad(t, strings.Replace(valid, "runnables:", "raft: { log_store: wal }\nrunnables:", 1)).Raft.LogStore; s != LogStoreWAL {
+		t.Fatalf("log store %q", s)
 	}
 }
 

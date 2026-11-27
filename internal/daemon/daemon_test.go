@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -71,17 +72,28 @@ type tcluster struct {
 	invalid map[string]error
 	// voters overrides a node's cluster.voters (default: every node)
 	voters map[string][]string
-	group  string
+	// logStore is raft.log_store (default: bolt)
+	logStore string
+	group    string
 }
 
 func freePort(t *testing.T) string {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	t.Helper()
+	// the port is free when returned, not reserved: one never comes twice
+	for {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr := ln.Addr().String()
+		_ = ln.Close()
+		if _, dup := handedOut.LoadOrStore(addr, true); !dup {
+			return addr
+		}
 	}
-	defer ln.Close() //nolint:errcheck // only the port is needed
-	return ln.Addr().String()
 }
+
+var handedOut sync.Map
 
 func newTCluster(t *testing.T, n int) *tcluster {
 	u, err := user.Current()
@@ -135,7 +147,11 @@ func (c *tcluster) config(id string) *config.Config {
 	for _, other := range c.ids {
 		fmt.Fprintf(&b, "      %s: %q\n", other, identity(other))
 	}
-	b.WriteString("raft: { heartbeat_timeout: 300ms, election_timeout: 300ms, leader_lease_timeout: 150ms }\n")
+	logStore := c.logStore
+	if logStore == "" {
+		logStore = config.LogStoreBolt
+	}
+	fmt.Fprintf(&b, "raft: { heartbeat_timeout: 300ms, election_timeout: 300ms, leader_lease_timeout: 150ms, log_store: %s }\n", logStore)
 	b.WriteString("lease: { duration: 200ms, renew_interval: 60ms }\n")
 	fmt.Fprintf(&b, "admin:\n  socket: %s\n  allowed_groups: [%q]\n%s", c.socks[id], c.group, c.extra[id])
 	b.WriteString(c.top[id])
@@ -240,6 +256,13 @@ func (c *tcluster) client(id string) *admin.Client {
 	return cl
 }
 
+// forEachLogStore runs a test with each Raft log store (ADR-1, FW-2)
+func forEachLogStore(t *testing.T, test func(t *testing.T, logStore string)) {
+	for _, s := range []string{config.LogStoreBolt, config.LogStoreWAL} {
+		t.Run(s, func(t *testing.T) { test(t, s) })
+	}
+}
+
 func eventually(t *testing.T, within time.Duration, what string, ok func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(within)
@@ -268,8 +291,11 @@ func (c *tcluster) view(id string) *adminpb.RunnableInfo {
 
 // a follower forwards mutations to the leader; show includes the
 // leader's views
-func TestForwardedToTheLeader(t *testing.T) {
+func TestForwardedToTheLeader(t *testing.T) { forEachLogStore(t, testForwardedToTheLeader) }
+
+func testForwardedToTheLeader(t *testing.T, logStore string) {
 	c := newTCluster(t, 3)
+	c.logStore = logStore
 	c.startAll()
 	l := c.leader()
 	f := c.follower(l)
@@ -518,8 +544,11 @@ func TestDriftAndValidation(t *testing.T) {
 }
 
 // STO-15 to STO-17 through a follower
-func TestStoreCommands(t *testing.T) {
+func TestStoreCommands(t *testing.T) { forEachLogStore(t, testStoreCommands) }
+
+func testStoreCommands(t *testing.T, logStore string) {
 	c := newTCluster(t, 3)
+	c.logStore = logStore
 	c.startAll()
 	l := c.leader()
 	f := c.follower(l)
