@@ -138,9 +138,13 @@ func pauseFollower(ctx context.Context, c *campaign) error {
 
 func restartNode(ctx context.Context, c *campaign) error {
 	n := pick(c.rng, c.voters)
+	// the stop and the recovery apart: a slow stop is FW-11, not a failover
 	t0 := time.Now()
 	c.do(ctx, "node", "restart", n)
-	c.recover(ctx, "restart-node", t0)
+	c.mu.Lock()
+	c.stats.Recovery["restart-stop"] = append(c.stats.Recovery["restart-stop"], time.Since(t0))
+	c.mu.Unlock()
+	c.recover(ctx, "restart-node", time.Now())
 	return nil
 }
 
@@ -381,6 +385,8 @@ func storeExec(ctx context.Context, c *campaign) error {
 }
 
 func pgKill(ctx context.Context, c *campaign) error {
+	c.setPGDown(true)
+	defer c.setPGDown(false)
 	c.do(ctx, "pg", "kill")
 	c.hold(ctx, 10*time.Second, 60*time.Second)
 	t0 := time.Now()
@@ -430,4 +436,10 @@ func (c *campaign) healAll(ctx context.Context) {
 		c.do(ctx, "node", "resume", v)
 		c.do(ctx, "node", "start", v)
 	}
+}
+
+func (c *campaign) setPGDown(down bool) {
+	c.mu.Lock()
+	c.pgDown = down
+	c.mu.Unlock()
 }

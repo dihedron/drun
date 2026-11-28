@@ -36,6 +36,7 @@ type campaign struct {
 	wan       bool // raft.profile wan
 	lastEpoch map[string]map[string]uint64
 	touched   map[string]time.Time // node -> when a fault last restarted or wiped it
+	pgDown    bool                 // a pg-kill fault holds PostgreSQL down
 	twoSince  map[string]time.Time // runnable -> since when two nodes run it
 	stats     stats
 	stop      error
@@ -307,6 +308,13 @@ func (c *campaign) slowChecks(ctx context.Context) {
 	l, err := c.leader(ctx, c.budget())
 	if err != nil {
 		c.event("check-skipped", "why", err)
+		return
+	}
+	c.mu.Lock()
+	pgDown := c.pgDown
+	c.mu.Unlock()
+	if pgDown {
+		c.event("check-skipped", "why", "PostgreSQL is held down by a fault")
 		return
 	}
 	out, err := c.lab.run(ctx, 2*time.Minute, "ssh", l, "/usr/libexec/drun/runnables/drun-runnable-fenced-counter", "check", "--dsn-file", "/etc/drun/fenced-counter/dsn")

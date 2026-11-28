@@ -73,7 +73,7 @@ host (LXD 5.21+, KVM)
 | `wan show\|set PROFILE\|set --link …\|partition X[-Y]\|isolate NODE\|heal` | the WAN; `isolate` cuts one node from every other |
 | `node start\|stop\|restart\|kill\|pause\|resume\|wipe NAME` | a node's service; `kill` is SIGKILL; `pause` is SIGSTOP on the whole cgroup (a gray failure); `wipe` stops it and empties `/var/lib/drun` |
 | `drun NAME args…` | the drun CLI on a node |
-| `binary FILE` | replaces `/usr/bin/drun` on every node with a build under test (a fix before its release), restarting the running nodes; take a `snapshot` after it |
+| `binary FILE` | replaces `/usr/bin/drun` on every node with a build under test (a fix before its release), restarting the running nodes; take a `snapshot` after it. Build it with the release's version (a `-SNAPSHOT` version is refused by the signed manifests, §8.8) and check that the runnables run before the snapshot |
 | `pg kill\|start` | PostgreSQL |
 | `snapshot`, `reset` | the baseline |
 | `chaos run [--duration D] [--seed N] [--profile P]`, `chaos stop`, `chaos report` | §3 |
@@ -192,3 +192,28 @@ fixed code, or to leave it for the morning.
   it. Same limits as veho's lab.
 - SIGSTOP on a cgroup also stops the runnable's process, as a frozen VM
   would.
+
+## 6. Runs
+
+### 6.1 2026-11-28, v0.2.0 and the gate fix
+
+| Run | Faults | Outcome |
+| :--- | ---: | :--- |
+| `20261128-010036` | — | stopped after 23 min: the epoch check flagged a restarted node replaying its log (tooling, fixed) |
+| `20261128-012644` | 172 | liveness: a wiped node refused a leader added later (SEC-2 gate; product, fixed in v0.2.1) |
+| `20261128-031208` | 1 | stopped: the dev build's `-SNAPSHOT` version was refused by the manifests (operator error) |
+| `20261128-033051` | 454 | **clean**, 4 h, on the fixed build; one graceful stop hung 90 s (FW-11, `drun-stop.md`) |
+
+### 6.2 Next: v0.2.1, six hours (planned)
+
+An overnight, unattended session (rule 14), about 6 h 30 min in all:
+
+1. `lab.sh down` and `lab.sh up --release v0.2.1` (about 15 min; the
+   released packages, no `binary`), check `runnable show` and
+   `member show`, `lab.sh snapshot`.
+2. `chaos -duration 6h -seed 20261129`, a new seed, under
+   `systemd-run --user --unit drun-chaos`.
+3. Hourly checks (§3.4); on a product failure, the run stops and the
+   evidence is kept; a fix restarts the run only if more than 2 h remain.
+4. Morning: the report, compared with §6.1 (failover p50/p99 for LAN and
+   WAN, the graceful stop times now recorded as `restart-stop`).
