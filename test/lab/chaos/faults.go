@@ -32,6 +32,7 @@ func faults() []fault {
 		{name: "store-exec", weight: 1, run: storeExec},
 		{name: "pg-kill", weight: 2, run: pgKill},
 		{name: "double-kill", weight: 5, run: doubleKill},
+		{name: "restart-after-loss", weight: 3, run: restartAfterLoss},
 	}
 }
 
@@ -443,3 +444,36 @@ func (c *campaign) setPGDown(down bool) {
 	c.pgDown = down
 	c.mu.Unlock()
 }
+
+// restartAfterLoss: the leader is isolated until it steps down, then
+// restarted gracefully soon after it rejoins (drun-stop.md §4 step 2, the
+// lab's 90 s stop); a stop longer than slowStop keeps the evidence
+func restartAfterLoss(ctx context.Context, c *campaign) error {
+	l, err := c.leader(ctx, c.budget())
+	if err != nil {
+		return err
+	}
+	c.markDown(l, "isolated")
+	t0 := time.Now()
+	c.do(ctx, "cut", "isolate", l)
+	c.recover(ctx, "isolate-leader", t0, l)
+	c.hold(ctx, 10*time.Second, 20*time.Second)
+	c.do(ctx, "cut", "clear")
+	c.markUp(l)
+	c.hold(ctx, time.Second, 30*time.Second)
+	t1 := time.Now()
+	c.do(ctx, "node", "restart", l)
+	stop := time.Since(t1)
+	c.mu.Lock()
+	c.stats.Recovery["restart-stop"] = append(c.stats.Recovery["restart-stop"], stop)
+	c.mu.Unlock()
+	if stop > slowStop {
+		c.event("slow-stop", "node", l, "took", stop.Round(10*time.Millisecond))
+		c.evidence(ctx, "slow-stop-"+l)
+	}
+	c.recover(ctx, "restart-after-loss", time.Now())
+	return nil
+}
+
+// slowStop: a graceful stop takes about a second (AC-STOP-4: below 5 s)
+const slowStop = 5 * time.Second
