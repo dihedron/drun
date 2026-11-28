@@ -205,12 +205,13 @@ fixed code, or to leave it for the morning.
 | `20261128-012644` | 172 | liveness: a wiped node refused a leader added later (SEC-2 gate; product, fixed in v0.2.1) |
 | `20261128-031208` | 1 | stopped: the dev build's `-SNAPSHOT` version was refused by the manifests (operator error) |
 | `20261128-033051` | 454 | **clean**, 4 h, on the fixed build; one graceful stop hung 90 s (FW-11, `drun-stop.md`) |
+| `20261128-095635` | 140 | **clean**, 2 h, v0.2.3, `-only restart-after-loss`: the hang did not reproduce (`restart-stop` p50 390 ms, p99 560 ms, max 820 ms) |
 
-### 6.2 Next: v0.2.1, six hours (planned)
+### 6.2 Next: v0.2.3, six hours (planned)
 
 An overnight, unattended session (rule 14), about 6 h 30 min in all:
 
-1. `lab.sh down` and `lab.sh up --release v0.2.1` (about 15 min; the
+1. `lab.sh down` and `lab.sh up --release v0.2.3` (about 15 min; the
    released packages, no `binary`), check `runnable show` and
    `member show`, `lab.sh snapshot`.
 2. `chaos -duration 6h -seed 20261129`, a new seed, under
@@ -218,4 +219,6 @@ An overnight, unattended session (rule 14), about 6 h 30 min in all:
 3. Hourly checks (§3.4); on a product failure, the run stops and the
    evidence is kept; a fix restarts the run only if more than 2 h remain.
 4. Morning: the report, compared with §6.1 (failover p50/p99 for LAN and
-   WAN, the graceful stop times now recorded as `restart-stop`).
+   WAN, the graceful stop times now recorded as `restart-stop`). The
+   mix now includes `restart-after-loss`; a hung stop exits within the
+   bound (STOP-1) and its dump names the hanging wait (STOP-4).
