@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -61,10 +62,15 @@ func (c *ServeCommand) Execute([]string) error {
 	}
 	sctx, cancel := context.WithTimeout(context.Background(), grace)
 	defer cancel()
-	if err := d.Stop(sctx); err != nil {
+	t0 := time.Now()
+	if err := stopWithin(sctx, logger, d.Stop, d.StopStep); err != nil {
+		if errors.Is(err, errStopTimedOut) {
+			// the store and the raft log are crash-safe: as a SIGKILL would
+			os.Exit(exitStopTimedOut)
+		}
 		return fmt.Errorf("stopping: %w", err)
 	}
-	logger.Info("stopped", "node_id", cfg.Node.ID)
+	logger.Info("stopped", "node_id", cfg.Node.ID, "took", time.Since(t0).Round(time.Millisecond))
 	return nil
 }
 

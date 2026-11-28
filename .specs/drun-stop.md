@@ -1,7 +1,7 @@
 # drun: a bounded, diagnosable node stop (FW-11)
 
-- **Document Version:** `0.1.0` (2026-11-28): first draft
-- **Status:** draft, for approval (`AGENTS.md` rule 1)
+- **Document Version:** `0.2.0` (2026-11-28): approved with decisions D-1 to D-3, exit status 75, a leader's handover within the grace; `0.1.0` (2026-11-28): first draft
+- **Status:** approved 2026-11-28 (`AGENTS.md` rule 1)
 - **Parent:** `drun_specification.md` (FR-12 planned handover, INV-5,
   §10 operations); found by the lab (`drun-lab.md`), chaos run
   `20261128-033051`.
@@ -50,7 +50,9 @@ fixed.
   - the stacks of all goroutines (`runtime.Stack(all)`), as one
     multi-line attribute.
 
-  It then exits with status 1 (`stop timed out`). An exit without
+  It then exits with status **75** (`EX_TEMPFAIL`, D-2), which is
+  distinct from a configuration error (1) and a store divergence (70),
+  so alerting can tell a timed-out stop apart. An exit without
   `Store.Close` and raft's `Shutdown` is no worse than the `SIGKILL`
   systemd would send. The raft WAL, the snapshots and the SQLite stores in
   WAL mode are crash-safe, and the next start recovers them, as after
@@ -69,14 +71,16 @@ fixed.
 
 FR-12 does not change. A leader still stops its incarnations within
 `shutdown_grace`, releases them, and then transfers leadership. STOP-1
-only bounds what comes after.
+only bounds what comes after. A leader whose handover is still running
+when the grace ends is not released first. Its handover already had
+`shutdown_grace`, and an exit without a release is an unplanned failover:
+the next leader waits the takeover delay (FR-13), as after a crash.
 
 ## 3. Design
 
 - `cmd/drun/serve.go` runs `d.Stop(sctx)` in a goroutine and waits for it
   or for `sctx`. When `sctx` expires first, it writes the STOP-2 record and
-  returns a `stop timed out` error. `main` exits with status 1 through the
-  normal error path.
+  exits with status 75, as the store-divergence path exits with 70.
 - `Daemon.Stop` keeps the current step in an atomic value (STOP-2,
   STOP-3).
 - The fix for STOP-4 depends on §4 step 2. The likely shapes are:
@@ -88,8 +92,16 @@ only bounds what comes after.
 
 ## 4. Steps
 
+Decisions (2026-11-28):
+
+- **D-1:** steps 1 and 2 ship first, as v0.2.3; the root-cause fix
+  follows in its own release.
+- **D-2:** a timed-out stop exits with status 75.
+- **D-3:** the lab reproduction (step 2) runs right away, in the day; it
+  takes about one hour, not a night (rule 14).
+
 1. STOP-1, STOP-2, STOP-3 and STOP-5, with unit tests (AC-STOP-1,
-   AC-STOP-2). Release v0.2.2, or fold them into the next release.
+   AC-STOP-2). Release v0.2.3 (D-1).
 2. Reproduce the hang on the lab with a new chaos fault,
    `restart-after-loss`: isolate the leader for 10–20 s, heal, and restart
    that node within 30 s. Run it in a loop for one hour, about 100
@@ -104,7 +116,7 @@ only bounds what comes after.
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| AC-STOP-1 | A daemon whose stop step blocks forever (a test hook) gets `SIGTERM` | it exits within the grace; the log has `stop_step` and the goroutine stacks, including the blocked one |
+| AC-STOP-1 | A daemon whose stop step blocks forever (a test hook) gets `SIGTERM` | it exits within the grace with status 75; the log has `stop_step` and the goroutine stacks, including the blocked one |
 | AC-STOP-2 | A normal stop, leader and follower | `stopped` with `took`, no `ERROR`; FR-12 handover unchanged (existing tests) |
 | AC-STOP-3 | The reproduced hang (§4 step 2), as a test | the stop finishes within the grace without the STOP-1 backstop |
 | AC-STOP-4 | Lab: 100 × `restart-after-loss` | every stop below 5 s; no `stop timed out` |

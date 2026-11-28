@@ -42,3 +42,24 @@ no leader yet: try again in a few seconds.
 
 Only root and the members of `admin.allowed_groups` may use the socket;
 a user added to `drun-admin` must log in again for it to count.
+
+## A stop times out (exit status 75)
+
+A node logs `stop timed out: exiting` and exits with status 75 when its
+stop outlives `max(10 s, shutdown_grace + 10 s)`. The record names the
+step it was in (`stop_step`: `handover`, `admin`, `metrics`,
+`supervisor`, `raft`, `store`) and carries every goroutine's stack
+(`goroutines`). Nothing is lost: the node's state is crash-safe and it
+recovers on the next start, as after a crash. Report a bug with that
+record:
+
+```bash
+journalctl -u drun -g 'stop timed out' -o cat
+```
+
+## A node hangs while running
+
+`systemctl kill -s QUIT drun` makes the node print every goroutine's
+stack to the journal and exit (Go's runtime does it on `SIGQUIT`);
+systemd then restarts it. Use it to capture a hang before a restart
+clears it, and report a bug with the journal.

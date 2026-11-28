@@ -15,7 +15,12 @@ packaged systemd unit does this). At start the node:
 
 On `SIGTERM` (`systemctl stop`) or `SIGINT` the leader stops its
 runnables within their `shutdown_grace`, records that they stopped, hands
-leadership to another voter and exits; a follower exits at once.
+leadership to another voter and exits; a follower exits at once. It
+logs `stopped` with the time the stop `took`. A stop is bounded by
+`max(10 s, shutdown_grace + 10 s)`, below the unit's `TimeoutStopSec`
+(90 s): a node whose stop outlives it logs `stop timed out` and exits
+with status 75 (*Operator's Guide*, Troubleshooting). Status 70 means the
+node stopped itself on a store failure.
 
 The node logs at `info` to stderr (the journal) unless
 `DRUN_LOG_LEVEL` says otherwise (`debug`, `info`, `warn`, `error`,

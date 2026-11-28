@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dihedron/drun/internal/admin"
@@ -59,6 +60,7 @@ type Daemon struct {
 
 	cancel context.CancelFunc
 	done   sync.WaitGroup
+	step   atomic.Value // the step Stop is in (drun-stop.md STOP-2)
 }
 
 // Start starts a node; Stop stops it.
@@ -262,15 +264,34 @@ func (d *Daemon) watchDrift(ctx context.Context) {
 // runnables first (FR-12), then stops the node.
 func (d *Daemon) Stop(ctx context.Context) error {
 	var errs []error
+	d.stepTo("handover")
 	if err := d.Supervisor.Shutdown(ctx); err != nil {
 		errs = append(errs, fmt.Errorf("handing over: %w", err))
 	}
+	d.stepTo("admin")
 	d.Admin.Stop(ctx)
 	if d.metrics != nil {
+		d.stepTo("metrics")
 		_ = d.metrics.Shutdown(ctx)
 	}
+	d.stepTo("supervisor")
 	d.cancel()
 	d.done.Wait()
-	errs = append(errs, d.Node.Shutdown(), d.Store.Close())
+	d.stepTo("raft")
+	errs = append(errs, d.Node.Shutdown())
+	d.stepTo("store")
+	errs = append(errs, d.Store.Close())
+	d.stepTo("done")
 	return errors.Join(errs...)
+}
+
+// StopStep is the step Stop is in: "" before it starts, "done" after it
+func (d *Daemon) StopStep() string {
+	s, _ := d.step.Load().(string)
+	return s
+}
+
+func (d *Daemon) stepTo(step string) {
+	d.step.Store(step)
+	d.logger.Debug("stopping", "stop_step", step)
 }
