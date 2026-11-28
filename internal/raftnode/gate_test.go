@@ -67,6 +67,31 @@ func TestGateStopsAtImpersonation(t *testing.T) {
 	}
 }
 
+// an address no known server holds is not an impersonation: a wiped node
+// knows only the configured voters, and must still accept a leader added
+// later, or it can never learn the configuration that names it
+func TestGatePassesUnknownAddress(t *testing.T) {
+	stream := encodeRequest(t, rpcAppendEntries, &raft.AppendEntriesRequest{RPCHeader: raft.RPCHeader{ID: []byte("b"), Addr: []byte("addr-new")}})
+	out, conn, err := readAll(stream)
+	if err != nil || !bytes.Equal(out, stream) || conn.closed {
+		t.Fatalf("got %d of %d bytes, error %v, closed %v", len(out), len(stream), err, conn.closed)
+	}
+}
+
+// an address another server holds is still refused
+func TestGateStopsAtAnotherServersAddress(t *testing.T) {
+	stream := encodeRequest(t, rpcAppendEntries, &raft.AppendEntriesRequest{RPCHeader: raft.RPCHeader{ID: []byte("b"), Addr: []byte("addr-a")}})
+	conn := &pipeConn{}
+	resolve := func(a raft.ServerAddress) (raft.ServerID, bool) {
+		id, ok := map[raft.ServerAddress]raft.ServerID{"addr-a": "a", "addr-b": "b"}[a]
+		return id, ok
+	}
+	_, err := io.ReadAll(newGate(conn, bufio.NewReader(bytes.NewReader(stream)), "b", resolve))
+	if !errors.Is(err, errImpersonation) || !conn.closed {
+		t.Fatalf("error %v, closed %v", err, conn.closed)
+	}
+}
+
 func FuzzGate(f *testing.F) {
 	f.Add(encodeRequest(f, rpcRequestVote, &raft.RequestVoteRequest{RPCHeader: hdrB, Term: 3}))
 	f.Add(encodeRequest(f, rpcAppendEntries, &raft.AppendEntriesRequest{RPCHeader: hdrB, Entries: []*raft.Log{{Index: 1, Data: []byte("d")}}}))

@@ -103,7 +103,9 @@ func (g *gate) next() error {
 		return fmt.Errorf("%w: %q from %q", errImpersonation, id, g.peer)
 	}
 	if len(hdr.Addr) > 0 {
-		if id, ok := g.resolve(raft.ServerAddress(hdr.Addr)); !ok || id != g.peer {
+		// an address no known server holds names nobody: a wiped node knows
+		// only the configured voters, and must accept a leader added later
+		if id, ok := g.resolve(raft.ServerAddress(hdr.Addr)); ok && id != g.peer {
 			return fmt.Errorf("%w: address %q from %q", errImpersonation, hdr.Addr, g.peer)
 		}
 	}
