@@ -63,7 +63,7 @@ func run(duration time.Duration, seed uint64, script string) error {
 	if err != nil {
 		return err
 	}
-	defer events.Close() //nolint:errcheck // flushed by the writes
+	defer events.Close()                                    //nolint:errcheck // flushed by the writes
 	logf, err := os.Create(filepath.Join(dir, "chaos.log")) //nolint:gosec // the run's own directory
 	if err != nil {
 		return err

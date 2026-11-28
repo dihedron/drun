@@ -21,6 +21,7 @@ usage: lab.sh <command>
   node start|stop|restart|kill|pause|resume|wipe NAME
   profile lan|wan           rewrite raft.profile on every node (no restart)
   drun NAME ARGS...         the drun CLI on a node
+  binary FILE               replace /usr/bin/drun on every node with FILE (a fix under test; restarts running nodes)
   pg kill|start             PostgreSQL
   ssh NAME [cmd]            a shell or a command in the lab VM or a container
   snapshot | reset          the baseline (voters bootstrapped, spare idle)
@@ -106,6 +107,7 @@ main() {
 	node) require_lab && cmd_node "$@" ;;
 	profile) require_lab && node_profile "${1:?lan or wan}" ;;
 	drun) require_lab && cmd_drun "$@" ;;
+	binary) require_lab && node_binary "${1:?binary FILE}" ;;
 	pg) require_lab && case "${1:-}" in kill) inner_exec pg-b systemctl kill -s SIGKILL postgresql@16-main ;; start) inner_exec pg-b systemctl start postgresql@16-main ;; *) die "pg kill|start" ;; esac ;;
 	ssh)
 		require_lab

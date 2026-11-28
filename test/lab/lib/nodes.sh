@@ -152,3 +152,17 @@ cmd_drun() {
 	shift
 	inner_exec "$name" drun "$@"
 }
+
+# node_binary FILE: replaces /usr/bin/drun on every node, restarting the
+# running ones (a fix under test, before the next release)
+node_binary() {
+	[[ -f "$1" ]] || die "binary: no file $1"
+	local n
+	for n in $(all_nodes); do
+		# a running binary cannot be written over: push beside it, then rename
+		inner_push "$1" "$n" /usr/bin/drun.new 0755
+		inner_exec "$n" mv -f /usr/bin/drun.new /usr/bin/drun
+		if inner_exec "$n" systemctl is-active -q drun; then inner_exec "$n" systemctl restart drun; fi
+		info "$n: $(inner_exec "$n" sha256sum /usr/bin/drun | cut -c1-16)"
+	done
+}

@@ -73,6 +73,7 @@ host (LXD 5.21+, KVM)
 | `wan show\|set PROFILE\|set --link …\|partition X[-Y]\|isolate NODE\|heal` | the WAN; `isolate` cuts one node from every other |
 | `node start\|stop\|restart\|kill\|pause\|resume\|wipe NAME` | a node's service; `kill` is SIGKILL; `pause` is SIGSTOP on the whole cgroup (a gray failure); `wipe` stops it and empties `/var/lib/drun` |
 | `drun NAME args…` | the drun CLI on a node |
+| `binary FILE` | replaces `/usr/bin/drun` on every node with a build under test (a fix before its release), restarting the running nodes; take a `snapshot` after it |
 | `pg kill\|start` | PostgreSQL |
 | `snapshot`, `reset` | the baseline |
 | `chaos run [--duration D] [--seed N] [--profile P]`, `chaos stop`, `chaos report` | §3 |

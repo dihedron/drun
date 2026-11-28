@@ -156,4 +156,3 @@ func (s sample) serving(runnables []string, exclude ...string) bool {
 	}
 	return true
 }
-

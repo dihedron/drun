@@ -325,6 +325,8 @@ func spareSwap(ctx context.Context, c *campaign) error {
 	c.do(ctx, "node", "start", s)
 	if !c.do(ctx, "drun", c.anyUp(ctx), "--timeout", "3m", "member", "add", s, c.lab.ips[s]+":7350",
 		"--identity", "spiffe://drun-lab/node/"+s, "--stable", "5s") {
+		// a failed add may leave the spare a nonvoter: it stays the spare
+		c.do(ctx, "drun", c.anyUp(ctx), "member", "remove", s)
 		c.do(ctx, "node", "stop", s)
 		return nil
 	}
