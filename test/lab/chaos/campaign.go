@@ -35,6 +35,7 @@ type campaign struct {
 	down      map[string]string
 	wan       bool // raft.profile wan
 	lastEpoch map[string]map[string]uint64
+	touched   map[string]time.Time // node -> when a fault last restarted or wiped it
 	twoSince  map[string]time.Time // runnable -> since when two nodes run it
 	stats     stats
 	stop      error
@@ -207,8 +208,17 @@ func (c *campaign) labErr(err error) {
 	c.event("lab-error", "error", err)
 }
 
-// do runs a lab command, recording a failure as a lab error
+// do runs a lab command, recording a failure as a lab error; a command
+// that (re)starts or wipes a node marks it: a node that restarts restores
+// its last snapshot and replays its log, so its epochs may go back for a
+// while
 func (c *campaign) do(ctx context.Context, args ...string) bool {
+	c.event("cmd", "args", strings.Join(args, " "))
+	if len(args) >= 3 && args[0] == "node" && slices.Contains([]string{"kill", "restart", "start", "wipe"}, args[1]) {
+		c.mu.Lock()
+		c.touched[args[2]] = time.Now()
+		c.mu.Unlock()
+	}
 	if _, err := c.lab.run(ctx, 3*time.Minute, args...); err != nil {
 		c.labErr(err)
 		return false
@@ -247,7 +257,7 @@ func (c *campaign) checkSample(s sample) {
 			c.lastEpoch[r] = map[string]uint64{}
 		}
 		for n, e := range byNode {
-			if prev := c.lastEpoch[r][n]; e < prev && c.down[n] != "wiped" {
+			if prev := c.lastEpoch[r][n]; e < prev && c.down[n] != "wiped" && time.Since(c.touched[n]) > 3*time.Minute {
 				err := fmt.Errorf("%w: %s's epoch went back on %s: %d after %d", errSafety, r, n, e, prev)
 				c.stats.Safety = append(c.stats.Safety, err.Error())
 				if c.stop == nil {

@@ -78,7 +78,7 @@ func run(duration time.Duration, seed uint64, script string) error {
 		lab: &lab{script: script, ips: ips}, rng: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)), //nolint:gosec // reproducible faults, not secrets
 		log: logger, dir: dir, events: events,
 		voters: []string{"drun-a1", "drun-a2", "drun-b1", "drun-b2", "drun-c1"}, spare: "drun-x",
-		down: map[string]string{}, lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{},
+		down: map[string]string{}, touched: map[string]time.Time{}, lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{},
 		stats: stats{Faults: map[string]int{}, Recovery: map[string][]time.Duration{}, Checks: map[string]int{},
 			Started: time.Now(), Seed: seed, PhaseTimes: map[string]string{}},
 	}

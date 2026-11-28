@@ -29,7 +29,7 @@ drun_incarnation_state{runnable="fenced-counter",state="running"} 1
 // two nodes running one runnable for longer than 20 s is a violation; a
 // momentary overlap is not
 func TestCheckSample(t *testing.T) {
-	c := &campaign{lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{}, down: map[string]string{},
+	c := &campaign{touched: map[string]time.Time{}, lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{}, down: map[string]string{},
 		stats: stats{Checks: map[string]int{}}}
 	two := func(at time.Time) sample {
 		return sample{at: at, running: map[string]map[string]bool{"ticker": {"a": true, "b": true}}, epoch: map[string]map[string]uint64{}}
@@ -44,12 +44,20 @@ func TestCheckSample(t *testing.T) {
 	if c.failed() == nil {
 		t.Fatal("a 25 s overlap passed")
 	}
-	c = &campaign{lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{}, down: map[string]string{},
+	c = &campaign{touched: map[string]time.Time{}, lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{}, down: map[string]string{},
 		stats: stats{Checks: map[string]int{}}}
 	c.checkSample(sample{epoch: map[string]map[string]uint64{"ticker": {"a": 5}}, running: map[string]map[string]bool{}})
 	c.checkSample(sample{epoch: map[string]map[string]uint64{"ticker": {"a": 4}}, running: map[string]map[string]bool{}})
 	if c.failed() == nil {
 		t.Fatal("an epoch going back passed")
+	}
+	// a node just restarted replays its log from its snapshot: not a violation
+	c = &campaign{touched: map[string]time.Time{"a": time.Now()}, lastEpoch: map[string]map[string]uint64{}, twoSince: map[string]time.Time{},
+		down: map[string]string{}, stats: stats{Checks: map[string]int{}}}
+	c.checkSample(sample{epoch: map[string]map[string]uint64{"ticker": {"a": 5}}, running: map[string]map[string]bool{}})
+	c.checkSample(sample{epoch: map[string]map[string]uint64{"ticker": {"a": 4}}, running: map[string]map[string]bool{}})
+	if c.failed() != nil {
+		t.Fatalf("a restarted node's replay failed: %v", c.failed())
 	}
 }
 
