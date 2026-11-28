@@ -86,6 +86,11 @@ func run(duration time.Duration, seed uint64, script string) error {
 	if err := c.refreshMembers(ctx); err != nil {
 		return fmt.Errorf("the lab is not serving: %w", err)
 	}
+	// a lab whose runnables do not run (a drun its manifests refuse, say)
+	// would fail every fault: refuse to start instead
+	if !c.waitServing(ctx, c.budget()) {
+		return fmt.Errorf("the lab is not serving: %v are not running", runnables)
+	}
 	cctx, cancel := context.WithCancel(ctx)
 	go c.check(cctx)
 
