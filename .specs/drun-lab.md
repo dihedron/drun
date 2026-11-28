@@ -83,7 +83,8 @@ host (LXD 5.21+, KVM)
 `test/lab/chaos` is a Go program on the host that drives `lab.sh` (the
 CLI over `lxc exec`, metrics with one `curl` per node from the lab VM),
 run under `systemd-run --user --unit drun-chaos`. It survives the operator's session ending, and every run is
-reproducible from its seed. It loops: pick a fault by weight, apply it,
+reproducible from its seed. `-only NAME` injects that one fault on the usual schedule, to reproduce
+a finding. It loops: pick a fault by weight, apply it,
 hold it for a random time, heal, wait for recovery, and check.
 
 ### 3.1 Faults
@@ -110,6 +111,7 @@ hold it for a random time, heal, wait for recovery, and check.
 | `store exec` an operator batch on fenced-counter's store | 1 | — | STO-17 |
 | PostgreSQL killed | 2 | 10–60 s | the runnable fails and backs off, it does not run twice |
 | Two faults at once | 5 | as above | any two compatible ones, overlapping |
+| Isolate the leader, heal, then restart it gracefully (`restart-after-loss`) | 3 | 10–20 s, then 1–30 s | the lab's 90 s stop (`drun-stop.md` §4); a stop over 5 s keeps the evidence (`slow-stop`) |
 
 Guards: at most one region partition at a time; never more than two
 voters down at once (quorum of five); no membership change while another

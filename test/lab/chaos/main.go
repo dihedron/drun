@@ -44,14 +44,28 @@ func main() {
 	duration := flag.Duration("duration", 6*time.Hour, "how long the campaign runs")
 	seed := flag.Uint64("seed", uint64(time.Now().UnixNano()), "the seed of the faults")
 	script := flag.String("lab", "test/lab/lab.sh", "the lab's script")
+	only := flag.String("only", "", "inject only this fault (a reproduction), on the usual schedule")
 	flag.Parse()
-	if err := run(*duration, *seed, *script); err != nil {
+	if err := run(*duration, *seed, *script, *only); err != nil {
 		fmt.Fprintln(os.Stderr, "chaos:", err)
 		os.Exit(1)
 	}
 }
 
-func run(duration time.Duration, seed uint64, script string) error {
+func run(duration time.Duration, seed uint64, script, only string) error {
+	all := faults()
+	if only != "" {
+		var picked []fault
+		for _, f := range all {
+			if f.name == only {
+				picked = append(picked, f)
+			}
+		}
+		if len(picked) == 0 {
+			return fmt.Errorf("no fault %q", only)
+		}
+		all = picked
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	id := time.Now().Format("20060102-150405")
@@ -94,7 +108,6 @@ func run(duration time.Duration, seed uint64, script string) error {
 	cctx, cancel := context.WithCancel(ctx)
 	go c.check(cctx)
 
-	all := faults()
 	for _, p := range schedule {
 		end := time.Now().Add(time.Duration(float64(duration) * p.share))
 		c.stats.PhaseTimes[p.name] = time.Now().Format(time.TimeOnly)
